@@ -246,9 +246,7 @@ async function drawGroups(){
  const shuffled=[...entries].sort(()=>Math.random()-.5);
  const groups={};
  shuffled.forEach((e,i)=>{
-  const g="Skupina "+String.fromCharCode(65+Math.floor(i/4));
-  (groups[g]??=[]).push(e);
- });
+ const g=String.fromCharCode(65+Math.floor(i/4));
  for(const [group,list] of Object.entries(groups)){
   for(const e of list){
    const {error}=await db.from("tournament_entries").update({group_name:group}).eq("id",e.id);
