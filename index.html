@@ -6,7 +6,7 @@
 <title>NECHYBA GRAND PRIX</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{--red:#d71920;--bg:#111;--panel:#1d1d1d;--line:#383838}
+:root{--red:#d71920;--bg:#111;--panel:#1d1d1d;--line:#383838;--green:#16834a}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:#eee;font-family:Arial,sans-serif}
 header{background:#080808;border-bottom:3px solid var(--red);padding:22px 15px;text-align:center}
@@ -15,20 +15,39 @@ header p{color:#aaa;margin:8px 0 0;letter-spacing:3px}
 nav{display:flex;overflow-x:auto;background:#181818;border-bottom:1px solid var(--line)}
 nav button{flex:1;min-width:115px;background:none;color:#aaa;border:0;padding:17px 10px;font-weight:bold;cursor:pointer}
 nav button.active{color:white;border-bottom:3px solid var(--red)}
-main{max-width:1000px;margin:auto;padding:18px}
+main{max-width:1100px;margin:auto;padding:18px}
 h2{color:var(--red);margin-top:5px}
+h3{margin:8px 0;color:#fff}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin:12px 0}
 input,select{background:#111;color:white;border:1px solid #555;padding:11px;border-radius:5px;margin:4px;max-width:100%}
 button.action{background:var(--red);color:white;border:0;padding:11px 16px;border-radius:5px;font-weight:bold;cursor:pointer;margin:4px}
-button.secondary{background:#444;color:white;border:0;padding:10px;border-radius:5px;cursor:pointer}
+button.secondary{background:#444;color:white;border:0;padding:10px;border-radius:5px;cursor:pointer;margin:4px}
+button:disabled{opacity:.45;cursor:not-allowed}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 td,th{text-align:left;padding:10px;border-bottom:1px solid var(--line)}
 th{color:#aaa}
 .muted{color:#999}
-.hidden{display:none}
+.hidden{display:none!important}
 .match{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
 #status{padding:10px;color:#aaa;font-size:13px}
 footer{text-align:center;color:#666;padding:25px}
+.boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.board{background:#181818;border:1px solid #444;border-top:4px solid var(--red);border-radius:8px;padding:14px;min-width:0}
+.board h3{font-size:20px}
+.live{color:#65d994;font-weight:bold}
+.timer{font-size:34px;font-weight:bold;font-variant-numeric:tabular-nums;margin:8px 0}
+.next{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+.small{font-size:13px;color:#aaa}
+.admin-match{border-bottom:1px solid var(--line);padding:12px 0}
+.score-input{width:62px}
+.group-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.player-admin-row{border-top:1px solid var(--line);padding:12px 0}
+.player-admin-name{font-weight:bold;margin-bottom:8px}
+.player-tournament-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.player-tournament-option{display:flex;align-items:center;gap:6px;background:#141414;border:1px solid #383838;border-radius:5px;padding:7px;font-size:12px}
+.player-tournament-option input{margin:0;accent-color:var(--red)}
+@media(max-width:650px){.player-tournament-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.boards{grid-template-columns:1fr}main{padding:10px}.panel{padding:12px}}
 </style>
 </head>
 <body>
@@ -38,7 +57,8 @@ footer{text-align:center;color:#666;padding:25px}
 </header>
 
 <nav>
-<button class="active" data-tab="group">Skupina</button>
+<button class="active" data-tab="live">Živě</button>
+<button data-tab="group">Skupiny</button>
 <button data-tab="bracket">Pavouk</button>
 <button data-tab="start">Start list</button>
 <button data-tab="results">Celkové výsledky</button>
@@ -48,7 +68,15 @@ footer{text-align:center;color:#666;padding:25px}
 <main>
 <div id="status">Připojování k databázi…</div>
 
-<section id="group">
+<section id="live">
+<h2>Právě se hraje</h2>
+<div class="panel"><label>Turnaj: </label><select id="liveTournamentSelect"></select></div>
+<div class="boards" id="liveBoards">
+  <div class="board">Načítám stav terčů…</div>
+</div>
+</section>
+
+<section id="group" class="hidden">
 <h2>Skupiny</h2>
 <div class="panel">
 <label>Turnaj: </label><select id="tournamentSelect"></select>
@@ -58,7 +86,7 @@ footer{text-align:center;color:#666;padding:25px}
 
 <section id="bracket" class="hidden">
 <h2>Vyřazovací pavouk</h2>
-<div class="panel" id="bracketContent">Zatím nejsou zadané zápasy.</div>
+<div class="panel" id="bracketContent">Vyřazovací pavouk zatím není vytvořen.</div>
 </section>
 
 <section id="start" class="hidden">
@@ -82,22 +110,31 @@ footer{text-align:center;color:#666;padding:25px}
 
 <div id="adminPanel" class="hidden">
 <div class="panel">
-<strong>Správa hráčů</strong><br>
+<strong>Správa hráčů a přihlášení do turnajů</strong><br>
+<p class="small">U každého hráče zaškrtni, kterých z šesti turnajů se zúčastní. Změny se ukládají samostatně pro každý turnaj.</p>
 <input id="playerName" placeholder="Jméno hráče">
 <button class="action" id="addPlayerBtn">Přidat hráče</button>
 <div id="adminPlayers"></div>
 </div>
 
 <div class="panel">
-<strong>Zařazení hráče do turnaje</strong><br>
+<strong>Startovní listina turnaje</strong>
+<p class="small">Vyber hráče a turnaj. Skupiny zatím nevyplňuješ – vytvoří je automaticky losování.</p>
 <select id="entryPlayer"></select>
 <select id="entryTournament"></select>
-<input id="entryGroup" placeholder="Skupina, např. A">
-<button class="action" id="addEntryBtn">Zařadit hráče</button>
+<button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
+<div id="adminEntries"></div>
+<button class="action" id="drawGroupsBtn">Náhodně rozlosovat skupiny a vytvořit zápasy</button>
+<p class="small">Losování je možné pouze před zahájením zápasů. Pokud už turnaj obsahuje zápasy, systém je nepřepíše.</p>
 </div>
 
 <div class="panel">
-<strong>Zápasy a výsledky</strong>
+<strong>Terče a zápasy</strong>
+<div id="adminBoards"></div>
+</div>
+
+<div class="panel">
+<strong>Všechny zápasy turnaje</strong>
 <div id="adminMatches"></div>
 </div>
 
@@ -119,9 +156,11 @@ let entries = [];
 let matches = [];
 let selectedTournament = "";
 let isAdmin = false;
+let clockInterval = null;
 
 const $ = id => document.getElementById(id);
 const status = msg => $("status").textContent = msg;
+const nowISO = () => new Date().toISOString();
 
 document.querySelectorAll("nav button").forEach(btn=>{
   btn.addEventListener("click",()=>{
@@ -137,161 +176,341 @@ function esc(value){
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
 }
-
+function playerName(entryId){
+  const entry=entries.find(e=>e.id===entryId);
+  const player=players.find(p=>p.id===entry?.player_id);
+  return player?.name||"—";
+}
+function tournamentMatches(){
+  return matches.filter(m=>m.tournament_id===selectedTournament);
+}
+function tournamentEntries(){
+  return entries.filter(e=>e.tournament_id===selectedTournament);
+}
+function formatDuration(startedAt){
+  if(!startedAt)return "00:00";
+  const seconds=Math.max(0,Math.floor((Date.now()-new Date(startedAt).getTime())/1000));
+  const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60),s=seconds%60;
+  return h>0?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:
+    `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+function activeMatches(){
+  return tournamentMatches().filter(m=>m.status==="playing");
+}
+function eligibleWaitingMatches(excludedEntryIds=[]){
+  const excluded=new Set(excludedEntryIds);
+  return tournamentMatches()
+    .filter(m=>(m.status==="waiting"||!m.status||m.status==="pending") &&
+      !excluded.has(m.player1_entry_id)&&!excluded.has(m.player2_entry_id))
+    .sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
+}
+function nextMatches(){
+  const active=activeMatches();
+  const busy=active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]);
+  const first=eligibleWaitingMatches(busy)[0]||null;
+  if(!first)return [null,null];
+  const used=[...busy,first.player1_entry_id,first.player2_entry_id];
+  const second=eligibleWaitingMatches(used)[0]||null;
+  return [first,second];
+}
+function renderLive(){
+  const active=activeMatches();
+  const [next1,next2]=nextMatches();
+  const cards=[1,2].map(board=>{
+    const playing=active.find(m=>Number(m.board_no)===board);
+    const next=board===1?next1:next2;
+    return `<div class="board">
+      <h3>TERČ ${board}</h3>
+      ${playing?`
+        <div class="live">● PRÁVĚ SE HRAJE</div>
+        <h3>${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))}</h3>
+        <div class="timer" data-start="${esc(playing.started_at||"")}">${formatDuration(playing.started_at)}</div>
+        <div class="small">Skóre legů: ${playing.legs1??0} : ${playing.legs2??0}</div>
+      `:`<div class="muted">Terč je právě volný.</div>`}
+      <div class="next">
+        <div class="small">DALŠÍ ZÁPAS</div>
+        ${next?`<strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong>
+          <div class="small">Skupina ${esc(next.group_name||"—")} · pořadí ${esc(next.match_no??"—")}</div>`
+          :`<span class="muted">Zatím není připraven další zápas.</span>`}
+      </div>
+    </div>`;
+  }).join("");
+  $("liveBoards").innerHTML=cards;
+}
+function matchHTML(m){
+  return `<div class="panel"><div class="match">
+    <span>${esc(playerName(m.player1_entry_id))} <strong>${m.legs1??0}:${m.legs2??0}</strong> ${esc(playerName(m.player2_entry_id))}</span>
+    <span class="muted">${esc(m.stage)} · ${esc(m.status||"waiting")}</span>
+  </div></div>`;
+}
+function renderGroups(){
+  const es=tournamentEntries();
+  const ms=tournamentMatches().filter(m=>m.stage==="group");
+  const groups=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
+  if(!groups.length){$("groupsContent").innerHTML="Skupiny zatím nebyly rozlosovány.";return;}
+  $("groupsContent").innerHTML=groups.map(g=>{
+    const members=es.filter(e=>e.group_name===g);
+    const stats=members.map(entry=>{
+      let played=0,wins=0,legsFor=0,legsAgainst=0;
+      ms.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
+        played++;
+        const first=m.player1_entry_id===entry.id;
+        const own=Number(first?m.legs1:m.legs2),opp=Number(first?m.legs2:m.legs1);
+        legsFor+=own;legsAgainst+=opp;
+        if(m.winner_entry_id===entry.id)wins++;
+      });
+      return {entry,played,wins,legsFor,legsAgainst};
+    }).sort((a,b)=>b.wins-a.wins||(b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||b.legsFor-a.legsFor);
+    const matchRows=ms.filter(m=>m.group_name===g).sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
+    return `<div class="panel"><h3>Skupina ${esc(g)}</h3>
+      <table><tr><th>Hráč</th><th>Odehráno</th><th>Výhry</th><th>Legy</th></tr>
+      ${stats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
+      <h3>Program a výsledky</h3>
+      ${matchRows.map(m=>`<p>${esc(playerName(m.player1_entry_id))} <strong>${m.status==="finished"?`${m.legs1}:${m.legs2}`:"– : –"}</strong> ${esc(playerName(m.player2_entry_id))} <span class="small">(${esc(m.status||"waiting")})</span></p>`).join("")}
+    </div>`;
+  }).join("");
+}
+function renderAll(){
+  const es=tournamentEntries();
+  const ms=tournamentMatches();
+  renderGroups();
+  $("startContent").innerHTML=es.length?
+    `<table><tr><th>Hráč</th><th>Skupina</th></tr>${es.map(e=>{
+      const p=players.find(p=>p.id===e.player_id);
+      return `<tr><td>${esc(p?.name||"Neznámý hráč")}</td><td>${esc(e.group_name||"Zatím nerozlosován")}</td></tr>`;
+    }).join("")}</table>`:"Zatím nejsou přihlášení hráči.";
+  const knockout=ms.filter(m=>m.stage!=="group");
+  $("bracketContent").innerHTML=knockout.length?knockout.map(matchHTML).join(""):"Pavouk bude vytvořen po dokončení skupin.";
+  $("resultsContent").innerHTML=entries.length?
+    `<table><tr><th>Hráč</th><th>Turnaj</th><th>Umístění</th><th>Body</th></tr>${entries.map(e=>{
+      const p=players.find(p=>p.id===e.player_id),t=tournaments.find(t=>t.id===e.tournament_id);
+      return `<tr><td>${esc(p?.name)}</td><td>${esc(t?.name)}</td><td>${e.final_place??"—"}</td><td>${e.series_points??"—"}</td></tr>`;
+    }).join("")}</table>`:"Zatím nejsou žádné výsledky.";
+  renderLive();
+  if(isAdmin){
+    $("adminPlayers").innerHTML=players.map(p=>{
+      const playerEntries=entries.filter(e=>e.player_id===p.id);
+      const choices=tournaments.map(t=>{
+        const registered=playerEntries.some(e=>e.tournament_id===t.id);
+        return `<label class="player-tournament-option"><input type="checkbox" data-player-id="${p.id}" data-tournament-id="${t.id}" ${registered?"checked":""}>${esc(t.name)}</label>`;
+      }).join("");
+      return `<div class="player-admin-row"><div class="player-admin-name">${esc(p.name)}</div><div class="player-tournament-grid">${choices}</div></div>`;
+    }).join("")||"Zatím nejsou přidaní žádní hráči.";
+    $("entryPlayer").innerHTML=players.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
+    $("adminEntries").innerHTML=es.length?`<p>Ve vybraném turnaji je přihlášeno: <strong>${es.length}</strong> hráčů</p>`:"Ve vybraném turnaji zatím nejsou přihlášení hráči.";
+    $("adminMatches").innerHTML=ms.length?ms.map(adminMatchHTML).join(""):"Zatím nejsou vytvořené zápasy.";
+    renderAdminBoards();
+  }
+}
+function adminMatchHTML(m){
+  const isPlaying=m.status==="playing";
+  const isFinished=m.status==="finished";
+  return `<div class="admin-match">
+    <div><strong>${esc(playerName(m.player1_entry_id))} vs. ${esc(playerName(m.player2_entry_id))}</strong>
+    <span class="small"> · ${esc(m.stage)} ${m.group_name?"/ skupina "+esc(m.group_name):""} · ${esc(m.status||"waiting")}</span></div>
+    ${isPlaying?`<div class="small">Terč ${esc(m.board_no)} · běží ${formatDuration(m.started_at)}</div>
+      <label>Legy:</label>
+      <input class="score-input" type="number" min="0" max="2" id="score1-${m.id}" value="${m.legs1??0}">
+      :
+      <input class="score-input" type="number" min="0" max="2" id="score2-${m.id}" value="${m.legs2??0}">
+      <button class="action" onclick="finishMatch('${m.id}')">Ukončit zápas</button>`
+      :`<span class="small">${isFinished?`Výsledek ${m.legs1}:${m.legs2} · čas ${m.started_at&&m.ended_at?formatSavedDuration(Math.max(0,Math.floor((new Date(m.ended_at)-new Date(m.started_at))/1000))):"nezaznamenán"}`:"Čeká na rozehrání"}</span>`}
+  </div>`;
+}
+function formatSavedDuration(seconds){
+  const s=Number(seconds)||0,h=Math.floor(s/3600),m=Math.floor((s%3600)/60),r=s%60;
+  return h>0?`${h} h ${m} min ${r} s`:`${m} min ${r} s`;
+}
+function renderAdminBoards(){
+  const active=activeMatches();
+  const [next1,next2]=nextMatches();
+  $("adminBoards").innerHTML=[1,2].map(board=>{
+    const playing=active.find(m=>Number(m.board_no)===board);
+    const next=board===1?next1:next2;
+    return `<div class="panel"><strong>Terč ${board}</strong><br>
+      ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · ${formatDuration(playing.started_at)}</p>`
+        :`<p class="muted">Terč je volný.</p>`}
+      ${!playing&&next?`<p>Další: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
+        <button class="action" onclick="startNextMatch(${board},'${next.id}')">Začít hrát na terči ${board}</button>`
+        :!playing?`<p class="muted">Není připravený další zápas.</p>`:""}
+    </div>`;
+  }).join("");
+}
 async function loadData(){
   if(!db)return;
   status("Načítám data…");
-
-  const [t,p,e,m] = await Promise.all([
+  const [t,p,e,m]=await Promise.all([
     db.from("tournaments").select("*").order("event_no"),
     db.from("players").select("*").order("name"),
     db.from("tournament_entries").select("*"),
     db.from("matches").select("*").order("round_no")
   ]);
-
-  if(t.error||p.error||e.error||m.error){
-    status("Chyba načítání: "+(t.error||p.error||e.error||m.error).message);
-    return;
-  }
-
-  tournaments=t.data||[];
-  players=p.data||[];
-  entries=e.data||[];
-  matches=m.data||[];
-
-  const sel=$("tournamentSelect");
-  const old=selectedTournament;
-  sel.innerHTML=tournaments.map(x=>
-    `<option value="${x.id}">${esc(x.name)}</option>`
-  ).join("");
-
-  if(old && tournaments.some(x=>x.id===old))sel.value=old;
-  selectedTournament=sel.value;
-
-  $("entryTournament").innerHTML=sel.innerHTML;
+  const err=t.error||p.error||e.error||m.error;
+  if(err){status("Chyba načítání: "+err.message);return;}
+  tournaments=t.data||[];players=p.data||[];entries=e.data||[];matches=m.data||[];
+  const options=tournaments.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  ["tournamentSelect","liveTournamentSelect"].forEach(id=>{
+    const sel=$(id),old=selectedTournament;
+    sel.innerHTML=options;
+    if(old&&tournaments.some(x=>x.id===old))sel.value=old;
+  });
+  $("entryTournament").innerHTML=options;
+  selectedTournament=$("tournamentSelect").value||$("liveTournamentSelect").value||"";
+  $("liveTournamentSelect").value=selectedTournament;
   renderAll();
   status("Databáze připojena · data aktuální");
 }
-
-function renderAll(){
-  const currentEntries=entries.filter(e=>e.tournament_id===selectedTournament);
-  const currentMatches=matches.filter(m=>m.tournament_id===selectedTournament);
-
-  const groups=[...new Set(currentEntries.map(e=>e.group_name).filter(Boolean))];
-  $("groupsContent").innerHTML=groups.length?groups.map(g=>{
-    const members=currentEntries.filter(e=>e.group_name===g);
-    return `<div class="panel"><h3>Skupina ${esc(g)}</h3>${members.map(e=>{
-      const p=players.find(p=>p.id===e.player_id);
-      return `<p>${esc(p?.name||"Neznámý hráč")}</p>`;
-    }).join("")}</div>`;
-  }).join(""):"Zatím nejsou vytvořené skupiny.";
-
-  $("startContent").innerHTML=currentEntries.length?
-    `<table><tr><th>Hráč</th><th>Skupina</th></tr>${
-      currentEntries.map(e=>{
-        const p=players.find(p=>p.id===e.player_id);
-        return `<tr><td>${esc(p?.name||"Neznámý hráč")}</td><td>${esc(e.group_name||"—")}</td></tr>`;
-      }).join("")
-    }</table>`:"Zatím nejsou přihlášení hráči.";
-
-  const knockout=currentMatches.filter(m=>m.stage!=="group");
-  $("bracketContent").innerHTML=knockout.length?
-    knockout.map(matchHTML).join(""):"Vyřazovací pavouk zatím není vytvořen.";
-
-  $("resultsContent").innerHTML=entries.length?
-    `<table><tr><th>Hráč</th><th>Turnaj</th><th>Umístění</th><th>Body</th></tr>${
-      entries.map(e=>{
-        const p=players.find(p=>p.id===e.player_id);
-        const t=tournaments.find(t=>t.id===e.tournament_id);
-        return `<tr><td>${esc(p?.name)}</td><td>${esc(t?.name)}</td><td>${e.final_place??"—"}</td><td>${e.series_points??"—"}</td></tr>`;
-      }).join("")
-    }</table>`:"Zatím nejsou žádné výsledky.";
-
-  if(isAdmin){
-    $("adminPlayers").innerHTML=players.map(p=>`<p>${esc(p.name)}</p>`).join("");
-    $("entryPlayer").innerHTML=players.map(p=>
-      `<option value="${p.id}">${esc(p.name)}</option>`).join("");
-    $("adminMatches").innerHTML=currentMatches.map(matchHTML).join("")||"Zatím nejsou zápasy.";
-  }
-}
-
-function matchHTML(m){
-  const a=entries.find(e=>e.id===m.player1_entry_id);
-  const b=entries.find(e=>e.id===m.player2_entry_id);
-  const p1=players.find(p=>p.id===a?.player_id);
-  const p2=players.find(p=>p.id===b?.player_id);
-  return `<div class="panel"><div class="match">
-    <span>${esc(p1?.name||"—")} <strong>${m.legs1??0}:${m.legs2??0}</strong> ${esc(p2?.name||"—")}</span>
-    <span class="muted">${esc(m.stage)} · ${esc(m.status)}</span>
-  </div></div>`;
-}
-
 $("tournamentSelect").addEventListener("change",e=>{
-  selectedTournament=e.target.value;
-  renderAll();
+  selectedTournament=e.target.value;$("liveTournamentSelect").value=selectedTournament;renderAll();
+});
+$("liveTournamentSelect").addEventListener("change",e=>{
+  selectedTournament=e.target.value;$("tournamentSelect").value=selectedTournament;renderAll();
 });
 
 $("loginBtn").addEventListener("click",async()=>{
-  const {data,error}=await db.auth.signInWithPassword({
-    email:$("email").value,password:$("password").value
-  });
+  const {error}=await db.auth.signInWithPassword({email:$("email").value,password:$("password").value});
   if(error){alert("Přihlášení se nezdařilo: "+error.message);return;}
   const check=await db.rpc("is_admin");
-  if(check.error||check.data!==true){
-    await db.auth.signOut();
-    alert("Tento účet nemá oprávnění pořadatele.");
-    return;
-  }
-  isAdmin=true;
-  $("loginPanel").classList.add("hidden");
-  $("adminPanel").classList.remove("hidden");
-  renderAll();
-  status("Přihlášen pořadatel");
+  if(check.error||check.data!==true){await db.auth.signOut();alert("Tento účet nemá oprávnění pořadatele.");return;}
+  isAdmin=true;$("loginPanel").classList.add("hidden");$("adminPanel").classList.remove("hidden");
+  renderAll();status("Přihlášen pořadatel");
 });
-
 $("logoutBtn").addEventListener("click",async()=>{
-  await db.auth.signOut();
-  isAdmin=false;
-  $("adminPanel").classList.add("hidden");
-  $("loginPanel").classList.remove("hidden");
-  status("Odhlášeno");
+  await db.auth.signOut();isAdmin=false;$("adminPanel").classList.add("hidden");
+  $("loginPanel").classList.remove("hidden");status("Odhlášeno");
 });
-
 $("addPlayerBtn").addEventListener("click",async()=>{
-  const name=$("playerName").value.trim();
-  if(!name)return alert("Zadej jméno hráče.");
+  const name=$("playerName").value.trim();if(!name)return alert("Zadej jméno hráče.");
   const {error}=await db.from("players").insert({name});
-  if(error)return alert(error.message);
-  $("playerName").value="";
+  if(error)return alert("Hráče se nepodařilo přidat: "+error.message);
+  $("playerName").value="";await loadData();
+});
+$("adminPlayers").addEventListener("change",async event=>{
+  const checkbox=event.target.closest("input[data-player-id][data-tournament-id]");
+  if(!checkbox)return;
+  const player_id=checkbox.dataset.playerId;
+  const tournament_id=checkbox.dataset.tournamentId;
+  checkbox.disabled=true;
+  const existing=entries.find(e=>e.player_id===player_id&&e.tournament_id===tournament_id);
+  if(checkbox.checked){
+    if(existing){checkbox.disabled=false;return;}
+    const {error}=await db.from("tournament_entries").insert({player_id,tournament_id,group_name:null});
+    if(error){checkbox.checked=false;checkbox.disabled=false;alert("Hráče se nepodařilo přihlásit: "+error.message);return;}
+  }else{
+    if(!existing){checkbox.disabled=false;return;}
+    const hasMatches=matches.some(m=>m.tournament_id===tournament_id&&
+      (m.player1_entry_id===existing.id||m.player2_entry_id===existing.id));
+    if(hasMatches){checkbox.checked=true;checkbox.disabled=false;alert("Hráče nelze odhlásit, protože už má v tomto turnaji vytvořené zápasy. Kvůli ochraně výsledků zůstává přihlášen.");return;}
+    const {error}=await db.from("tournament_entries").delete().eq("id",existing.id);
+    if(error){checkbox.checked=true;checkbox.disabled=false;alert("Odhlášení se nepodařilo: "+error.message);return;}
+  }
+  selectedTournament=tournament_id;
   await loadData();
 });
-
 $("addEntryBtn").addEventListener("click",async()=>{
-  const player_id=$("entryPlayer").value;
-  const tournament_id=$("entryTournament").value;
-  const group_name=$("entryGroup").value.trim().toUpperCase()||null;
+  const player_id=$("entryPlayer").value,tournament_id=$("entryTournament").value;
   if(!player_id||!tournament_id)return alert("Vyber hráče a turnaj.");
-  const {error}=await db.from("tournament_entries").insert({
-    player_id,tournament_id,group_name
-  });
-  if(error)return alert(error.message);
-  await loadData();
+  if(entries.some(e=>e.player_id===player_id&&e.tournament_id===tournament_id))
+    return alert("Tento hráč už je na startovní listině turnaje.");
+  const {error}=await db.from("tournament_entries").insert({player_id,tournament_id,group_name:null});
+  if(error)return alert("Zařazení se nepodařilo: "+error.message);
+  selectedTournament=tournament_id;await loadData();
 });
 
-$("entryTournament").addEventListener("change",()=>{});
+function shuffle(array){
+  const a=[...array];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function chooseGroupCount(n){
+  if(n<=5)return 1;
+  if(n<=10)return 2;
+  return Math.max(2,Math.round(n/4));
+}
+function createRoundRobin(entryIds){
+  let list=[...entryIds];
+  if(list.length%2)list.push(null);
+  const count=list.length,rounds=count-1,perRound=count/2,result=[];
+  for(let r=0;r<rounds;r++){
+    for(let i=0;i<perRound;i++){
+      const a=list[i],b=list[count-1-i];
+      if(a&&b)result.push({round_no:r+1,player1_entry_id:a,player2_entry_id:b});
+    }
+    list=[list[0],list[count-1],...list.slice(1,count-1)];
+  }
+  return result;
+}
+$("drawGroupsBtn").addEventListener("click",async()=>{
+  const tournament_id=$("entryTournament").value||selectedTournament;
+  const es=entries.filter(e=>e.tournament_id===tournament_id);
+  if(es.length<2)return alert("Pro rozlosování potřebuješ alespoň 2 hráče.");
+  const existing=matches.filter(m=>m.tournament_id===tournament_id);
+  if(existing.length)return alert("Tento turnaj už má vytvořené zápasy. Kvůli ochraně výsledků nelze losování přepsat.");
+  if(!confirm(`Náhodně rozlosovat ${es.length} hráčů a vytvořit skupinové zápasy?`))return;
+  const shuffled=shuffle(es),groupCount=chooseGroupCount(shuffled.length);
+  const groups=Array.from({length:groupCount},()=>[]);
+  shuffled.forEach((entry,i)=>groups[i%groupCount].push(entry));
+  for(let i=0;i<groups.length;i++){
+    const ids=groups[i].map(e=>e.id);
+    const {error}=await db.from("tournament_entries").update({group_name:String.fromCharCode(65+i)}).in("id",ids);
+    if(error)return alert("Chyba při ukládání skupin: "+error.message);
+  }
+  const rows=[];let matchNo=1;
+  groups.forEach((group,i)=>{
+    createRoundRobin(group.map(e=>e.id)).forEach(m=>{
+      rows.push({
+        tournament_id,stage:"group",group_name:String.fromCharCode(65+i),
+        round_no:m.round_no,match_no:matchNo++,board_no:null,
+        player1_entry_id:m.player1_entry_id,player2_entry_id:m.player2_entry_id,
+        legs1:0,legs2:0,target_legs:2,status:"waiting"
+      });
+    });
+  });
+  const {error}=await db.from("matches").insert(rows);
+  if(error)return alert("Skupiny byly uloženy, ale zápasy se nepodařilo vytvořit: "+error.message);
+  selectedTournament=tournament_id;await loadData();
+  alert(`Hotovo! ${es.length} hráčů rozděleno do ${groupCount} skupin. Zápasy jsou připravené na dvou terčích.`);
+});
+
+window.startNextMatch=async function(board,matchId){
+  if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
+  if(activeMatches().some(m=>Number(m.board_no)===Number(board)))return alert("Na tomto terči už zápas probíhá.");
+  const m=tournamentMatches().find(x=>x.id===matchId);
+  if(!m||!eligibleWaitingMatches(activeMatches().flatMap(x=>[x.player1_entry_id,x.player2_entry_id])).some(x=>x.id===matchId))
+    return alert("Tento zápas už není dostupný. Obnovuji stav.");
+  const busy=activeMatches().flatMap(x=>[x.player1_entry_id,x.player2_entry_id]);
+  if(busy.includes(m.player1_entry_id)||busy.includes(m.player2_entry_id))return alert("Jeden z hráčů už hraje na druhém terči.");
+  const {error}=await db.from("matches").update({status:"playing",board_no:board,started_at:nowISO(),ended_at:null}).eq("id",matchId);
+  if(error)return alert("Zápas se nepodařilo spustit: "+error.message);
+  await loadData();
+};
+window.finishMatch=async function(matchId){
+  if(!isAdmin)return;
+  const m=tournamentMatches().find(x=>x.id===matchId);
+  if(!m)return;
+  const a=Number($("score1-"+matchId).value),b=Number($("score2-"+matchId).value);
+  if(!Number.isInteger(a)||!Number.isInteger(b)||a<0||b<0||a>2||b>2||a===b||Math.max(a,b)!==2)
+    return alert("U zápasu na 2 vítězné legy musí být výsledek například 2:0 nebo 2:1.");
+  const winner=a>b?m.player1_entry_id:m.player2_entry_id;
+  const {error}=await db.from("matches").update({
+    legs1:a,legs2:b,winner_entry_id:winner,status:"finished",ended_at:nowISO()
+  }).eq("id",matchId);
+  if(error)return alert("Výsledek se nepodařilo uložit: "+error.message);
+  await loadData();
+};
 
 async function init(){
-  if(SUPABASE_URL.includes("DOPLNIME")||SUPABASE_KEY.includes("DOPLNIME")){
-    status("Čeká se na doplnění údajů Supabase.");
-    return;
-  }
   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   await loadData();
   db.channel("grand-prix-live")
     .on("postgres_changes",{event:"*",schema:"public"},()=>loadData())
     .subscribe();
+  if(clockInterval)clearInterval(clockInterval);
+  clockInterval=setInterval(()=>{
+    document.querySelectorAll(".timer[data-start]").forEach(el=>{el.textContent=formatDuration(el.dataset.start);});
+    if(isAdmin)renderAdminBoards();
+  },1000);
 }
-
 init();
 </script>
 </body>
