@@ -480,7 +480,7 @@ window.startNextMatch=async function(board,matchId){
     return alert("Tento zápas už není dostupný. Obnovuji stav.");
   const busy=activeMatches().flatMap(x=>[x.player1_entry_id,x.player2_entry_id]);
   if(busy.includes(m.player1_entry_id)||busy.includes(m.player2_entry_id))return alert("Jeden z hráčů už hraje na druhém terči.");
-  const {error}=await db.from("matches").update(status:"live",board_no:board,started_at:nowISO(),ended_at:null}).eq("id",matchId);
+  const {error}=await db.from("matches").update({status:"live",board_no:board,started_at:nowISO(),ended_at:null}).eq("id",matchId);
   if(error)return alert("Zápas se nepodařilo spustit: "+error.message);
   await loadData();
 };
