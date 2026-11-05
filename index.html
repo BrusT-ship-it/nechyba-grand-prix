@@ -1,332 +1,440 @@
-
-
 <!DOCTYPE html>
 <html lang="cs">
 <head>
- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NECHYBA GRAND PRIX</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{--red:#e32636;--bg:#101010;--panel:#1c1c1c;--line:#393939;--muted:#aaa}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:#eee;font-family:Arial,sans-serif}
-header{padding:28px 16px;text-align:center;background:linear-gradient(135deg,#090909,#292929);border-bottom:3px solid var(--red)}
-h1{margin:0;color:var(--red);font-size:clamp(25px,6vw,42px);letter-spacing:2px}
-header p{margin:8px 0 0;color:#ccc}
-nav{display:flex;flex-wrap:wrap;justify-content:center;background:#171717;border-bottom:1px solid var(--line)}
-nav button{background:none;border:0;color:#ccc;padding:15px 17px;font-weight:bold;cursor:pointer}
-nav button.active,nav button:hover{color:white;background:#292929;border-bottom:3px solid var(--red)}
-main{max-width:1050px;margin:auto;padding:18px}
-h2{color:var(--red);margin-top:10px}
-h3{margin-bottom:8px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:15px;margin:12px 0}
-.muted{color:var(--muted)}
-input,select{background:#101010;color:white;border:1px solid #555;border-radius:5px;padding:10px;margin:4px;max-width:100%}
-button.action{background:var(--red);border:0;color:white;border-radius:5px;padding:10px 14px;margin:4px;cursor:pointer;font-weight:bold}
-button.secondary{background:#444}
-button:disabled{opacity:.5;cursor:not-allowed}
-table{width:100%;border-collapse:collapse;margin-top:8px}
-td,th{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}
-th{color:#ccc}
+body{margin:0;background:#101010;color:#eee;font-family:Arial,sans-serif}
+header{text-align:center;padding:25px;background:#171717;border-bottom:3px solid #e32636}
+h1{color:#e32636;margin:0;font-size:36px}
+nav{display:flex;justify-content:center;flex-wrap:wrap;background:#191919}
+nav button{background:none;color:#ddd;border:0;padding:15px;font-weight:bold}
+nav button.active{color:#e32636;border-bottom:3px solid #e32636}
+main{max-width:1000px;margin:auto;padding:15px}
+section{display:none}
+section.active{display:block}
+h2{color:#e32636;border-bottom:1px solid #444;padding-bottom:10px}
+.card{background:#1b1b1b;border:1px solid #383838;border-radius:8px;padding:14px;margin:12px 0}
+button.action{background:#e32636;color:white;border:0;border-radius:5px;padding:10px 14px;margin:4px}
+input,select{background:#101010;color:white;border:1px solid #555;padding:10px;margin:4px}
+.status{padding:10px;background:#252525;border-radius:5px;margin:10px 0}
+.small{font-size:13px;color:#aaa}
+.error{color:#ff7777}
+.success{color:#8be09a}
+table{width:100%;border-collapse:collapse}
+td,th{text-align:left;padding:9px;border-bottom:1px solid #383838}
+th{color:#e32636}
 .hidden{display:none!important}
-.tag{display:inline-block;background:#333;padding:4px 8px;border-radius:4px;font-size:12px}
-.red{color:var(--red)}
-.match{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
-.match strong{min-width:100px}
-footer{text-align:center;color:#777;padding:25px;font-size:12px}
 </style>
 </head>
 <body>
 <header>
 <h1>NECHYBA GRAND PRIX</h1>
-<p>Šipkařská série · Pivnice Na Nechybě · Nová Včelnice</p>
+<p>Šipkařská série · Nová Včelnice</p>
 </header>
-
 <nav>
-<button class="active" data-tab="groups">Skupina</button>
-<button data-tab="bracket">Pavouk</button>
+<button class="active" data-tab="skupina">Skupina</button>
+<button data-tab="pavouk">Pavouk</button>
 <button data-tab="start">Start list</button>
-<button data-tab="results">Celkové výsledky</button>
+<button data-tab="vysledky">Celkové výsledky</button>
 </nav>
-
 <main>
-<div id="connection" class="muted">Připojuji databázi…</div>
-
-<section id="groups">
-<h2>Skupiny</h2>
+<div id="connection" class="status">Připojuji databázi…</div>
+<div>
+<label>Turnaj:</label>
+<select id="tournamentSelect"></select>
+</div>
+<section id="skupina" class="active">
+<h2>Skupiny a zápasy</h2>
 <div id="groupsContent"></div>
 </section>
-
-<section id="bracket" class="hidden">
+<section id="pavouk">
 <h2>Vyřazovací pavouk</h2>
 <div id="bracketContent"></div>
 </section>
-
-<section id="start" class="hidden">
-<h2>Start list</h2>
+<section id="start">
+<h2>Startovní listina</h2>
 <div id="startContent"></div>
 </section>
-
-<section id="results" class="hidden">
-<h2>Celkové výsledky série</h2>
+<section id="vysledky">
+<h2>Celkové pořadí série</h2>
 <div id="resultsContent"></div>
 </section>
-
-<section class="panel">
-<h3>Turnaj</h3>
-<select id="tournamentSelect"></select>
-<div id="eventInfo" class="muted"></div>
-</section>
-
-<section class="panel">
-<h3>Administrace</h3>
-<div id="loginArea">
-<p class="muted">Přihlášení pořadatele</p>
-<input id="email" type="email" placeholder="E-mail">
+<section id="admin">
+<h2>Administrace pořadatele</h2>
+<div id="loginPanel" class="card">
+<h3>Přihlášení pořadatele</h3>
+<input id="email" type="email" placeholder="E-mail" value="brus.t@seznam.cz">
 <input id="password" type="password" placeholder="Heslo">
-<button class="action" id="loginBtn">Přihlásit</button>
+<button class="action" id="loginButton">Přihlásit se</button>
+<div id="loginMessage" class="small"></div>
 </div>
-<div id="adminArea" class="hidden">
-<p class="red">Administrátor je přihlášen.</p>
-<button class="action secondary" id="logoutBtn">Odhlásit</button>
-<hr>
+<div id="adminPanel" class="hidden">
+<div class="card">
+<strong>Administrace je aktivní.</strong>
+<button class="action" id="logoutButton">Odhlásit se</button>
+</div>
+<div class="card">
 <h3>Přidat hráče</h3>
-<input id="playerName" placeholder="Jméno hráče">
-<button class="action" id="addPlayerBtn">Přidat hráče</button>
+<input id="newPlayer" placeholder="Jméno hráče">
+<button class="action" id="addPlayerButton">Přidat hráče</button>
+</div>
+<div class="card">
 <h3>Přihlásit hráče do turnaje</h3>
 <select id="playerSelect"></select>
-<button class="action" id="enrollBtn">Přihlásit do turnaje</button>
+<button class="action" id="enrollButton">Přihlásit</button>
+</div>
+<div class="card">
 <h3>Rozlosování skupin</h3>
-<p class="muted">Hráči budou náhodně rozděleni do skupin po čtyřech. Vytvoří se zápasy každý s každým.</p>
-<button class="action" id="drawBtn">Vylosovat skupiny a zápasy</button>
-<h3>Výsledky zápasů</h3>
+<button class="action" id="drawButton">Vylosovat skupiny a zápasy</button>
+</div>
+<div class="card">
+<h3>Hráči v turnaji</h3>
+<div id="adminEntries"></div>
+</div>
+<div class="card">
+<h3>Zápasy k zadání výsledku</h3>
 <div id="adminMatches"></div>
 </div>
-<div id="message" class="muted"></div>
+</div>
 </section>
 </main>
-
-<footer>NECHYBA GRAND PRIX · Pivnice Na Nechybě</footer>
-
+<footer style="text-align:center;color:#777;padding:25px">NECHYBA GRAND PRIX · Nová Včelnice</footer>
 <script>
-const SUPABASE_URL = "https://xripncjhmguohzbtenof.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Vhef4LmGjv7UO7uXCYmZAg_0w3JPY2T";
-const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+"use strict";
 
-let tournaments=[],players=[],entries=[],matches=[],currentTournament=null,isAdmin=false;
+const SUPABASE_URL="https://xripncjhmguohzbtenof.supabase.co";
+const SUPABASE_KEY="sb_publishable_Vhef4LmGjv7UO7uXCYmZAg_0w3JPY2T";
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
 
-const $ = id => document.getElementById(id);
-const say = message => $("message").textContent=message;
-const esc = value => String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let tournaments=[],players=[],entries=[],matches=[];
+let currentTournament=null,isAdmin=false;
 
-document.querySelectorAll("nav button").forEach(button=>{
- button.addEventListener("click",()=>{
-  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-  document.querySelectorAll("main section").forEach(s=>s.classList.add("hidden"));
-  button.classList.add("active");
-  $(button.dataset.tab).classList.remove("hidden");
- });
-});
+function msg(text,type=""){
+ $("connection").textContent=text;
+ $("connection").className="status "+type;
+}
+
+function esc(value){
+ return String(value??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+ }[c]));
+}
 
 function playerName(entryId){
- const entry=entries.find(e=>e.id===entryId);
- return players.find(p=>p.id===entry?.player_id)?.name || "Neznámý hráč";
+ const e=entries.find(x=>x.id===entryId);
+ const p=e&&players.find(x=>x.id===e.player_id);
+ return p?p.name:"Neznámý hráč";
 }
 
 async function loadAll(){
- const [t,p]=await Promise.all([
-  db.from("tournaments").select("*").order("event_date"),
-  db.from("players").select("*").order("name")
- ]);
- if(t.error||p.error){$("connection").textContent="Chyba databáze: "+(t.error?.message||p.error?.message);return}
- tournaments=t.data||[];players=p.data||[];
- const select=$("tournamentSelect");
- const previous=select.value;
- select.innerHTML=tournaments.map(x=>`<option value="${x.id}">${esc(x.name)} – ${esc(x.event_date)}</option>`).join("");
- if(previous&&tournaments.some(x=>x.id===previous))select.value=previous;
- if(!select.value&&tournaments.length)select.selectedIndex=0;
- await loadTournament();
- fillPlayers();
- $("connection").textContent="Databáze připojena";
+ try{
+  msg("Načítám databázi…");
+  const [t,p]=await Promise.all([
+   db.from("tournaments").select("*").order("event_date"),
+   db.from("players").select("*").order("name")
+  ]);
+  if(t.error)throw t.error;
+  if(p.error)throw p.error;
+
+  tournaments=t.data||[];
+  players=p.data||[];
+
+  $("tournamentSelect").innerHTML=tournaments.map(t=>
+   `<option value="${t.id}">${esc(t.name||"Turnaj")} – ${esc(t.event_date||"")}</option>`
+  ).join("");
+
+  currentTournament=$("tournamentSelect").value||null;
+  await loadTournamentData();
+  await checkAdmin();
+  msg("Databáze připojena","success");
+ }catch(e){
+  console.error(e);
+  msg("Chyba databáze: "+e.message,"error");
+ }
 }
 
-async function loadTournament(){
+async function loadTournamentData(){
  currentTournament=$("tournamentSelect").value;
- if(!currentTournament){render();return}
+ if(!currentTournament){
+  entries=[];matches=[];renderAll();return;
+ }
  const [e,m]=await Promise.all([
   db.from("tournament_entries").select("*").eq("tournament_id",currentTournament),
-  db.from("matches").select("*").eq("tournament_id",currentTournament).order("match_no")
+  db.from("matches").select("*").eq("tournament_id",currentTournament).order("round_no")
  ]);
- if(e.error||m.error){say(e.error?.message||m.error?.message);return}
- entries=e.data||[];matches=m.data||[];
- const event=tournaments.find(t=>t.id===currentTournament);
- $("eventInfo").textContent=event?`Termín: ${event.event_date} · ${event.is_final?"Finále série":"Turnaj série"}`:"";
- render();renderAdminMatches();
+ if(e.error)throw e.error;
+ if(m.error)throw m.error;
+ entries=e.data||[];
+ matches=m.data||[];
+ renderAll();
 }
 
-function render(){
- const groups={};
- entries.forEach(e=>{
-  const g=e.group_name||"Nerozděleno";
-  (groups[g]??=[]).push(e);
- });
- $("groupsContent").innerHTML=Object.keys(groups).length?Object.entries(groups).map(([g,list])=>`
-  <div class="panel"><h3>${esc(g)}</h3>
-  ${list.map(e=>`<div>${esc(playerName(e.id))}</div>`).join("")}</div>`).join(""):"<p class='muted'>Zatím nejsou přihlášeni žádní hráči.</p>";
-
- const knockout=matches.filter(m=>m.stage!=="group");
- $("bracketContent").innerHTML=knockout.length?knockout.map(matchHtml).join(""):"<p class='muted'>Vyřazovací pavouk zatím nebyl vytvořen.</p>";
-
- const upcoming=matches.filter(m=>m.status!=="finished");
- $("startContent").innerHTML=upcoming.length?upcoming.map(m=>`
-  <div class="panel"><div class="match">
-  <span><span class="tag">${m.board_no?"Terč "+m.board_no:"Čeká na terč"}</span>
-  <strong>${esc(playerName(m.player1_entry_id))}</strong> – <strong>${esc(playerName(m.player2_entry_id))}</strong></span>
-  <span>${m.status==="in_progress"?"PRÁVĚ SE HRAJE":"Čeká na zápas"}</span>
-  </div></div>`).join(""):"<p class='muted'>Momentálně nejsou naplánované žádné zápasy.</p>";
-
- const ranked=[...entries].sort((a,b)=>(a.final_place||999)-(b.final_place||999));
- $("resultsContent").innerHTML=ranked.length?`<table><tr><th>Pořadí</th><th>Hráč</th><th>Body</th></tr>${ranked.map(e=>`<tr><td>${e.final_place||"—"}</td><td>${esc(playerName(e.id))}</td><td>${e.series_points??"—"}</td></tr>`).join("")}</table>`:"<p class='muted'>Výsledky zatím nejsou k dispozici.</p>";
+function renderAll(){
+ renderGroups();
+ renderBracket();
+ renderStart();
+ renderAdmin();
+ renderResults();
 }
 
 function matchHtml(m){
- return `<div class="panel"><div class="match">
- <span>${esc(playerName(m.player1_entry_id))} <b>${m.legs1??0}:${m.legs2??0}</b> ${esc(playerName(m.player2_entry_id))}</span>
- <span class="tag">${m.status==="finished"?"Odehráno":esc(m.stage)}</span>
- </div></div>`;
+ let score=m.status==="finished"?`${m.legs1} : ${m.legs2}`:
+ m.status==="live"?"Probíhá":"Čeká na zápas";
+ return `<div class="card">
+ <strong>${esc(playerName(m.player1_entry_id))}</strong>
+ – <strong>${esc(playerName(m.player2_entry_id))}</strong>
+ <div class="small">Kolo ${m.round_no||"-"} · ${score}</div>
+ </div>`;
 }
 
-function fillPlayers(){
- $("playerSelect").innerHTML=players.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
-}
-
-async function login(){
- say("Přihlašuji…");
- const {data,error}=await db.auth.signInWithPassword({
-  email:$("email").value,password:$("password").value
- });
- if(error){say("Přihlášení se nepodařilo: "+error.message);return}
- const check=await db.rpc("is_admin");
- if(check.error||check.data!==true){
-  await db.auth.signOut();say("Tento účet nemá oprávnění administrátora.");return;
+function renderGroups(){
+ const groups=[...new Set(entries.map(e=>e.group_name).filter(Boolean))].sort();
+ if(!entries.length){
+  $("groupsContent").innerHTML="<p>Zatím nejsou přihlášeni hráči.</p>";return;
  }
- isAdmin=true;showAdmin();say("Přihlášení proběhlo úspěšně.");
+ if(!groups.length){
+  $("groupsContent").innerHTML="<p>Skupiny zatím nebyly vylosovány.</p>";return;
+ }
+ $("groupsContent").innerHTML=groups.map(g=>{
+  const members=entries.filter(e=>e.group_name===g);
+  const games=matches.filter(m=>m.stage==="group"&&m.group_name===g);
+  return `<div class="card"><h3>Skupina ${esc(g)}</h3>
+  <ol>${members.map(e=>`<li>${esc(playerName(e.id))}</li>`).join("")}</ol>
+  ${games.map(matchHtml).join("")}</div>`;
+ }).join("");
 }
 
-function showAdmin(){
- $("loginArea").classList.toggle("hidden",isAdmin);
- $("adminArea").classList.toggle("hidden",!isAdmin);
+function renderBracket(){
+ const list=matches.filter(m=>m.stage==="playoff"||m.stage==="placement");
+ $("bracketContent").innerHTML=list.length?
+ list.map(matchHtml).join(""):"<p>Pavouk zatím nebyl vytvořen.</p>";
 }
 
-async function addPlayer(){
- const name=$("playerName").value.trim();
- if(!name)return say("Zadej jméno hráče.");
- const {error}=await db.from("players").insert({name});
- if(error)return say("Chyba: "+error.message);
- $("playerName").value="";say("Hráč přidán.");await loadAll();
+function renderStart(){
+ $("startContent").innerHTML=entries.length?
+ `<div class="card"><table><tr><th>#</th><th>Hráč</th><th>Skupina</th></tr>
+ ${entries.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(playerName(e.id))}</td><td>${esc(e.group_name||"–")}</td></tr>`).join("")}
+ </table></div>`:"<p>Startovní listina je prázdná.</p>";
 }
 
-async function enroll(){
- if(!currentTournament)return say("Nejdříve vyber turnaj.");
+async function renderResults(){
+ const {data,error}=await db.from("tournament_entries").select("player_id,series_points");
+ if(error){
+  $("resultsContent").textContent="Výsledky se nepodařilo načíst.";
+  return;
+ }
+ const totals={};
+ (data||[]).forEach(e=>{
+  totals[e.player_id]=(totals[e.player_id]||0)+(e.series_points||0);
+ });
+ const sorted=Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+ $("resultsContent").innerHTML=sorted.length?
+ `<div class="card"><table><tr><th>Pořadí</th><th>Hráč</th><th>Body</th></tr>
+ ${sorted.map(([id,pts],i)=>{
+  const p=players.find(x=>x.id===id);
+  return `<tr><td>${i+1}.</td><td>${esc(p?p.name:"Neznámý hráč")}</td><td>${pts}</td></tr>`;
+ }).join("")}</table></div>`:"<p>Zatím nejsou přiděleny body.</p>";
+}
+
+async function checkAdmin(){
+ const {data:{session}}=await db.auth.getSession();
+ if(!session){isAdmin=false;}
+ else{
+  const result=await db.rpc("is_admin");
+  isAdmin=!result.error&&result.data===true;
+ }
+ $("loginPanel").classList.toggle("hidden",isAdmin);
+ $("adminPanel").classList.toggle("hidden",!isAdmin);
+
+ const old=document.querySelector('[data-tab="admin"]');
+ if(old)old.remove();
+ if(isAdmin){
+  const b=document.createElement("button");
+  b.textContent="Administrace";
+  b.dataset.tab="admin";
+  b.onclick=()=>showTab("admin");
+  document.querySelector("nav").appendChild(b);
+ }
+ renderAdmin();
+}
+
+function renderAdmin(){
+ if(!isAdmin)return;
+ $("playerSelect").innerHTML=players.map(p=>
+ `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+ $("adminEntries").innerHTML=entries.map(e=>
+ `<p>${esc(playerName(e.id))} – skupina ${esc(e.group_name||"zatím bez skupiny")}</p>`).join("");
+ $("adminMatches").innerHTML=matches.map(m=>
+ `<div class="card">
+ ${esc(playerName(m.player1_entry_id))} – ${esc(playerName(m.player2_entry_id))}
+ <p class="small">Stav: ${esc(m.status)}</p>
+ ${m.status==="finished"?"":`
+ <button class="action" onclick="startMatch('${m.id}')">Zahájit</button>
+ <button class="action" onclick="setScore('${m.id}')">Zadat výsledek</button>`}
+ </div>`).join("");
+}async function addPlayer(){
+ const name=$("newPlayer").value.trim();
+ if(!name)return alert("Zadej jméno hráče.");
+ const {error}=await db.from("players").insert({name,active:true});
+ if(error)return alert(error.message);
+ $("newPlayer").value="";
+ await loadAll();
+}
+
+async function enrollPlayer(){
  const playerId=$("playerSelect").value;
- if(!playerId)return say("Nejdříve přidej hráče.");
- if(entries.some(e=>e.player_id===playerId))return say("Hráč už je v tomto turnaji přihlášen.");
+ if(!playerId||!currentTournament)return alert("Vyber hráče a turnaj.");
+ if(entries.some(e=>e.player_id===playerId))return alert("Hráč už je přihlášen.");
  const {error}=await db.from("tournament_entries").insert({
   tournament_id:currentTournament,player_id:playerId
  });
- if(error)return say("Chyba: "+error.message);
- say("Hráč přihlášen do turnaje.");await loadTournament();
+ if(error)return alert(error.message);
+ await loadTournamentData();
 }
 
 async function drawGroups(){
- if(!confirm("Opravdu vylosovat skupiny? Stávající skupiny a zápasy tohoto turnaje budou nahrazeny."))return;
- if(entries.length<2)return say("Je potřeba alespoň 2 hráče.");
- if(matches.length)return say("Turnaj už má zápasy. Nejdříve je odstraňte nebo použijte nový turnaj.");
- const shuffled=[...entries].sort(()=>Math.random()-.5);
- const groups={};
- shuffled.forEach((e,i)=>{
- const g=String.fromCharCode(65+Math.floor(i/4));
- for(const [group,list] of Object.entries(groups)){
-  for(const e of list){
-   const {error}=await db.from("tournament_entries").update({group_name:group}).eq("id",e.id);
-   if(error)return say("Chyba při přiřazení skupiny: "+error.message);
+ if(entries.length<2)return alert("Potřebuješ alespoň dva hráče.");
+ if(!confirm("Vylosovat skupiny a vytvořit zápasy?"))return;
+
+ try{
+  const shuffled=[...entries].sort(()=>Math.random()-.5);
+  const groups=[[],[]];
+  shuffled.forEach((e,i)=>groups[i%2].push(e));
+
+  for(let i=0;i<shuffled.length;i++){
+   const groupName=groups[0].includes(shuffled[i])?"A":"B";
+   const {error}=await db.from("tournament_entries")
+    .update({group_name:groupName}).eq("id",shuffled[i].id);
+   if(error)throw error;
   }
-  let number=0;
-  const rows=[];
-  for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
-   number++;
-   rows.push({
-    tournament_id:currentTournament,stage:"group",group_name:group,
-    round_no:1,match_no:number,board_no:(number%2)+1,
-    player1_entry_id:list[i].id,player2_entry_id:list[j].id,
-    target_legs:2,status:"scheduled"
-   });
+
+  const {error:delError}=await db.from("matches").delete()
+   .eq("tournament_id",currentTournament).eq("stage","group");
+  if(delError)throw delError;
+
+  const newMatches=[];
+  let matchNo=1;
+
+  for(let gi=0;gi<groups.length;gi++){
+   const group=[...groups[gi]];
+   const groupName=gi===0?"A":"B";
+   if(group.length%2)group.push(null);
+
+   for(let round=0;round<group.length-1;round++){
+    for(let i=0;i<group.length/2;i++){
+     const a=group[i],b=group[group.length-1-i];
+     if(a&&b){
+      newMatches.push({
+       tournament_id:currentTournament,
+       stage:"group",
+       group_name:groupName,
+       round_no:round+1,
+       match_no:matchNo++,
+       player1_entry_id:a.id,
+       player2_entry_id:b.id,
+       legs1:0,legs2:0,target_legs:2,status:"waiting"
+      });
+     }
+    }
+    group.splice(1,0,group.pop());
+   }
   }
-  if(rows.length){
-   const {error}=await db.from("matches").insert(rows);
-   if(error)return say("Chyba při vytváření zápasů: "+error.message);
+
+  if(newMatches.length){
+   const {error}=await db.from("matches").insert(newMatches);
+   if(error)throw error;
   }
- }
- say("Skupiny a zápasy byly vytvořeny.");await loadTournament();
+
+  await loadTournamentData();
+  alert("Skupiny a zápasy byly vytvořeny.");
+ }catch(e){alert("Chyba losování: "+e.message);}
 }
 
-function renderAdminMatches(){
+window.startMatch=async id=>{
  if(!isAdmin)return;
- const active=matches.filter(m=>m.status!=="finished");
- $("adminMatches").innerHTML=active.length?active.map(m=>`
- <div class="panel">
- <div><b>${esc(playerName(m.player1_entry_id))}</b> – <b>${esc(playerName(m.player2_entry_id))}</b></div>
- <div class="muted">Terč ${m.board_no||"—"} · ${esc(m.group_name||m.stage)}</div>
- <button class="action secondary" onclick="startMatch('${m.id}')">Začít hrát</button>
- <input id="a${m.id}" type="number" min="0" value="${m.legs1??0}" style="width:65px">
- :
- <input id="b${m.id}" type="number" min="0" value="${m.legs2??0}" style="width:65px">
- <button class="action" onclick="finishMatch('${m.id}','${m.player1_entry_id}','${m.player2_entry_id}')">Uložit konec zápasu</button>
- </div>`).join(""):"<p class='muted'>Žádné nedohrané zápasy.</p>";
-}
+ const {error}=await db.from("matches")
+  .update({status:"live"}).eq("id",id);
+ if(error)return alert(error.message);
+ await loadTournamentData();
+};
 
-async function startMatch(id){
+window.setScore=async id=>{
+ if(!isAdmin)return;
+ const m=matches.find(x=>x.id===id);
+ if(!m)return;
+ const a=prompt("Legy hráče "+playerName(m.player1_entry_id),m.legs1||0);
+ if(a===null)return;
+ const b=prompt("Legy hráče "+playerName(m.player2_entry_id),m.legs2||0);
+ if(b===null)return;
+ const x=Number(a),y=Number(b);
+ if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x===y)
+  return alert("Zadej platný výsledek bez remízy.");
+ const winner=x>y?m.player1_entry_id:m.player2_entry_id;
  const {error}=await db.from("matches").update({
-  status:"in_progress",started_at:new Date().toISOString()
+  legs1:x,legs2:y,winner_entry_id:winner,status:"finished"
  }).eq("id",id);
- if(error)return say(error.message);
- say("Zápas zahájen.");await loadTournament();
+ if(error)return alert(error.message);
+ await loadTournamentData();
+};
+
+function showTab(tab){
+ document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
+ if($(tab))$(tab).classList.add("active");
+ document.querySelectorAll("nav button").forEach(b=>
+  b.classList.toggle("active",b.dataset.tab===tab));
 }
 
-async function finishMatch(id,p1,p2){
- const a=Number($("a"+id).value),b=Number($("b"+id).value);
- if(a===b)return say("Zápas nemůže skončit remízou.");
- if(a<0||b<0)return say("Neplatné skóre.");
- const winner=a>b?p1:p2;
- const {error}=await db.from("matches").update({
-  legs1:a,legs2:b,winner_entry_id:winner,
-  status:"finished",ended_at:new Date().toISOString()
- }).eq("id",id);
- if(error)return say("Chyba: "+error.message);
- say("Výsledek uložen.");await loadTournament();
+async function logout(){
+ await db.auth.signOut();
+ await checkAdmin();
+ showTab("skupina");
 }
 
-$("loginBtn").onclick=login;
-$("logoutBtn").onclick=async()=>{await db.auth.signOut();isAdmin=false;showAdmin();say("Odhlášeno.");};
-$("addPlayerBtn").onclick=addPlayer;
-$("enrollBtn").onclick=enroll;
-$("drawBtn").onclick=drawGroups;
-$("tournamentSelect").onchange=loadTournament;
-
-db.auth.getSession().then(async({data})=>{
- if(data.session){
-  const check=await db.rpc("is_admin");
-  if(check.data===true){isAdmin=true;showAdmin();}
- }
+document.querySelectorAll("nav button").forEach(b=>{
+ b.addEventListener("click",()=>showTab(b.dataset.tab));
 });
-db.channel("live-results")
- .on("postgres_changes",{event:"*",schema:"public",table:"matches"},loadTournament)
- .on("postgres_changes",{event:"*",schema:"public",table:"tournament_entries"},loadTournament)
+
+$("tournamentSelect").addEventListener("change",async()=>{
+ try{await loadTournamentData();}
+ catch(e){msg("Chyba: "+e.message,"error");}
+});
+
+$("loginButton").addEventListener("click",async()=>{
+ $("loginMessage").textContent="Přihlašuji…";
+ const {error}=await db.auth.signInWithPassword({
+  email:$("email").value.trim(),
+  password:$("password").value
+ });
+ if(error){
+  $("loginMessage").textContent=error.message;
+  return;
+ }
+ await checkAdmin();
+ if(isAdmin)showTab("admin");
+ else $("loginMessage").textContent="Účet nemá oprávnění pořadatele.";
+});
+
+$("logoutButton").addEventListener("click",logout);
+$("addPlayerButton").addEventListener("click",addPlayer);
+$("enrollButton").addEventListener("click",enrollPlayer);
+$("drawButton").addEventListener("click",drawGroups);
+
+db.auth.onAuthStateChange(()=>{
+ setTimeout(checkAdmin,0);
+});
+
+db.channel("public-updates")
+ .on("postgres_changes",{event:"*",schema:"public",table:"matches"},()=>loadTournamentData())
+ .on("postgres_changes",{event:"*",schema:"public",table:"tournament_entries"},()=>loadTournamentData())
  .subscribe();
 
-loadAll();
+loadAll().catch(e=>msg("Chyba spuštění: "+e.message,"error"));
+
 </script>
 </body>
 </html>
