@@ -276,9 +276,41 @@ function scheduledMatches(matchRows=tournamentMatches()){
   }
   return result;
 }
+// Veřejná fronta ukazuje další zápas i na právě obsazeném terči.
+// Volné terče dostanou přednost, aby fronta odpovídala tomu, co lze spustit hned.
+function upcomingMatches(matchRows=tournamentMatches()){
+  const active=matchRows.filter(m=>m.status==="live");
+  const busy=new Set(active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]));
+  const freeBoards=[1,2].filter(board=>!active.some(m=>Number(m.board_no)===board));
+  const occupiedBoards=[1,2].filter(board=>active.some(m=>Number(m.board_no)===board));
+  const lastPlayedAt=new Map();
+  matchRows.filter(m=>m.status==="finished").forEach(m=>{
+    const stamp=new Date(m.ended_at||m.started_at||0).getTime()||0;
+    [m.player1_entry_id,m.player2_entry_id].forEach(id=>{
+      if(id)lastPlayedAt.set(id,Math.max(lastPlayedAt.get(id)||0,stamp));
+    });
+  });
+  const result=[];
+  for(const board of [...freeBoards,...occupiedBoards]){
+    const candidates=eligibleWaitingMatches(matchRows,[...busy]);
+    if(!candidates.length)break;
+    candidates.sort((a,b)=>{
+      const restA=Math.max(lastPlayedAt.get(a.player1_entry_id)||0,lastPlayedAt.get(a.player2_entry_id)||0);
+      const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
+      return restA-restB||
+        (a.round_no||0)-(b.round_no||0)||
+        (a.match_no||0)-(b.match_no||0);
+    });
+    const chosen=candidates[0];
+    result.push({board,match:chosen});
+    busy.add(chosen.player1_entry_id);
+    busy.add(chosen.player2_entry_id);
+  }
+  return result;
+}
 function renderLive(){
   const active=activeMatches();
-  const scheduled=new Map(scheduledMatches().map(x=>[x.board,x.match]));
+  const scheduled=new Map(upcomingMatches().map(x=>[x.board,x.match]));
   const cards=[1,2].map(board=>{
     const playing=active.find(m=>Number(m.board_no)===board);
     const next=scheduled.get(board);
@@ -471,7 +503,7 @@ function formatSavedDuration(seconds){
 }
 function renderAdminBoards(){
   const active=activeMatches();
-  const scheduled=new Map(scheduledMatches().map(x=>[x.board,x.match]));
+  const scheduled=new Map(upcomingMatches().map(x=>[x.board,x.match]));
   const activePlayers=active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]);
   const duplicatePlayers=activePlayers.filter((id,index)=>activePlayers.indexOf(id)!==index);
   const conflictNotice=duplicatePlayers.length?
@@ -482,9 +514,9 @@ function renderAdminBoards(){
     return `<div class="panel"><strong>Terč ${board}</strong><br>
       ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · ${formatDuration(playing.started_at)}</p>`
         :`<p class="muted">Terč je volný.</p>`}
-      ${!playing&&next?`<p>Další: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
-        <button class="action" onclick="startNextMatch(${board},'${esc(next.id)}')">Začít hrát na terči ${board}</button>`
-        :!playing?`<p class="muted">Není připravený další zápas.</p>`:""}
+      ${next?`<p>${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
+        ${!playing?`<button class="action" onclick="startNextMatch(${board},'${esc(next.id)}')">Začít hrát na terči ${board}</button>`:""}`
+        :`<p class="muted">Není připravený další zápas.</p>`}
     </div>`;
   }).join("");
 }
