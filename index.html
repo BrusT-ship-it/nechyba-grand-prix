@@ -401,8 +401,9 @@ function seriesStandings(){
       const entry=relevantEntries.find(e=>e.player_id===playerId&&e.tournament_id===t.id)||null;
       if(!entry)return {tournament:t,entry:null,place:null,points:null};
       const place=entry.final_place==null?null:Number(entry.final_place);
+      const eventPlayerCount=entries.filter(e=>e.tournament_id===t.id).length;
       const points=entry.series_points!=null?Number(entry.series_points):
-        (place!=null&&Number.isFinite(place)?pointsForFinalPlace(place):null);
+        (place!=null&&Number.isFinite(place)?pointsForFinalPlace(place,eventPlayerCount):null);
       return {tournament:t,entry,place:Number.isFinite(place)?place:null,points:Number.isFinite(points)?points:null};
     });
     const placementCounts={};
@@ -454,7 +455,7 @@ function renderSeriesResults(){
     <h3>Kvalifikace – prvních pět večerů</h3>
     <p class="small">Body se sčítají pouze z prvních pěti turnajů. Večer bez uloženého umístění zatím přispívá 0 body. Při shodě rozhoduje počet 1. míst, potom 2. míst, 3. míst atd.; následně lepší umístění v posledním večeru, ve kterém má hráč zaznamenané umístění.</p>
     ${qualifying.length?`<div class="table-wrap"><table class="series-table"><tr><th>Poř.</th><th>Hráč</th>${headers}<th>Celkem</th></tr>${qualificationRows||`<tr><td colspan="${qualifying.length+3}">Zatím nejsou přihlášení hráči.</td></tr>`}</table></div>`:"Kvalifikační turnaje zatím nejsou v databázi."}
-    <div class="notice">Bodování večera: 1. místo = 4 body, 2. místo = 3 body, 3.–4. místo = 2 body, ostatní = 1 bod.</div>
+    <div class="notice">Bodování podle počtu kol pavouka: za vyřazení v 1. kole 1 bod, v každém dalším kole o bod více. Finalista získá počet bodů odpovídající počtu kol a vítěz o bod navíc.</div>
     <h3>Samostatné finále – ${esc(finalEvent?.name||"šestý večer")}</h3>
     <p class="small">Finálové výsledky se nezapočítávají do kvalifikační tabulky.</p>
     ${finalRows?`<div class="table-wrap"><table><tr><th>Umístění</th><th>Hráč</th></tr>${finalRows}</table></div>`:"Finálové výsledky zatím nejsou zaznamenány."}
@@ -811,7 +812,12 @@ function renderAutomaticPlacementsStatus(){
     `<p class="good">Konečné pořadí je automaticky vypočítané a uložené.</p><ol>${rows.map(e=>`<li>${esc(players.find(p=>p.id===e.player_id)?.name||"—")} – ${e.final_place}. místo${e.series_points!=null?` · ${e.series_points} b.`:""}</li>`).join("")}</ol>`:
     `<p class="muted">${bracket.length?"Pořadí se uloží po dohrání všech zápasů pavouka.":"Pavouk zatím není dokončen."}</p>`;
 }
-function pointsForFinalPlace(place){return place===1?4:place===2?3:place<=4?2:1;}
+function pointsForFinalPlace(place,totalPlayers){
+  const count=Math.max(2,Number(totalPlayers)||2);
+  const rounds=Math.ceil(Math.log2(count));
+  const placeLevel=Math.ceil(Math.log2(Math.max(1,Number(place)||1)));
+  return Math.max(1,rounds+1-placeLevel);
+}
 function calculateFinalPlacements(tournamentId, eventEntries, eventMatches){
   const bracket=eventMatches.filter(m=>m.stage==="playoff");
   if(!bracket.length||!bracket.every(m=>m.status==="finished"&&m.winner_entry_id))return null;
@@ -858,7 +864,7 @@ async function saveAutomaticPlacements(tournamentId){
   const isQualifier=qualificationTournaments().some(t=>t.id===tournamentId);
   for(const item of placements){
     const entry=eventEntries.find(e=>e.id===item.entryId);
-    const points=isQualifier?pointsForFinalPlace(item.place):null;
+    const points=isQualifier?pointsForFinalPlace(item.place,eventEntries.length):null;
     if(Number(entry?.final_place)===item.place&&(isQualifier?Number(entry?.series_points)===points:entry?.final_place!=null))continue;
     const update={final_place:item.place};
     if(isQualifier)update.series_points=points;
@@ -1153,7 +1159,7 @@ window.finishMatch=async function(matchId){
       const placementRows=calculateFinalPlacements(m.tournament_id,entries.filter(e=>e.tournament_id===m.tournament_id),refreshed.data||[]);
       if(placementRows){
         const isQualifier=qualificationTournaments().some(t=>t.id===m.tournament_id);
-        for(const item of placementRows){const update={final_place:item.place};if(isQualifier)update.series_points=pointsForFinalPlace(item.place);const saved=await db.from("tournament_entries").update(update).eq("id",item.entryId);if(saved.error){alert("Výsledky zápasů jsou uloženy, ale automatické body se nepodařilo uložit: "+saved.error.message);break;}}
+        for(const item of placementRows){const update={final_place:item.place};if(isQualifier)update.series_points=pointsForFinalPlace(item.place,entries.filter(e=>e.tournament_id===m.tournament_id).length);const saved=await db.from("tournament_entries").update(update).eq("id",item.entryId);if(saved.error){alert("Výsledky zápasů jsou uloženy, ale automatické body se nepodařilo uložit: "+saved.error.message);break;}}
       }
     }
   }
@@ -1179,7 +1185,7 @@ window.editMatchResult=async function(matchId){
   if(error)return alert("Oprava se nepodařila: "+error.message);
   if(m.stage==="playoff"){
     const fresh=await db.from("matches").select("*").eq("tournament_id",m.tournament_id);
-    if(!fresh.error){const placements=calculateFinalPlacements(m.tournament_id,entries.filter(e=>e.tournament_id===m.tournament_id),fresh.data||[]);if(placements){const isQualifier=qualificationTournaments().some(t=>t.id===m.tournament_id);for(const x of placements){const update={final_place:x.place};if(isQualifier)update.series_points=pointsForFinalPlace(x.place);const saved=await db.from("tournament_entries").update(update).eq("id",x.entryId);if(saved.error){alert("Výsledek je opraven, ale přepočet bodů selhal: "+saved.error.message);break;}}}}
+    if(!fresh.error){const placements=calculateFinalPlacements(m.tournament_id,entries.filter(e=>e.tournament_id===m.tournament_id),fresh.data||[]);if(placements){const isQualifier=qualificationTournaments().some(t=>t.id===m.tournament_id);for(const x of placements){const update={final_place:x.place};if(isQualifier)update.series_points=pointsForFinalPlace(x.place,entries.filter(e=>e.tournament_id===m.tournament_id).length);const saved=await db.from("tournament_entries").update(update).eq("id",x.entryId);if(saved.error){alert("Výsledek je opraven, ale přepočet bodů selhal: "+saved.error.message);break;}}}}
   }
   await loadData();alert("Výsledek byl opraven.");
 };
