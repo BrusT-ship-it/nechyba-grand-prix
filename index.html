@@ -742,6 +742,11 @@ function playerBest(playerId,field){
     if(e1?.player_id===playerId&&Number(m[field[0]])>0)candidates.push({value:Number(m[field[0]]),match:m});
     if(e2?.player_id===playerId&&Number(m[field[1]])>0)candidates.push({value:Number(m[field[1]]),match:m});
   }
+  // Osobní rekord lze uložit přímo u hráče i bez vytváření fiktivního zápasu.
+  if(field[0]==="p1_highest_score"){
+    const personalBest=Number(players.find(p=>p.id===playerId)?.highest_score)||0;
+    if(personalBest>0)candidates.push({value:personalBest,match:null});
+  }
   return candidates.sort((a,b)=>b.value-a.value)[0]||null;
 }
 function renderPlayerStats(){
