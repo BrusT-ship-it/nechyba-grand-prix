@@ -478,30 +478,39 @@ function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMat
     String(players.find(p=>p.id===a.entry.player_id)?.name||"").localeCompare(String(players.find(p=>p.id===b.entry.player_id)?.name||""),"cs"));
 }
 function renderBracketSeedControl(){
-  const targets=[$("bracketSeedControl"),$("bracketSeedControlPublic")].filter(Boolean);
-  if(!targets.length)return;
-  const show=html=>targets.forEach(target=>target.innerHTML=html);
-  const es=tournamentEntries(),ms=tournamentMatches();
+  const target=$("bracketSeedControl");
+  // Administrace musí používat stejný turnaj, který je vybraný v poli Startovní listina.
+  const tournamentId=$("entryTournament")?.value||selectedTournament;
+  const es=entries.filter(e=>e.tournament_id===tournamentId);
+  const ms=matches.filter(m=>m.tournament_id===tournamentId);
   const playoff=ms.filter(m=>m.stage==="playoff");
   if(playoff.length){
     const isDouble=playoff.some(m=>String(m.group_name||"").startsWith("DE:"));
-    show(`<div class="panel"><p class="good">${isDouble?"Oboustranný pavouk už byl vytvořen.":"Play-off pavouk už byl vytvořen."} Zápasy ani výsledky se znovu nevytvářejí.</p></div>`);
+    target.innerHTML=`<div class="panel"><p class="good">${isDouble?"Oboustranný pavouk už byl vytvořen.":"Play-off pavouk už byl vytvořen."} Zápasy ani výsledky se znovu nevytvářejí.</p></div>`;
+    $("bracketSeedControlPublic").innerHTML="";
     return;
   }
-  if(es.length<2){show(`<div class="panel"><p class="small muted">Pro vytvoření pavouka jsou potřeba alespoň 2 přihlášení hráči.</p></div>`);return;}
+  if(es.length<2){target.innerHTML=`<div class="panel"><p class="small muted">Pro vytvoření pavouka jsou potřeba alespoň 2 přihlášení hráči.</p></div>`;return;}
   if(es.length>16){
-    show(`<div class="panel"><p class="notice">${es.length} hráčů – po stisknutí tlačítka pro vytvoření turnaje se automaticky založí oboustranný pavouk bez skupin.</p></div>`);
+    target.innerHTML=`<div class="panel"><p class="notice">${es.length} hráčů – oboustranný pavouk bez skupin se vytvoří tlačítkem „Vytvořit zápasy podle počtu hráčů“.</p></div>`;
     return;
   }
   const groupMatches=ms.filter(m=>m.stage==="group");
-  if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished")){
-    const done=groupMatches.filter(m=>m.status==="finished").length;
-    show(`<div class="panel"><p class="small muted">Jednostranný pavouk půjde vytvořit po dokončení všech skupinových zápasů (${done}/${groupMatches.length}).</p></div>`);return;
+  const done=groupMatches.filter(m=>m.status==="finished").length;
+  if(!groupMatches.length||done!==groupMatches.length){
+    target.innerHTML=`<div class="panel"><p class="small muted">Pavouk půjde vylosovat po dokončení všech skupinových zápasů (${done}/${groupMatches.length}).</p></div>`;
+    return;
   }
   const groupNames=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
-  if(!groupNames.length||groupNames.some(g=>!groupMatches.some(m=>m.group_name===g))){show(`<div class="panel"><p class="warning">Nepodařilo se ověřit dokončení všech skupin.</p></div>`);return;}
-  show(`<div class="panel"><div class="notice">Všichni hráči postupují do jednostranného play-off. Při dvou skupinách se nasazení střídá podle pořadí ve skupinách; případná volná místa znamenají automatický postup.</div><button class="action seed-knockout-btn">Nasadit do jednostranného pavouka podle výsledků skupin</button></div>`);
-  targets.forEach(target=>target.querySelector(".seed-knockout-btn")?.addEventListener("click",seedKnockoutBracket));
+  const unassigned=es.filter(e=>!e.group_name);
+  const invalidGroup=groupNames.some(g=>!groupMatches.some(m=>m.group_name===g));
+  if(!groupNames.length||unassigned.length||invalidGroup||groupNames.length>2){
+    target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Zkontroluj přiřazení všech hráčů do jedné nebo dvou skupin a jejich zápasy.</p></div>`;
+    return;
+  }
+  target.innerHTML=`<div class="panel"><div class="notice">Všichni hráči postupují do jednostranného play-off. Pořadí ve skupinách určí nasazení; případná volná místa znamenají automatický postup.</div><button type="button" class="action seed-knockout-btn">Vylosovat pavouk</button></div>`;
+  target.querySelector(".seed-knockout-btn")?.addEventListener("click",seedKnockoutBracket);
+  $("bracketSeedControlPublic").innerHTML="";
 }
 function playoffSeedPositions(size){
   let positions=[1,2];
@@ -537,7 +546,11 @@ function buildInitialPlayoffRows(tournamentId,seededEntries,existingRows=[],grou
 }
 async function seedKnockoutBracket(){
   if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
-  const tournamentId=selectedTournament;
+  const tournamentId=$("entryTournament")?.value||selectedTournament;
+  if(!tournamentId)return alert("Nejdřív vyber turnaj.");
+  selectedTournament=tournamentId;
+  $("tournamentSelect").value=tournamentId;
+  $("liveTournamentSelect").value=tournamentId;
   const {data:fresh,error}=await db.from("matches").select("*").eq("tournament_id",tournamentId);
   if(error)return alert("Nepodařilo se ověřit zápasy turnaje: "+error.message);
   const rows=fresh||[];
@@ -549,7 +562,9 @@ async function seedKnockoutBracket(){
   const groupMatches=rows.filter(m=>m.stage==="group");
   if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished"))return alert("Nejdřív musí být dokončeny všechny zápasy ve skupinách.");
   const groupNames=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
-  if(!groupNames.length)return alert("Hráči ještě nejsou rozlosováni do skupin.");
+  if(!groupNames.length||es.some(e=>!e.group_name))return alert("Každý hráč musí být přiřazen do skupiny.");
+  if(groupNames.length>2)return alert("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
+  if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)||groupMatches.some(m=>m.group_name===g&&m.status!=="finished")))return alert("Ne všechny skupiny mají dokončené zápasy.");
   let seededEntries=[];
   if(groupNames.length===1){seededEntries=groupStandingsFor(groupNames[0],es,groupMatches).map(x=>x.entry);}
   else if(groupNames.length===2){
@@ -557,7 +572,11 @@ async function seedKnockoutBracket(){
     const max=Math.max(first.length,second.length);
     for(let i=0;i<max;i++){if(first[i])seededEntries.push(first[i].entry);if(second[i])seededEntries.push(second[i].entry);}
   }else return alert("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
-  const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,rows);
+
+  const seededIds=seededEntries.map(e=>e.id);
+  if(seededEntries.length!==es.length||new Set(seededIds).size!==es.length||es.some(e=>!seededIds.includes(e.id))){
+    return alert("Losování bylo zastaveno: nepodařilo se správně seřadit všechny hráče ze skupin. Žádný pavouk nebyl vytvořen.");
+  }  const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,rows);
   const preview=bracketRows.map(m=>m.player1_entry_id===m.player2_entry_id?`${playerName(m.player1_entry_id)} – volný los (automatický postup)`:`${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}`).join("\n");
   if(!confirm(`Vytvořit jednostranný play-off pavouk pro všech ${es.length} hráčů po dokončení skupin?\n\n${preview}\n\nExistující výsledky zůstanou beze změny.`))return;
   const {error:insertError}=await db.from("matches").insert(bracketRows);
@@ -922,6 +941,12 @@ $("tournamentSelect").addEventListener("change",e=>{
 });
 $("liveTournamentSelect").addEventListener("change",e=>{
   selectedTournament=e.target.value;$("tournamentSelect").value=selectedTournament;renderAll();
+});
+$("entryTournament").addEventListener("change",e=>{
+  selectedTournament=e.target.value;
+  $("tournamentSelect").value=selectedTournament;
+  $("liveTournamentSelect").value=selectedTournament;
+  renderAll();
 });
 
 $("playerStatsContent").addEventListener("click",event=>{const btn=event.target.closest("[data-open-player]");if(btn)renderPlayerProfile(btn.dataset.openPlayer);});
