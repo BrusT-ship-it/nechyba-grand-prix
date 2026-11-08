@@ -20,7 +20,8 @@ h2{color:var(--red);margin-top:5px}
 h3{margin:8px 0;color:#fff}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin:12px 0}
 input,select{background:#111;color:white;border:1px solid #555;padding:11px;border-radius:5px;margin:4px;max-width:100%}
-button.action{background:var(--red);color:white;border:0;padding:11px 16px;border-radius:5px;font-weight:bold;cursor:pointer;margin:4px}
+button.danger{background:#8f2020;color:#fff;border:1px solid #b84a4a}
+.action{background:var(--red);color:white;border:0;padding:11px 16px;border-radius:5px;font-weight:bold;cursor:pointer;margin:4px}
 button.secondary{background:#444;color:white;border:0;padding:10px;border-radius:5px;cursor:pointer;margin:4px}
 button:disabled{opacity:.45;cursor:not-allowed}
 table{width:100%;border-collapse:collapse;margin-top:10px}
@@ -162,7 +163,7 @@ footer{text-align:center;color:#666;padding:25px}
 
 <div class="panel">
 <strong>Automatické pořadí a body</strong>
-<p class="small">Po dokončení pavouka systém sám určí konečné pořadí a přidělí body podle pravidla série.</p>
+<p class="small">Do pavouka postupuje 8 hráčů: při dvou skupinách první 4 z každé skupiny, při jedné skupině nejlepší 8. Nasazení je křížové podle pořadí ve skupinách.</p>
 <div id="automaticPlacementsStatus" class="muted">Pořadí se dopočítá po dokončení všech zápasů pavouka.</div>
 </div>
 
@@ -493,7 +494,8 @@ function renderBracketSeedControl(){
   const playoff=ms.filter(m=>m.stage==="playoff");
   if(playoff.length){
     const isDouble=playoff.some(m=>String(m.group_name||"").startsWith("DE:"));
-    target.innerHTML=`<div class="panel"><p class="good">${isDouble?"Oboustranný pavouk už byl vytvořen.":"Play-off pavouk už byl vytvořen."} Zápasy ani výsledky se znovu nevytvářejí.</p></div>`;
+    target.innerHTML=`<div class="panel"><p class="good">${isDouble?"Oboustranný pavouk už byl vytvořen.":"Play-off pavouk už byl vytvořen."} Zápasy ani výsledky se znovu nevytvářejí.</p>${isAdmin?'<button type="button" class="danger delete-playoff-btn">Odstranit pavouk tohoto turnaje</button><p class="small muted">Odstraní pouze zápasy play-off. Skupiny, hráči a ručně zadané body zůstanou zachovány. Lze použít jen pokud v pavouku ještě nebyl odehrán žádný skutečný zápas.</p>':''}</div>`;
+    target.querySelector(".delete-playoff-btn")?.addEventListener("click",()=>deletePlayoffBracket(tournamentId));
     $("bracketSeedControlPublic").innerHTML="";
     return;
   }
@@ -551,6 +553,22 @@ function buildInitialPlayoffRows(tournamentId,seededEntries,existingRows=[],grou
   }
   return rows;
 }
+async function deletePlayoffBracket(tournamentId){
+  if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
+  if(!tournamentId)return alert("Nejdřív vyber turnaj.");
+  const {data:fresh,error:readError}=await db.from("matches").select("id,stage,status,player1_entry_id,player2_entry_id").eq("tournament_id",tournamentId).eq("stage","playoff");
+  if(readError)return alert("Pavouk se nepodařilo načíst: "+readError.message);
+  const playoffRows=fresh||[];
+  if(!playoffRows.length)return alert("Tento turnaj nemá žádný pavouk.");
+  const played=playoffRows.some(m=>m.status==="live"||(m.status==="finished"&&m.player1_entry_id!==m.player2_entry_id));
+  if(played)return alert("Pavouk nelze automaticky odstranit, protože už obsahuje rozehraný nebo odehraný skutečný zápas. Výsledky tak zůstanou chráněné.");
+  if(!confirm(`Opravdu odstranit ${playoffRows.length} zápasů pavouka tohoto turnaje? Skupinové zápasy, hráči a ručně zadané body zůstanou zachovány.`))return;
+  const {error}=await db.from("matches").delete().eq("tournament_id",tournamentId).eq("stage","playoff");
+  if(error)return alert("Pavouk se nepodařilo odstranit: "+error.message);
+  await loadData();
+  alert("Pavouk byl odstraněn. Skupinové zápasy a zadané body zůstaly zachovány.");
+}
+
 async function seedKnockoutBracket(){
   if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
   const tournamentId=$("entryTournament")?.value||selectedTournament;
@@ -573,23 +591,30 @@ async function seedKnockoutBracket(){
   if(groupNames.length>2)return alert("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
   if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)||groupMatches.some(m=>m.group_name===g&&m.status!=="finished")))return alert("Ne všechny skupiny mají dokončené zápasy.");
   let seededEntries=[];
-  if(groupNames.length===1){seededEntries=groupStandingsFor(groupNames[0],es,groupMatches).map(x=>x.entry);}
-  else if(groupNames.length===2){
+  if(groupNames.length===1){
+    const standings=groupStandingsFor(groupNames[0],es,groupMatches);
+    if(standings.length<8)return alert("Do pavouka postupuje 8 hráčů. V jedné skupině proto musí být alespoň 8 hráčů.");
+    seededEntries=standings.slice(0,8).map(x=>x.entry);
+  }else if(groupNames.length===2){
     const first=groupStandingsFor(groupNames[0],es,groupMatches),second=groupStandingsFor(groupNames[1],es,groupMatches);
-    const max=Math.max(first.length,second.length);
-    for(let i=0;i<max;i++){if(first[i])seededEntries.push(first[i].entry);if(second[i])seededEntries.push(second[i].entry);}
+    if(first.length<4||second.length<4)return alert("Do pavouka postupují 4 nejlepší z každé skupiny. Každá skupina proto musí mít alespoň 4 hráče.");
+    // Pořadí slotů 1–4 ze skupiny A a 1–4 ze skupiny B.
+    // Rozložení pavouka následně vytvoří dvojice A1–B4, A4–B1, A2–B3 a A3–B2.
+    // Vnitřní pořadí slotů odpovídá pořadí zápasů A1–B4, A2–B3, A3–B2, A4–B1.
+    seededEntries=[first[0].entry,first[2].entry,first[3].entry,first[1].entry,second[2].entry,second[0].entry,second[1].entry,second[3].entry];
   }else return alert("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
 
   const seededIds=seededEntries.map(e=>e.id);
-  if(seededEntries.length!==es.length||new Set(seededIds).size!==es.length||es.some(e=>!seededIds.includes(e.id))){
-    return alert("Losování bylo zastaveno: nepodařilo se správně seřadit všechny hráče ze skupin. Žádný pavouk nebyl vytvořen.");
-  }  const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,rows);
+  if(seededEntries.length!==8||new Set(seededIds).size!==8){
+    return alert("Losování bylo zastaveno: nepodařilo se správně vybrat osm postupujících. Žádný pavouk nebyl vytvořen.");
+  }
+  const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,rows);
   const preview=bracketRows.map(m=>m.player1_entry_id===m.player2_entry_id?`${playerName(m.player1_entry_id)} – volný los (automatický postup)`:`${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}`).join("\n");
-  if(!confirm(`Vytvořit jednostranný play-off pavouk pro všech ${es.length} hráčů po dokončení skupin?\n\n${preview}\n\nExistující výsledky zůstanou beze změny.`))return;
+  if(!confirm(`Vytvořit jednostranný play-off pavouk pro 8 postupujících po dokončení skupin?\n\n${preview}\n\nOstatní hráči do pavouka nepostupují.`))return;
   const {error:insertError}=await db.from("matches").insert(bracketRows);
   if(insertError)return alert("Pavouk se nepodařilo vytvořit: "+insertError.message);
   await loadData();
-  alert("Jednostranný play-off pavouk byl vytvořen. Vítězové budou postupovat automaticky.");
+  alert("Jednostranný play-off pavouk pro 8 postupujících byl vytvořen. Vítězové budou postupovat automaticky.");
 }
 
 function renderBracketMatches(rows){
