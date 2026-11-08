@@ -157,7 +157,11 @@ footer{text-align:center;color:#666;padding:25px}
 <button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
 <div id="adminEntries"></div>
 <button class="action" id="drawGroupsBtn">Vytvořit zápasy podle počtu hráčů</button>
-<p class="small">Losování je možné pouze před zahájením zápasů. Pokud už turnaj obsahuje zápasy, systém je nepřepíše.</p>
+<div class="row" style="margin-top:8px">
+<button class="secondary" id="cancelDrawBtn" type="button">Zrušit rozlosování</button>
+<button class="danger" id="redrawGroupsBtn" type="button">Rozlosovat znovu</button>
+</div>
+<p class="small">Zrušení nebo nový los odstraní všechny zápasy tohoto turnaje včetně odehraných výsledků a pavouka. Přihlášení hráči zůstanou zachováni; skupiny, konečné pořadí a body se vynulují.</p>
 <div id="bracketSeedControl"></div>
 </div>
 
@@ -167,7 +171,12 @@ footer{text-align:center;color:#666;padding:25px}
 <div id="automaticPlacementsStatus" class="muted">Pořadí se dopočítá po dokončení všech zápasů pavouka.</div>
 </div>
 
-
+<div class="panel">
+<strong>Ruční doplnění bodů za starší turnaj</strong>
+<p class="small">Použij pouze pro večer, u kterého se body nepodařilo uložit automaticky. Zde lze doplnit body bez přepisování výsledků zápasů nebo konečného umístění.</p>
+<label>Turnaj: </label><select id="historicalPointsTournament"></select>
+<div id="historicalPointsEditor"></div>
+</div>
 
 <div class="panel">
 <strong>Finálová osmička</strong>
@@ -812,8 +821,24 @@ function renderAll(){
     renderAdminBoards();
     renderAutomaticPlacementsStatus();
     renderAdminFinalists();
+    renderHistoricalPointsEditor();
   }
 }
+function renderHistoricalPointsEditor(){
+  const select=$("historicalPointsTournament");
+  if(!select)return;
+  const previous=select.value;
+  select.innerHTML=tournaments.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+  const chosen=tournaments.some(t=>t.id===previous)?previous:(selectedTournament||tournaments[0]?.id||"");
+  select.value=chosen;
+  const eventEntries=entries.filter(e=>e.tournament_id===chosen).sort((a,b)=>String(players.find(p=>p.id===a.player_id)?.name||"").localeCompare(String(players.find(p=>p.id===b.player_id)?.name||""),"cs"));
+  $("historicalPointsEditor").innerHTML=!chosen?"Nejdříve vytvoř turnaj.":!eventEntries.length?"V tomto turnaji zatím nejsou přihlášení hráči. Nejdříve je přidej do startovní listiny.":`
+    <p class="small">Zadej body podle včerejšího výsledku. Prázdné pole znamená, že body zůstanou beze změny.</p>
+    <div class="table-wrap"><table><tr><th>Hráč</th><th>Body</th><th></th></tr>${eventEntries.map(e=>`<tr><td>${esc(players.find(p=>p.id===e.player_id)?.name||"Neznámý hráč")}</td><td><input class="score-input" type="number" min="0" max="100" step="1" data-historical-points="${esc(e.id)}" value="${e.series_points==null?"":esc(e.series_points)}" placeholder="—"></td><td><button class="secondary" type="button" data-save-historical-point="${esc(e.id)}">Uložit</button></td></tr>`).join("")}</table></div>
+    <div class="export-actions"><button class="action" type="button" id="saveAllHistoricalPoints">Uložit všechny vyplněné body</button></div>
+    <p class="small">Uložení bodů nemění konečné umístění ani zápasy. Prázdná pole se přeskočí.</p>`;
+}
+
 function adminMatchHTML(m){
   const isPlaying=m.status==="live";
   const isFinished=m.status==="finished";
@@ -1101,6 +1126,41 @@ $("adminPlayers").addEventListener("click",async event=>{
   await loadData();
   alert("Jméno hráče bylo změněno. Historie zůstala zachována.");
 });
+$("historicalPointsTournament").addEventListener("change",()=>renderHistoricalPointsEditor());
+$("historicalPointsEditor").addEventListener("click",async event=>{
+  const bulkButton=event.target.closest("button#saveAllHistoricalPoints");
+  if(bulkButton){
+    if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
+    const fields=[...$("historicalPointsEditor").querySelectorAll("input[data-historical-points]")].filter(input=>input.value.trim()!=="");
+    if(!fields.length)return alert("Nejsou vyplněné žádné body.");
+    const invalid=fields.find(input=>!Number.isInteger(Number(input.value))||Number(input.value)<0||Number(input.value)>100);
+    if(invalid)return alert("Všechna vyplněná pole musí obsahovat celé číslo od 0 do 100.");
+    if(!confirm(`Uložit body pro ${fields.length} hráčů?`))return;
+    bulkButton.disabled=true;
+    for(const input of fields){
+      const {error}=await db.from("tournament_entries").update({series_points:Number(input.value)}).eq("id",input.dataset.historicalPoints);
+      if(error){bulkButton.disabled=false;return alert("Uložení se zastavilo: "+error.message+". Již uložené hodnoty zůstávají uložené.");}
+    }
+    await loadData();
+    alert(`Body byly uloženy pro ${fields.length} hráčů.`);
+    return;
+  }
+  const button=event.target.closest("button[data-save-historical-point]");
+  if(!button)return;
+  if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
+  const entryId=button.dataset.saveHistoricalPoint;
+  const input=button.closest("tr")?.querySelector(`[data-historical-points="${CSS.escape(entryId)}"]`);
+  if(!input||input.value.trim()==="")return alert("Zadej počet bodů.");
+  const points=Number(input.value);
+  if(!Number.isInteger(points)||points<0||points>100)return alert("Body musí být celé číslo od 0 do 100.");
+  button.disabled=true;
+  const {error}=await db.from("tournament_entries").update({series_points:points}).eq("id",entryId);
+  button.disabled=false;
+  if(error)return alert("Body se nepodařilo uložit: "+error.message);
+  await loadData();
+  alert("Body byly uloženy.");
+});
+
 $("addEntryBtn").addEventListener("click",async()=>{
   const player_id=$("entryPlayer").value,tournament_id=$("entryTournament").value;
   if(!player_id||!tournament_id)return alert("Vyber hráče a turnaj.");
@@ -1163,6 +1223,42 @@ function createRoundRobin(entryIds){
   }
   return result;
 }
+async function cancelTournamentDraw(tournamentId){
+  if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel."),false;
+  if(!tournamentId)return alert("Nejdřív vyber turnaj."),false;
+  const [matchResult,entryResult]=await Promise.all([
+    db.from("matches").select("id,status,stage").eq("tournament_id",tournamentId),
+    db.from("tournament_entries").select("id").eq("tournament_id",tournamentId)
+  ]);
+  if(matchResult.error)return alert("Zápasy se nepodařilo načíst: "+matchResult.error.message),false;
+  if(entryResult.error)return alert("Startovní listinu se nepodařilo načíst: "+entryResult.error.message),false;
+  const rows=matchResult.data||[];
+  const live=rows.filter(m=>m.status==="live").length;
+  const finished=rows.filter(m=>m.status==="finished").length;
+  const message=`Opravdu zrušit rozlosování turnaje?\n\nBudou odstraněny všechny ${rows.length} zápasy (z toho ${finished} dokončených a ${live} rozehraných), včetně pavouka. Všem přihlášeným hráčům zůstane účast, ale smažou se skupiny, konečné pořadí a body tohoto turnaje. Tuto akci nelze vrátit.`;
+  if(!confirm(message))return false;
+  if(rows.length){
+    const {error}=await db.from("matches").delete().eq("tournament_id",tournamentId);
+    if(error)return alert("Zápasy se nepodařilo odstranit: "+error.message),false;
+  }
+  const {error:entryError}=await db.from("tournament_entries").update({group_name:null,final_place:null,series_points:null}).eq("tournament_id",tournamentId);
+  if(entryError){await loadData();return alert("Zápasy byly odstraněny, ale nepodařilo se vynulovat skupiny a body: "+entryError.message),false;}
+  selectedTournament=tournamentId;
+  await loadData();
+  return true;
+}
+
+$("cancelDrawBtn").addEventListener("click",async()=>{
+  const tournamentId=$("entryTournament").value||selectedTournament;
+  if(await cancelTournamentDraw(tournamentId))alert("Rozlosování bylo zrušeno. Přihlášení hráči zůstali na startovní listině.");
+});
+$("redrawGroupsBtn").addEventListener("click",async()=>{
+  const tournamentId=$("entryTournament").value||selectedTournament;
+  const es=entries.filter(e=>e.tournament_id===tournamentId);
+  if(es.length<2)return alert("Pro nové rozlosování potřebuješ alespoň 2 přihlášené hráče.");
+  if(await cancelTournamentDraw(tournamentId))$("drawGroupsBtn").click();
+});
+
 $("drawGroupsBtn").addEventListener("click",async()=>{
   const tournament_id=$("entryTournament").value||selectedTournament;
   const es=entries.filter(e=>e.tournament_id===tournament_id);
