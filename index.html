@@ -168,8 +168,8 @@ footer{text-align:center;color:#666;padding:25px}
 <select id="entryPlayer"></select>
 <select id="entryTournament"></select>
 <button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
-<button class="danger" id="deleteTournamentBtn" type="button">Smazat celý vybraný turnaj</button>
-<p class="small warning">Smazání odstraní pouze vybraný turnaj, jeho zápasy a startovní listinu včetně bodů. Hráči a ostatní turnaje zůstanou zachováni. Akce je nevratná.</p>
+<button class="danger" id="deleteTournamentBtn" type="button">Vynulovat výsledky vybraného turnaje</button>
+<p class="small warning">Odstraní pouze zápasy a výsledky vybraného turnaje. Turnaj i přihlášení hráči zůstanou zachováni; skupiny, umístění a body se vynulují, takže turnaj půjde znovu rozlosovat a odehrát.</p>
 <div id="adminEntries"></div>
 <button class="action" id="drawGroupsBtn">Vytvořit zápasy podle počtu hráčů</button>
 <div class="row" style="margin-top:8px">
@@ -1273,34 +1273,14 @@ $("historicalPointsEditor").addEventListener("click",async event=>{
 
 $("deleteTournamentBtn").addEventListener("click",async()=>{
   if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
-  const tournamentId=$("entryTournament").value;
-  if(!tournamentId)return alert("Nejdřív vyber turnaj, který chceš smazat.");
+  const tournamentId=$("entryTournament").value||selectedTournament;
+  if(!tournamentId)return alert("Nejdřív vyber turnaj, jehož výsledky chceš vynulovat.");
   const tournament=tournaments.find(t=>t.id===tournamentId);
   if(!tournament)return alert("Vybraný turnaj nebyl nalezen. Obnov data a zkus to znovu.");
-  const [matchCheck,entryCheck]=await Promise.all([
-    db.from("matches").select("id",{count:"exact",head:true}).eq("tournament_id",tournamentId),
-    db.from("tournament_entries").select("id",{count:"exact",head:true}).eq("tournament_id",tournamentId)
-  ]);
-  if(matchCheck.error||entryCheck.error){
-    return alert("Nepodařilo se ověřit data turnaje. Nic nebylo smazáno.\n"+(matchCheck.error||entryCheck.error).message);
-  }
-  const matchCount=matchCheck.count||0,entryCount=entryCheck.count||0;
-  const confirmation=`Opravdu chceš TRVALE SMAZAT celý turnaj „${tournament.name}“?\n\nBudou odstraněny:\n• ${matchCount} zápasů včetně výsledků\n• ${entryCount} přihlášek včetně umístění a bodů\n• samotný turnaj\n\nHráči a ostatní turnaje zůstanou zachováni. Tuto akci nelze vrátit.`;
-  if(!confirm(confirmation))return;
   const button=$("deleteTournamentBtn");button.disabled=true;
   try{
-    const matchDelete=await db.from("matches").delete().eq("tournament_id",tournamentId);
-    if(matchDelete.error)throw new Error("Zápasy se nepodařilo odstranit: "+matchDelete.error.message);
-    const entryDelete=await db.from("tournament_entries").delete().eq("tournament_id",tournamentId);
-    if(entryDelete.error)throw new Error("Zápasy už byly odstraněny, ale přihlášky se nepodařilo odstranit: "+entryDelete.error.message);
-    const tournamentDelete=await db.from("tournaments").delete().eq("id",tournamentId);
-    if(tournamentDelete.error)throw new Error("Zápasy a přihlášky už byly odstraněny, ale turnaj se nepodařilo odstranit: "+tournamentDelete.error.message);
-    selectedTournament="";
-    await loadData();
-    alert(`Turnaj „${tournament.name}“ byl smazán. Hráči a ostatní turnaje zůstali zachováni.`);
-  }catch(error){
-    alert("Mazání se nedokončilo. Zkontroluj hlášení; část dat už mohla být odstraněna.\n\n"+error.message);
-    await loadData();
+    const cleared=await cancelTournamentDraw(tournamentId);
+    if(cleared)alert(`Výsledky turnaje „${tournament.name}“ byly vynulovány. Turnaj i přihlášení hráči zůstali zachováni a můžeš znovu vytvořit zápasy.`);
   }finally{button.disabled=false;}
 });
 
@@ -1377,7 +1357,7 @@ async function cancelTournamentDraw(tournamentId){
   const rows=matchResult.data||[];
   const live=rows.filter(m=>m.status==="live").length;
   const finished=rows.filter(m=>m.status==="finished").length;
-  const message=`Opravdu zrušit rozlosování turnaje?\n\nBudou odstraněny všechny ${rows.length} zápasy (z toho ${finished} dokončených a ${live} rozehraných), včetně pavouka. Všem přihlášeným hráčům zůstane účast, ale smažou se skupiny, konečné pořadí a body tohoto turnaje. Tuto akci nelze vrátit.`;
+  const message=`Opravdu vynulovat výsledky tohoto turnaje?\n\nBudou odstraněny všechny ${rows.length} zápasy (z toho ${finished} dokončených a ${live} rozehraných), včetně pavouka. Přihlášení hráči i samotný turnaj zůstanou zachováni; smažou se pouze skupiny, konečné pořadí a body tohoto turnaje. Poté půjde turnaj znovu rozlosovat a odehrát. Tuto akci nelze vrátit.`;
   if(!confirm(message))return false;
   if(rows.length){
     const {error}=await db.from("matches").delete().eq("tournament_id",tournamentId);
