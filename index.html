@@ -366,6 +366,10 @@ function scorekeeperAssignments(matchRows=tournamentMatches(),eventEntries=tourn
       .sort((a,b)=>new Date(b.ended_at||b.started_at||0).getTime()-new Date(a.ended_at||a.started_at||0).getTime())[0]||null;
   }
   function chooseFrom(match, sourceMatch, mode){
+    // Nejdříve připravíme zdrojové hráče a ověříme, zda předchozí zápas
+    // patří ke stejnému terči. Tyto hodnoty musí existovat před filtrováním.
+    const sourceIsSameBoard=mode==="next"&&!!sourceMatch&&Number(sourceMatch.board_no)===Number(match.board_no);
+    const pool=sourceMatch?[sourceMatch.player1_entry_id,sourceMatch.player2_entry_id].filter(Boolean):[];
     const excluded=new Set([match.player1_entry_id,match.player2_entry_id,...reservedScorekeepers].filter(Boolean));
     for(const id of activePlayers){
       const belongsToSameBoardSource=sourceIsSameBoard&&pool.includes(id);
@@ -373,9 +377,9 @@ function scorekeeperAssignments(matchRows=tournamentMatches(),eventEntries=tourn
     }
     // Nikdo z hráčů, kteří mají nastoupit v některém z nejbližších zápasů,
     // nesmí být zapisovatelem na druhém terči.
-    for(const id of upcomingPlayers)excluded.add(id);
-    const sourceIsSameBoard=mode==="next"&&sourceMatch&&Number(sourceMatch.board_no)===Number(match.board_no);
-    const pool=sourceMatch?[sourceMatch.player1_entry_id,sourceMatch.player2_entry_id].filter(Boolean):[];
+    for(const id of upcomingPlayers){
+      if(!(sourceIsSameBoard&&pool.includes(id)))excluded.add(id);
+    }
     let eligible=pool.filter(id=>ids.includes(id)&&!excluded.has(id));
     // Když z předchozího zápasu není nikdo volný, použijeme ostatní volné hráče.
     if(!eligible.length)eligible=ids.filter(id=>!excluded.has(id));
