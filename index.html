@@ -337,52 +337,57 @@ function upcomingMatches(matchRows=tournamentMatches()){
   return result;
 }
 function scorekeeperAssignments(matchRows=tournamentMatches(),eventEntries=tournamentEntries()){
-  // Zapisovatel nesmí právě hrát ani být v žádném z nejbližších zápasů
-  // naplánovaných na kterémkoli terči. Jeden člověk také nesmí zapisovat
-  // dva současně zobrazované zápasy.
+  // Zapisovatel následujícího zápasu se vybírá přednostně z hráčů
+  // předchozího zápasu na stejném terči. U právě rozehraného zápasu
+  // je tedy zapisovatelem někdo z posledního dokončeného zápasu na tomto terči.
   const ordered=[...matchRows].sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0)||String(a.id).localeCompare(String(b.id)));
   const counts=new Map(),assigned=new Map();
   const ids=eventEntries.map(e=>e.id);
   const live=ordered.filter(m=>m.status==="live").sort((a,b)=>(Number(a.board_no)||0)-(Number(b.board_no)||0));
   const activePlayers=new Set(live.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]).filter(Boolean));
   const scheduled=upcomingMatches(matchRows);
-  const nextByBoard=new Map(scheduled.map(x=>[Number(x.board),x.match]));
   const upcomingPlayers=new Set(scheduled.flatMap(x=>[x.match.player1_entry_id,x.match.player2_entry_id]).filter(Boolean));
   const reservedScorekeepers=new Set();
-
-  function chooseFor(match, extraExcluded=new Set()){
-    const excluded=new Set([...activePlayers,...upcomingPlayers,match.player1_entry_id,match.player2_entry_id,...extraExcluded].filter(Boolean));
-    const eligible=ids.filter(id=>!excluded.has(id)&&!reservedScorekeepers.has(id));
+  function previousOnBoard(match){
+    const board=Number(match.board_no);
+    return ordered.filter(m=>m.status==="finished" && Number(m.board_no)===board && m.id!==match.id)
+      .sort((a,b)=>new Date(b.ended_at||b.started_at||0).getTime()-new Date(a.ended_at||a.started_at||0).getTime())[0]||null;
+  }
+  function chooseFrom(match, sourceMatch, mode){
+    const excluded=new Set([match.player1_entry_id,match.player2_entry_id,...reservedScorekeepers].filter(Boolean));
+    for(const id of activePlayers){
+      const allowed=mode==="next"&&sourceMatch&&(id===sourceMatch.player1_entry_id||id===sourceMatch.player2_entry_id);
+      if(!allowed)excluded.add(id);
+    }
+    for(const id of upcomingPlayers){
+      const allowed=mode==="next"&&sourceMatch&&(id===sourceMatch.player1_entry_id||id===sourceMatch.player2_entry_id);
+      if(!allowed)excluded.add(id);
+    }
+    const pool=sourceMatch?[sourceMatch.player1_entry_id,sourceMatch.player2_entry_id].filter(Boolean):[];
+    let eligible=pool.filter(id=>ids.includes(id)&&!excluded.has(id));
+    // Když z předchozího zápasu není nikdo volný, použijeme ostatní volné hráče.
+    if(!eligible.length)eligible=ids.filter(id=>!excluded.has(id));
     if(!eligible.length)return null;
     const min=Math.min(...eligible.map(id=>counts.get(id)||0));
-    const tied=eligible.filter(id=>(counts.get(id)||0)===min);
-    const chosen=tied[0];
+    const chosen=eligible.find(id=>(counts.get(id)||0)===min);
     counts.set(chosen,(counts.get(chosen)||0)+1);
     reservedScorekeepers.add(chosen);
     return chosen;
   }
-
-  // Nejprve zapisovatelé skutečně probíhajících zápasů.
-  for(const m of live){
-    const next=nextByBoard.get(Number(m.board_no));
-    const nextPlayers=new Set(next?[next.player1_entry_id,next.player2_entry_id]:[]);
-    assigned.set(m.id,chooseFor(m,nextPlayers));
-  }
-
-  // Poté zapisovatelé pro nejbližší zápasy na obou terčích.
-  for(const {match} of scheduled){
+  // U právě hraného zápasu zapisuje někdo z předchozího dokončeného zápasu na tomtéž terči.
+  for(const m of live)assigned.set(m.id,chooseFrom(m,previousOnBoard(m),"live"));
+  // Následující zápas zapisuje jeden z hráčů, kteří právě hrají na daném terči.
+  for(const {board,match} of scheduled){
     if(assigned.has(match.id))continue;
-    assigned.set(match.id,chooseFor(match));
+    const previous=live.find(m=>Number(m.board_no)===Number(board))||previousOnBoard(match);
+    assigned.set(match.id,chooseFrom(match,previous,"next"));
   }
-
-  // Zbylé zápasy v přehledu pavouka mají pouze orientační přiřazení.
-  // Nezasahují do již rezervovaných zapisovatelů aktuálních zápasů.
+  // Zbylé zápasy v pavouku mají jen orientační přiřazení.
   for(const m of ordered){
     if(assigned.has(m.id))continue;
     const index=ordered.indexOf(m);
-    const next=ordered[index+1];
-    const nextPlayers=new Set(next?[next.player1_entry_id,next.player2_entry_id]:[]);
-    assigned.set(m.id,chooseFor(m,nextPlayers));
+    const previous=ordered.slice(0,index).filter(x=>x.status==="finished").slice(-1)[0]||null;
+    assigned.set(m.id,chooseFrom(m,previous,"other"));
   }
   return assigned;
 }
