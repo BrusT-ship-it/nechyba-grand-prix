@@ -42,6 +42,7 @@ footer{text-align:center;color:#666;padding:25px}
 .admin-match{border-bottom:1px solid var(--line);padding:12px 0}
 .score-input{width:62px}
 .group-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.bracket-tree{display:flex;gap:18px;overflow-x:auto;align-items:stretch;padding:12px 2px}.bracket-round{display:grid;grid-template-rows:auto repeat(8,minmax(50px,1fr));flex:1 0 220px;gap:0;min-width:200px;min-height:550px}.bracket-round h3{grid-row:1;align-self:start}.bracket-round.round-1 .bracket-match{grid-row:span 2}.bracket-round.round-2 .bracket-match{grid-row:span 4}.bracket-round.round-3 .bracket-match{grid-row:span 8}.bracket-round h3{text-align:center;color:#ddd}.bracket-match{position:relative;background:#171717;border:1px solid #555;border-left:4px solid var(--red);border-radius:7px;padding:12px;min-height:82px}.bracket-match .bracket-player{display:flex;justify-content:space-between;gap:8px;padding:4px 0}.bracket-match .winner{color:#65d994;font-weight:bold}.bracket-match .bracket-meta{font-size:12px;color:#999;margin-top:6px}.scorekeeper{color:#f3c969;font-size:12px;margin-top:5px}.bracket-round:not(:last-child) .bracket-match:after{content:"";position:absolute;right:-19px;top:50%;width:18px;border-top:1px solid #666}
 .player-admin-row{border-top:1px solid var(--line);padding:10px 0}
 .player-admin-row summary{cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 2px;font-weight:bold}
 .player-admin-row summary::marker{color:var(--red)}
@@ -167,7 +168,7 @@ footer{text-align:center;color:#666;padding:25px}
 
 <div class="panel">
 <strong>Automatické pořadí a body</strong>
-<p class="small">Do pavouka postupuje nejvýše 8 hráčů: při dvou skupinách první 4 z každé skupiny, při jedné skupině nejlepší 8 (nebo všichni, pokud jich je méně). Ostatní mají 1 bod. Vyřazení v 1. kole pavouka mají 2 body, v každém dalším kole o bod více.</p>
+<p class="small">Při 2–16 hráčích se vždy losují dvě skupiny A a B. Do jednostranného pavouka postupují nejvýše 4 nejlepší z každé skupiny (při menším počtu hráčů postupují všichni). Při 17 a více hráčích se hraje rovnou oboustranný pavouk bez skupin.</p>
 <div id="automaticPlacementsStatus" class="muted">Pořadí se dopočítá po dokončení všech zápasů pavouka.</div>
 </div>
 
@@ -333,6 +334,28 @@ function upcomingMatches(matchRows=tournamentMatches()){
   }
   return result;
 }
+function scorekeeperAssignments(matchRows=tournamentMatches(),eventEntries=tournamentEntries()){
+  const ordered=[...matchRows].sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0)||String(a.id).localeCompare(String(b.id)));
+  const counts=new Map(),assigned=new Map();
+  const ids=eventEntries.map(e=>e.id);
+  const activePlayers=new Set(ordered.filter(x=>x.status==="live").flatMap(x=>[x.player1_entry_id,x.player2_entry_id]).filter(Boolean));
+  ordered.forEach((m,index)=>{
+    const next=ordered[index+1];
+    const excluded=new Set([...activePlayers,m.player1_entry_id,m.player2_entry_id,next?.player1_entry_id,next?.player2_entry_id].filter(Boolean));
+    const eligible=ids.filter(id=>!excluded.has(id));
+    if(!eligible.length){assigned.set(m.id,null);return;}
+    const min=Math.min(...eligible.map(id=>counts.get(id)||0));
+    const tied=eligible.filter(id=>(counts.get(id)||0)===min);
+    // Rotace při shodném počtu zápisů; výsledek je stabilní i po obnovení stránky.
+    const chosen=tied[index%tied.length];
+    assigned.set(m.id,chosen);counts.set(chosen,(counts.get(chosen)||0)+1);
+  });
+  return assigned;
+}
+function scorekeeperName(match,matchRows=tournamentMatches(),eventEntries=tournamentEntries()){
+  const id=scorekeeperAssignments(matchRows,eventEntries).get(match.id);
+  return id?playerName(id):"nelze určit – málo volných hráčů";
+}
 function renderLive(){
   const active=activeMatches();
   const scheduled=new Map(upcomingMatches().map(x=>[x.board,x.match]));
@@ -346,11 +369,13 @@ function renderLive(){
         <h3>${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))}</h3>
         <div class="timer" data-start="${esc(playing.started_at||"")}">${formatDuration(playing.started_at)}</div>
         <div class="small">Skóre legů: ${playing.legs1??0} : ${playing.legs2??0}</div>
+        <div class="scorekeeper">Zapisuje: ${esc(scorekeeperName(playing))}</div>
       `:`<div class="muted">Terč je právě volný.</div>`}
       <div class="next">
         <div class="small">${playing?"PO DOKONČENÍ ZÁPASU":"DALŠÍ ZÁPAS"}</div>
         ${next?`<strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong>
-          <div class="small">Skupina ${esc(next.group_name||"—")} · pořadí ${esc(next.match_no??"—")}</div>`
+          <div class="small">Skupina ${esc(next.group_name||"—")} · pořadí ${esc(next.match_no??"—")}</div>
+          <div class="scorekeeper">Zapisuje: ${esc(scorekeeperName(next))}</div>`
           :`<span class="muted">Zatím není připraven další zápas.</span>`}
       </div>
     </div>`;
@@ -510,18 +535,17 @@ function renderBracketSeedControl(){
   }
   const groupMatches=ms.filter(m=>m.stage==="group");
   const done=groupMatches.filter(m=>m.status==="finished").length;
-  if(!groupMatches.length||done!==groupMatches.length){
-    target.innerHTML=`<div class="panel"><p class="small muted">Pavouk půjde vylosovat po dokončení všech skupinových zápasů (${done}/${groupMatches.length}).</p></div>`;
+  if(done!==groupMatches.length){
+    target.innerHTML=`<div class="panel"><p class="small muted">Pavouk půjde připravit po dokončení všech skupinových zápasů (${done}/${groupMatches.length}).</p></div>`;
     return;
   }
   const groupNames=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
   const unassigned=es.filter(e=>!e.group_name);
-  const invalidGroup=groupNames.some(g=>!groupMatches.some(m=>m.group_name===g));
-  if(!groupNames.length||unassigned.length||invalidGroup||groupNames.length>2){
-    target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Zkontroluj přiřazení všech hráčů do jedné nebo dvou skupin a jejich zápasy.</p></div>`;
+  if(groupNames.length!==2||groupNames[0]!=="A"||groupNames[1]!=="B"||unassigned.length){
+    target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Turnaj do 16 hráčů musí mít dvě skupiny A a B a každého hráče přiřazeného.</p></div>`;
     return;
   }
-  target.innerHTML=`<div class="panel"><div class="notice">Do jednostranného play-off postupuje nejvýše 8 nejlepších hráčů. Při dvou skupinách postupují první 4 z každé; při jedné skupině postupuje TOP 8. Ostatní získají 1 bod.</div><button type="button" class="action seed-knockout-btn">Vylosovat pavouk</button></div>`;
+  target.innerHTML=`<div class="panel"><div class="notice">Do jednostranného play-off postupují nejvýše 4 nejlepší z každé skupiny. Pokud má skupina méně než 4 hráče, postupují všichni. Pevné nasazení drží A1 a B1 na opačných stranách pavouka: ČF1 A1–B4, ČF2 A2–B3, ČF3 B1–A4, ČF4 B2–A3. A1 a B1 se tak mohou potkat nejdříve ve finále.</div><button type="button" class="action seed-knockout-btn">Vytvořit pavouk</button></div>`;
   target.querySelector(".seed-knockout-btn")?.addEventListener("click",seedKnockoutBracket);
   $("bracketSeedControlPublic").innerHTML="";
 }
@@ -589,24 +613,18 @@ async function seedKnockoutBracket(){
   const es=freshEntriesResult.data||[];
   if(es.length<2||es.length>16)return alert("Skupinový turnaj musí mít 2 až 16 hráčů.");
   const groupMatches=rows.filter(m=>m.stage==="group");
-  if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished"))return alert("Nejdřív musí být dokončeny všechny zápasy ve skupinách.");
+  if(!groupMatches.every(m=>m.status==="finished"))return alert("Nejdřív musí být dokončeny všechny zápasy ve skupinách.");
   const groupNames=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
-  if(!groupNames.length||es.some(e=>!e.group_name))return alert("Každý hráč musí být přiřazen do skupiny.");
-  if(groupNames.length>2)return alert("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
-  if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)||groupMatches.some(m=>m.group_name===g&&m.status!=="finished")))return alert("Ne všechny skupiny mají dokončené zápasy.");
-  let seededEntries=[];
-  if(groupNames.length===1){
-    const standings=groupStandingsFor(groupNames[0],es,groupMatches);
-    if(standings.length<2)return alert("Ve skupině musí být alespoň 2 hráči.");
-    seededEntries=standings.slice(0,8).map(x=>x.entry);
-  }else if(groupNames.length===2){
-    const first=groupStandingsFor(groupNames[0],es,groupMatches),second=groupStandingsFor(groupNames[1],es,groupMatches);
-    if(first.length<4||second.length<4)return alert("Do pavouka postupují 4 nejlepší z každé skupiny. Každá skupina proto musí mít alespoň 4 hráče.");
-    // Pořadí slotů 1–4 ze skupiny A a 1–4 ze skupiny B.
-    // Rozložení pavouka následně vytvoří dvojice A1–B4, A4–B1, A2–B3 a A3–B2.
-    // Vnitřní pořadí slotů odpovídá pořadí zápasů A1–B4, A2–B3, A3–B2, A4–B1.
-    seededEntries=[first[0].entry,first[2].entry,first[3].entry,first[1].entry,second[2].entry,second[0].entry,second[1].entry,second[3].entry];
-  }else return alert("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
+  if(groupNames.length!==2||groupNames[0]!=="A"||groupNames[1]!=="B"||es.some(e=>!e.group_name))return alert("Každý hráč musí být přiřazen do jedné ze dvou skupin A a B.");
+  const first=groupStandingsFor("A",es,groupMatches),second=groupStandingsFor("B",es,groupMatches);
+  if(!first.length||!second.length)return alert("Obě skupiny musí obsahovat alespoň jednoho hráče.");
+  // Pořadí nasazení odpovídá standardnímu pavouku 8 hráčů.
+  // Pozice seedů [1,8,4,5,2,7,3,6] pak vytvoří: A1–B4, A2–B3, B1–A4, B2–A3.
+  // A1 a B1 jsou na opačných polovinách a mohou se potkat nejdříve ve finále.
+  // Při menším počtu postupujících zachováme střídání A1, B1, A2, B2...; i zde jsou první dva nasazení odděleni.
+  const seededEntries=(first.length>=4&&second.length>=4)
+    ?[first[0].entry,second[0].entry,second[1].entry,first[1].entry,second[2].entry,first[2].entry,first[3].entry,second[3].entry]
+    :Array.from({length:Math.max(first.length,second.length)},(_,i)=>[first[i]?.entry,second[i]?.entry]).flat().filter(Boolean);
 
   const seededIds=seededEntries.map(e=>e.id);
   const expectedQualifiers=Math.min(8,es.length);
@@ -614,8 +632,8 @@ async function seedKnockoutBracket(){
     return alert("Losování bylo zastaveno: nepodařilo se správně vybrat postupující hráče. Žádný pavouk nebyl vytvořen.");
   }
   const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,rows);
-  const preview=bracketRows.map(m=>m.player1_entry_id===m.player2_entry_id?`${playerName(m.player1_entry_id)} – volný los (automatický postup)`:`${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}`).join("\n");
-  if(!confirm(`Vytvořit jednostranný play-off pavouk pro ${seededEntries.length} postupujících po dokončení skupin?\n\n${preview}\n\nOstatní hráči získají 1 bod.`))return;
+  const preview=bracketRows.map((m,i)=>`ČF ${i+1}: ${playerName(m.player1_entry_id)} vs. ${m.player1_entry_id===m.player2_entry_id?"VOLNÝ LOS":playerName(m.player2_entry_id)}`).join("\n");
+  if(!confirm(`Vytvořit pevně nasazený jednostranný pavouk pro ${seededEntries.length} postupujících?\n\n${preview}\n\nDalší kola budou automaticky navazovat podle vítězů. Ostatní hráči získají 1 bod.`))return;
   const {error:insertError}=await db.from("matches").insert(bracketRows);
   if(insertError)return alert("Pavouk se nepodařilo vytvořit: "+insertError.message);
   await loadData();
@@ -624,17 +642,32 @@ async function seedKnockoutBracket(){
 
 function renderBracketMatches(rows){
   const rounds=[...new Set(rows.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
-  return rounds.map(round=>{
-    const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round);
-    const phase=String(roundRows[0]?.group_name||"");
-    let title;
-    if(phase.startsWith("DE:WB:"))title=`Oboustranný pavouk – horní část, ${phase.split(":")[2]}. kolo`;
-    else if(phase.startsWith("DE:LB:"))title=phase.split(":")[2]?.startsWith("FINAL")?"Oboustranný pavouk – rozhodující kolo spodní části":`Oboustranný pavouk – spodní část, ${phase.split(":")[2]||"další"}. kolo`;
-    else if(phase.startsWith("DE:GF:2"))title="Rozhodující finále";
-    else if(phase.startsWith("DE:GF:"))title="Velké finále";
-    else title=roundRows.length===1?"Finále":roundRows.length===2?"Semifinále":round===1?"1. kolo":`${round}. kolo`;
-    return `<h3>${title}</h3>${roundRows.map(m=>{const bye=m.player1_entry_id===m.player2_entry_id&&m.status==="finished";return `<div class="panel"><div class="match"><span>${esc(playerName(m.player1_entry_id))} <strong>${bye?"VOLNÝ LOS":m.status==="finished"?`${m.legs1}:${m.legs2}`:"vs."}</strong> ${bye?"—":esc(playerName(m.player2_entry_id))}</span><span class="muted">${bye?"Postup bez zápasu":m.status==="finished"?"Odehráno":m.status==="live"?"Právě se hraje":"Čeká na zápas"}</span></div></div>`;}).join("")}`;
-  }).join("");
+  const isDouble=rows.some(m=>String(m.group_name||"").startsWith("DE:"));
+  if(isDouble){
+    return rounds.map(round=>{
+      const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round);
+      const phase=String(roundRows[0]?.group_name||"");
+      let title;
+      if(phase.startsWith("DE:WB:"))title=`Oboustranný pavouk – horní část, ${phase.split(":")[2]}. kolo`;
+      else if(phase.startsWith("DE:LB:"))title=phase.split(":")[2]?.startsWith("FINAL")?"Oboustranný pavouk – finále spodní části":`Oboustranný pavouk – spodní část, ${phase.split(":")[2]||"další"}. kolo`;
+      else if(phase.startsWith("DE:GF:2"))title="Rozhodující finále";
+      else if(phase.startsWith("DE:GF:"))title="Velké finále";
+      else title=`Kolo ${round}`;
+      return `<h3>${title}</h3>${roundRows.map(m=>bracketMatchCard(m)).join("")}`;
+    }).join("");
+  }
+  const totalRounds=Math.max(...rounds);
+  return `<div class="bracket-tree">${rounds.map(round=>{
+    const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round).sort((a,b)=>(a.match_no||0)-(b.match_no||0));
+    const title=round===totalRounds?(totalRounds===1?"Finále":"Finále"):totalRounds===3?(round===1?"Čtvrtfinále":"Semifinále"):totalRounds===2?(round===1?"Semifinále":"Finále"):`${round}. kolo`;
+    return `<div class="bracket-round round-${Math.min(3,totalRounds-round+1)}"><h3>${title}</h3>${roundRows.map(m=>bracketMatchCard(m)).join("")}</div>`;
+  }).join("")}</div>`;
+}
+function bracketMatchCard(m){
+  const bye=m.player1_entry_id===m.player2_entry_id&&m.status==="finished";
+  const winner=m.winner_entry_id;
+  const score=bye?"VOLNÝ LOS":m.status==="finished"?`${m.legs1}:${m.legs2}`:"vs.";
+  return `<div class="bracket-match"><div class="bracket-player ${winner===m.player1_entry_id?"winner":""}"><span>${esc(playerName(m.player1_entry_id))}</span>${m.status==="finished"&&!bye?`<strong>${m.legs1}</strong>`:""}</div><div class="bracket-player ${winner===m.player2_entry_id?"winner":""}"><span>${bye?"—":esc(playerName(m.player2_entry_id))}</span>${m.status==="finished"&&!bye?`<strong>${m.legs2}</strong>`:""}</div><div class="bracket-meta">${bye?"Postup bez zápasu":m.status==="finished"?"Odehráno":m.status==="live"?"Právě se hraje":"Čeká na zápas"}</div><div class="scorekeeper">Zapisuje: ${esc(scorekeeperName(m))}</div></div>`;
 }
 function makeDoubleEliminationPhaseRows(tournamentId,entryIds,roundNo,phaseName,existingRows=[]){
   const ids=[...entryIds];
@@ -845,6 +878,7 @@ function adminMatchHTML(m){
   return `<div class="admin-match">
     <div><strong>${esc(playerName(m.player1_entry_id))} vs. ${esc(playerName(m.player2_entry_id))}</strong>
     <span class="small"> · ${esc(m.stage)} ${m.group_name&&!String(m.group_name).startsWith("DE:")?"/ skupina "+esc(m.group_name):""} · ${esc(m.status||"waiting")}</span></div>
+    <div class="scorekeeper">Zapisovatel skóre: ${esc(scorekeeperName(m))}</div>
     ${isPlaying?`<div class="small">Terč ${esc(m.board_no)} · běží ${formatDuration(m.started_at)}</div>
       <label>Legy:</label>
       <input class="score-input" type="number" min="0" max="2" id="score1-${esc(m.id)}" value="${m.legs1??0}">
@@ -872,9 +906,9 @@ function renderAdminBoards(){
     const playing=active.find(m=>Number(m.board_no)===board);
     const next=scheduled.get(board);
     return `<div class="panel"><strong>Terč ${board}</strong><br>
-      ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · ${formatDuration(playing.started_at)}</p>`
+      ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · ${formatDuration(playing.started_at)}</p><p class="scorekeeper">Zapisuje: ${esc(scorekeeperName(playing))}</p>`
         :`<p class="muted">Terč je volný.</p>`}
-      ${next?`<p>${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
+      ${next?`<p>${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p><p class="scorekeeper">Zapisovatel: ${esc(scorekeeperName(next))}</p>
         ${!playing?`<button class="action" onclick="startNextMatch(${board},'${esc(next.id)}')">Začít hrát na terči ${board}</button>`:""}`
         :`<p class="muted">Není připravený další zápas.</p>`}
     </div>`;
@@ -1206,9 +1240,8 @@ function shuffle(array){
   return a;
 }
 function chooseGroupCount(n){
-  // Do 8 hráčů jedna skupina, od 9 do 16 hráčů dvě vyrovnané skupiny.
-  // Tím mají obě skupiny vždy alespoň 4 hráče pro postup TOP 4.
-  return n<=8?1:2;
+  // Každý turnaj do 16 hráčů má vždy dvě co nejvyrovnanější skupiny.
+  return 2;
 }
 function createRoundRobin(entryIds){
   let list=[...entryIds];
@@ -1289,10 +1322,9 @@ $("drawGroupsBtn").addEventListener("click",async()=>{
   }
   const rows=[];let matchNo=1;
   groups.forEach((group,i)=>createRoundRobin(group.map(e=>e.id)).forEach(m=>rows.push({tournament_id,stage:"group",group_name:String.fromCharCode(65+i),round_no:m.round_no,match_no:matchNo++,board_no:null,player1_entry_id:m.player1_entry_id,player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:2,status:"waiting"})));
-  const {error}=await db.from("matches").insert(rows);
-  if(error)return alert("Skupiny byly uloženy, ale zápasy se nepodařilo vytvořit: "+error.message);
+  if(rows.length){const {error}=await db.from("matches").insert(rows);if(error)return alert("Skupiny byly uloženy, ale zápasy se nepodařilo vytvořit: "+error.message);}
   selectedTournament=tournament_id;await loadData();
-  alert(`Hotovo! ${es.length} hráčů rozděleno do ${groupCount} ${groupCount===1?"skupiny":"skupin"}. ${groupCount===1?"Z jedné skupiny postoupí nejvýše TOP 8.":"Z každé skupiny postoupí TOP 4."} Ostatní získají 1 bod. Po dokončení skupin se vytvoří jednostranný pavouk.`);
+  alert(`Hotovo! ${es.length} hráčů rozděleno do dvou vyrovnaných skupin A a B. Z každé postupují nejvýše 4 nejlepší (pokud je hráčů méně, postupují všichni). Ostatní získají 1 bod. Po dokončení skupin se vytvoří jednostranný pavouk.`);
 });
 
 window.startNextMatch=async function(board,matchId){
