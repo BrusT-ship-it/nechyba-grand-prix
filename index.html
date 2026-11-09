@@ -819,10 +819,10 @@ function renderAll(){
   const ms=tournamentMatches();
   renderGroups();
   $("startContent").innerHTML=es.length?
-    `<table><tr><th>Hráč</th><th>Skupina</th></tr>${es.map(e=>{
+    `<div class="table-wrap"><table><tr><th>Hráč</th><th>Skupina</th>${isAdmin?"<th>Akce</th>":""}</tr>${es.map(e=>{
       const p=players.find(p=>p.id===e.player_id);
-      return `<tr><td>${esc(p?.name||"Neznámý hráč")}</td><td>${esc(e.group_name||"Zatím nerozlosován")}</td></tr>`;
-    }).join("")}</table>`:"Zatím nejsou přihlášení hráči.";
+      return `<tr><td>${esc(p?.name||"Neznámý hráč")}</td><td>${esc(e.group_name||"Zatím nerozlosován")}</td>${isAdmin?`<td><button type="button" class="danger" data-remove-entry="${esc(e.id)}">Odebrat ze startovní listiny</button></td>`:""}</tr>`;
+    }).join("")}</table></div>`:"Zatím nejsou přihlášení hráči.";
   const knockout=ms.filter(m=>m.stage!=="group").sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
   $("bracketContent").innerHTML=knockout.length?renderBracketMatches(knockout):(es.length>16?"Oboustranný pavouk bude vytvořen po spuštění turnaje v administraci.":"Pavouk bude vytvořen po dokončení skupin.");
   if(isAdmin)renderBracketSeedControl();
@@ -1228,7 +1228,7 @@ $("historicalPointsEditor").addEventListener("click",async event=>{
   alert("Body byly uloženy.");
 });
 
-$("adminEntries").addEventListener("click",async event=>{
+async function handleRemoveEntryClick(event){
   const button=event.target.closest("button[data-remove-entry]");
   if(!button)return;
   if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
@@ -1253,7 +1253,9 @@ $("adminEntries").addEventListener("click",async event=>{
   }
   await loadData();
   alert("Hráč byl odebrán ze startovní listiny vybraného turnaje.");
-});
+}
+$("adminEntries").addEventListener("click",handleRemoveEntryClick);
+$("startContent").addEventListener("click",handleRemoveEntryClick);
 $("addEntryBtn").addEventListener("click",async()=>{
   const player_id=$("entryPlayer").value,tournament_id=$("entryTournament").value;
   if(!player_id||!tournament_id)return alert("Vyber hráče a turnaj.");
