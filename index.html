@@ -647,6 +647,8 @@ async function seedKnockoutBracket(){
 
 function renderBracketMatches(rows){
   const rounds=[...new Set(rows.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
+  const active=activeMatches();
+  const scheduled=new Map(upcomingMatches().map(x=>[x.board,x.match]));
   return rounds.map(round=>{
     const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round);
     const phase=String(roundRows[0]?.group_name||"");
@@ -656,7 +658,12 @@ function renderBracketMatches(rows){
     else if(phase.startsWith("DE:GF:2"))title="Rozhodující finále";
     else if(phase.startsWith("DE:GF:"))title="Velké finále";
     else title=roundRows.length===1?"Finále":roundRows.length===2?"Semifinále":round===1?"1. kolo":`${round}. kolo`;
-    return `<h3>${title}</h3>${roundRows.map(m=>{const bye=m.player1_entry_id===m.player2_entry_id&&m.status==="finished";return `<div class="panel"><div class="match"><span>${esc(playerName(m.player1_entry_id))} <strong>${bye?"VOLNÝ LOS":m.status==="finished"?`${m.legs1}:${m.legs2}`:"vs."}</strong> ${bye?"—":esc(playerName(m.player2_entry_id))}</span><span class="muted">${bye?"Postup bez zápasu":m.status==="finished"?"Odehráno":m.status==="live"?"Právě se hraje":"Čeká na zápas"}</span></div></div>`;}).join("")}`;
+    return `<h3>${title}</h3>${roundRows.map(m=>{
+      const bye=m.player1_entry_id===m.player2_entry_id&&m.status==="finished";
+      const board=Number(m.board_no);
+      const scorekeeper=m.status==="live"&&board?chooseBoardScorekeeper(m,scheduled.get(board),active,scheduled,board):null;
+      return `<div class="panel"><div class="match"><span>${esc(playerName(m.player1_entry_id))} <strong>${bye?"VOLNÝ LOS":m.status==="finished"?`${m.legs1}:${m.legs2}`:"vs."}</strong> ${bye?"—":esc(playerName(m.player2_entry_id))}</span><span class="muted">${bye?"Postup bez zápasu":m.status==="finished"?"Odehráno":m.status==="live"?`Právě se hraje · terč ${board||"—"}`:"Čeká na zápas"}</span></div>${m.status==="live"?`<p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen"}</strong></p>`:""}</div>`;
+    }).join("")}`;
   }).join("");
 }
 function makeDoubleEliminationPhaseRows(tournamentId,entryIds,roundNo,phaseName,existingRows=[]){
