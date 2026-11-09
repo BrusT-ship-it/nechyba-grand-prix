@@ -846,13 +846,17 @@ function renderAll(){
       </details>`;
     }).join("")||"Zatím nejsou přidaní žádní hráči.";
     $("entryPlayer").innerHTML=players.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
-    $("adminEntries").innerHTML=es.length
-      ? `<p>Ve vybraném turnaji je přihlášeno: <strong>${es.length}</strong> hráčů</p>
-         <div class="table-wrap"><table><tr><th>Hráč</th><th>Akce</th></tr>
-         ${es.map(e=>`<tr><td>${esc(players.find(p=>p.id===e.player_id)?.name||"Neznámý hráč")}</td>
-           <td><button type="button" class="danger" data-remove-entry="${esc(e.id)}">Odebrat ze startovní listiny</button></td></tr>`).join("")}
-         </table></div>`
-      : "Ve vybraném turnaji zatím nejsou přihlášení hráči.";
+    const adminTournamentId=$("entryTournament")?.value||selectedTournament;
+    const adminEntriesForTournament=entries.filter(e=>e.tournament_id===adminTournamentId);
+    const adminTournamentName=tournaments.find(t=>t.id===adminTournamentId)?.name||"vybraný turnaj";
+    $("adminEntries").innerHTML=`<p>Startovní listina – <strong>${esc(adminTournamentName)}</strong></p>
+      ${adminEntriesForTournament.length
+        ? `<p>Přihlášeno: <strong>${adminEntriesForTournament.length}</strong> hráčů. U každého hráče můžeš odebrat pouze jeho účast v tomto turnaji.</p>
+           <div class="table-wrap"><table><tr><th>Hráč</th><th>Akce</th></tr>
+           ${adminEntriesForTournament.map(e=>`<tr><td>${esc(players.find(p=>p.id===e.player_id)?.name||"Neznámý hráč")}</td>
+             <td><button type="button" class="danger" data-remove-entry="${esc(e.id)}">Odebrat ze startovní listiny</button></td></tr>`).join("")}
+           </table></div>`
+        : "V tomto turnaji zatím nejsou přihlášení hráči."}`;
     $("adminMatches").innerHTML=ms.length?ms.map(adminMatchHTML).join(""):"Zatím nejsou vytvořené zápasy.";
     renderAdminBoards();
     renderAutomaticPlacementsStatus();
