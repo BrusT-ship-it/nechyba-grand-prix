@@ -67,6 +67,18 @@ footer{text-align:center;color:#666;padding:25px}
 .stat-card strong{display:block;font-size:24px;color:#fff;margin-top:5px}
 .profile-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
 .export-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+
+.bracket-tree{align-items:stretch;gap:28px;padding:18px 8px 24px;}
+.bracket-round{position:relative;grid-template-rows:auto repeat(8,minmax(56px,1fr));min-height:610px;flex:1 0 245px;}
+.bracket-round h3{font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 12px;}
+.bracket-match{align-self:stretch;display:flex;flex-direction:column;justify-content:center;min-height:0;padding:12px 13px;background:linear-gradient(145deg,#1d1d1d,#111);border:1px solid #454545;border-left:4px solid var(--red);box-shadow:0 4px 14px #0005;}
+.bracket-match .bracket-player{align-items:center;min-height:27px;font-size:14px;}
+.bracket-match .bracket-meta{border-top:1px solid #333;padding-top:6px;margin-top:6px;}
+.bracket-round:not(:last-child) .bracket-match:after{right:-29px;width:28px;border-top:2px solid #999;}
+.bracket-round.round-1 .bracket-match:nth-of-type(odd):before,
+.bracket-round.round-2 .bracket-match:nth-of-type(odd):before{content:"";position:absolute;right:-29px;top:50%;height:100%;border-left:2px solid #999;pointer-events:none;}
+.bracket-round.round-3 .bracket-match:after{display:none;}
+@media(max-width:650px){.bracket-tree{gap:24px}.bracket-round{flex-basis:220px;min-height:560px}}
 @media print{body{background:#fff;color:#111}header,nav,#status,footer,.no-print{display:none!important}main{max-width:none;padding:0}.panel{background:#fff;color:#111;border:0}.panel h2,.panel h3{color:#111}table{page-break-inside:auto}tr{page-break-inside:avoid}}
 @media(max-width:650px){
   .player-tournament-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -356,13 +368,13 @@ function scorekeeperAssignments(matchRows=tournamentMatches(),eventEntries=tourn
   function chooseFrom(match, sourceMatch, mode){
     const excluded=new Set([match.player1_entry_id,match.player2_entry_id,...reservedScorekeepers].filter(Boolean));
     for(const id of activePlayers){
-      const allowed=mode==="next"&&sourceMatch&&(id===sourceMatch.player1_entry_id||id===sourceMatch.player2_entry_id);
-      if(!allowed)excluded.add(id);
+      const belongsToSameBoardSource=sourceIsSameBoard&&pool.includes(id);
+      if(!belongsToSameBoardSource)excluded.add(id);
     }
-    for(const id of upcomingPlayers){
-      const allowed=mode==="next"&&sourceMatch&&(id===sourceMatch.player1_entry_id||id===sourceMatch.player2_entry_id);
-      if(!allowed)excluded.add(id);
-    }
+    // Nikdo z hráčů, kteří mají nastoupit v některém z nejbližších zápasů,
+    // nesmí být zapisovatelem na druhém terči.
+    for(const id of upcomingPlayers)excluded.add(id);
+    const sourceIsSameBoard=mode==="next"&&sourceMatch&&Number(sourceMatch.board_no)===Number(match.board_no);
     const pool=sourceMatch?[sourceMatch.player1_entry_id,sourceMatch.player2_entry_id].filter(Boolean):[];
     let eligible=pool.filter(id=>ids.includes(id)&&!excluded.has(id));
     // Když z předchozího zápasu není nikdo volný, použijeme ostatní volné hráče.
@@ -382,7 +394,7 @@ function scorekeeperAssignments(matchRows=tournamentMatches(),eventEntries=tourn
     const previous=live.find(m=>Number(m.board_no)===Number(board))||previousOnBoard(match);
     assigned.set(match.id,chooseFrom(match,previous,"next"));
   }
-  // Zbylé zápasy v pavouku mají jen orientační přiřazení.
+  // Zbylé zápasy v pavouku mají jen orientační přiřazení; výběr se přepočítá po změně programu.
   for(const m of ordered){
     if(assigned.has(m.id))continue;
     const index=ordered.indexOf(m);
@@ -444,11 +456,13 @@ function renderGroups(){
         if(m.winner_entry_id===entry.id)wins++;
       });
       return {entry,played,wins,legsFor,legsAgainst};
-    }).sort((a,b)=>b.wins-a.wins||(b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||b.legsFor-a.legsFor||String(players.find(p=>p.id===a.entry.player_id)?.name||"").localeCompare(String(players.find(p=>p.id===b.entry.player_id)?.name||""),"cs"));
-    const matchRows=ms.filter(m=>m.group_name===g).sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
+    });
+    const groupOnlyMatches=ms.filter(m=>m.group_name===g);
+    const orderedStats=sortGroupStats(stats,groupOnlyMatches);
+    const matchRows=groupOnlyMatches.sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
     return `<div class="panel"><h3>Skupina ${esc(g)}</h3>
       <table><tr><th>Hráč</th><th>Odehráno</th><th>Výhry</th><th>Legy</th></tr>
-      ${stats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
+      ${orderedStats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
       <h3>Program a výsledky</h3>
       ${matchRows.map(m=>`<p>${esc(playerName(m.player1_entry_id))} <strong>${m.status==="finished"?`${m.legs1}:${m.legs2}`:"– : –"}</strong> ${esc(playerName(m.player2_entry_id))} <span class="small">(${esc(m.status||"waiting")})</span></p>`).join("")}
     </div>`;
@@ -537,9 +551,30 @@ function renderSeriesResults(){
     ${finalRows?`<div class="table-wrap"><table><tr><th>Umístění</th><th>Hráč</th></tr>${finalRows}</table></div>`:"Finálové výsledky zatím nejsou zaznamenány."}
   `;
 }
+function sortGroupStats(rows, groupMatches){
+  const nameOf=row=>String(players.find(p=>p.id===row.entry.player_id)?.name||"");
+  const key=x=>`${x.wins}|${x.legsFor-x.legsAgainst}|${x.legsFor}`;
+  const sorted=[...rows].sort((a,b)=>b.wins-a.wins||
+    (b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||
+    b.legsFor-a.legsFor||nameOf(a).localeCompare(nameOf(b),"cs"));
+  // Vzájemný zápas rozhoduje při úplné statistické shodě právě dvou hráčů.
+  for(let i=0;i<sorted.length;){
+    let j=i+1;
+    while(j<sorted.length&&key(sorted[j])===key(sorted[i]))j++;
+    if(j-i===2){
+      const one=sorted[i],two=sorted[i+1];
+      const direct=groupMatches.find(m=>m.status==="finished"&&
+        ((m.player1_entry_id===one.entry.id&&m.player2_entry_id===two.entry.id)||
+         (m.player1_entry_id===two.entry.id&&m.player2_entry_id===one.entry.id)));
+      if(direct?.winner_entry_id===two.entry.id)sorted.splice(i,2,two,one);
+    }
+    i=j;
+  }
+  return sorted;
+}
 function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMatches=tournamentMatches()){
   const groupMatches=eventMatches.filter(m=>m.stage==="group"&&m.group_name===groupName);
-  return eventEntries.filter(e=>e.group_name===groupName).map(entry=>{
+  const rows=eventEntries.filter(e=>e.group_name===groupName).map(entry=>{
     let wins=0,legsFor=0,legsAgainst=0;
     groupMatches.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
       const first=m.player1_entry_id===entry.id;
@@ -548,10 +583,8 @@ function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMat
       if(m.winner_entry_id===entry.id)wins++;
     });
     return {entry,wins,legsFor,legsAgainst};
-  }).sort((a,b)=>b.wins-a.wins||
-    (b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||
-    b.legsFor-a.legsFor||
-    String(players.find(p=>p.id===a.entry.player_id)?.name||"").localeCompare(String(players.find(p=>p.id===b.entry.player_id)?.name||""),"cs"));
+  });
+  return sortGroupStats(rows,groupMatches);
 }
 function renderBracketSeedControl(){
   const target=$("bracketSeedControl");
@@ -699,7 +732,7 @@ function renderBracketMatches(rows){
   return `<div class="bracket-tree">${rounds.map(round=>{
     const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round).sort((a,b)=>(a.match_no||0)-(b.match_no||0));
     const title=round===totalRounds?(totalRounds===1?"Finále":"Finále"):totalRounds===3?(round===1?"Čtvrtfinále":"Semifinále"):totalRounds===2?(round===1?"Semifinále":"Finále"):`${round}. kolo`;
-    return `<div class="bracket-round round-${Math.min(3,totalRounds-round+1)}"><h3>${title}</h3>${roundRows.map(m=>bracketMatchCard(m)).join("")}</div>`;
+    return `<div class="bracket-round round-${Math.min(3,round)}"><h3>${title}</h3>${roundRows.map(m=>bracketMatchCard(m)).join("")}</div>`;
   }).join("")}</div>`;
 }
 function bracketMatchCard(m){
