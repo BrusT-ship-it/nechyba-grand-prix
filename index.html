@@ -363,6 +363,30 @@ function matchHTML(m){
     <span class="muted">${esc(m.stage)} · ${esc(m.status||"waiting")}</span>
   </div></div>`;
 }
+function orderGroupStandings(rows, groupMatches){
+  const nameOf=row=>String(players.find(p=>p.id===row.entry.player_id)?.name||"");
+  const baseCompare=(a,b)=>b.wins-a.wins||
+    (b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||
+    b.legsFor-a.legsFor;
+  const sorted=[...rows].sort((a,b)=>baseCompare(a,b)||nameOf(a).localeCompare(nameOf(b),"cs"));
+  // Při shodě výher, rozdílu legů i počtu získaných legů rozhodne vzájemný zápas,
+  // ale pouze pokud jsou přesně dva hráči se shodnými statistikami.
+  for(let i=0;i<sorted.length;){
+    let j=i+1;
+    while(j<sorted.length&&baseCompare(sorted[i],sorted[j])===0)j++;
+    if(j-i===2){
+      const first=sorted[i].entry.id, second=sorted[i+1].entry.id;
+      const direct=groupMatches.find(m=>m.status==="finished"&&
+        ((m.player1_entry_id===first&&m.player2_entry_id===second)||
+         (m.player1_entry_id===second&&m.player2_entry_id===first)));
+      if(direct&&direct.winner_entry_id){
+        if(direct.winner_entry_id===second)[sorted[i],sorted[i+1]]=[sorted[i+1],sorted[i]];
+      }
+    }
+    i=j;
+  }
+  return sorted;
+}
 function renderGroups(){
   const es=tournamentEntries();
   const ms=tournamentMatches().filter(m=>m.stage==="group");
@@ -380,11 +404,12 @@ function renderGroups(){
         if(m.winner_entry_id===entry.id)wins++;
       });
       return {entry,played,wins,legsFor,legsAgainst};
-    }).sort((a,b)=>b.wins-a.wins||(b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||b.legsFor-a.legsFor||String(players.find(p=>p.id===a.entry.player_id)?.name||"").localeCompare(String(players.find(p=>p.id===b.entry.player_id)?.name||""),"cs"));
+    });
+    const orderedStats=orderGroupStandings(stats,ms.filter(m=>m.group_name===g));
     const matchRows=ms.filter(m=>m.group_name===g).sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
     return `<div class="panel"><h3>Skupina ${esc(g)}</h3>
       <table><tr><th>Hráč</th><th>Odehráno</th><th>Výhry</th><th>Legy</th></tr>
-      ${stats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
+      ${orderedStats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
       <h3>Program a výsledky</h3>
       ${matchRows.map(m=>`<p>${esc(playerName(m.player1_entry_id))} <strong>${m.status==="finished"?`${m.legs1}:${m.legs2}`:"– : –"}</strong> ${esc(playerName(m.player2_entry_id))} <span class="small">(${esc(m.status||"waiting")})</span></p>`).join("")}
     </div>`;
@@ -475,7 +500,7 @@ function renderSeriesResults(){
 }
 function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMatches=tournamentMatches()){
   const groupMatches=eventMatches.filter(m=>m.stage==="group"&&m.group_name===groupName);
-  return eventEntries.filter(e=>e.group_name===groupName).map(entry=>{
+  const rows=eventEntries.filter(e=>e.group_name===groupName).map(entry=>{
     let wins=0,legsFor=0,legsAgainst=0;
     groupMatches.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
       const first=m.player1_entry_id===entry.id;
@@ -484,10 +509,8 @@ function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMat
       if(m.winner_entry_id===entry.id)wins++;
     });
     return {entry,wins,legsFor,legsAgainst};
-  }).sort((a,b)=>b.wins-a.wins||
-    (b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||
-    b.legsFor-a.legsFor||
-    String(players.find(p=>p.id===a.entry.player_id)?.name||"").localeCompare(String(players.find(p=>p.id===b.entry.player_id)?.name||""),"cs"));
+  });
+  return orderGroupStandings(rows,groupMatches);
 }
 function renderBracketSeedControl(){
   const target=$("bracketSeedControl");
