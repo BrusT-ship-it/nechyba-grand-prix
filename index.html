@@ -846,7 +846,13 @@ function renderAll(){
       </details>`;
     }).join("")||"Zatím nejsou přidaní žádní hráči.";
     $("entryPlayer").innerHTML=players.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
-    $("adminEntries").innerHTML=es.length?`<p>Ve vybraném turnaji je přihlášeno: <strong>${es.length}</strong> hráčů</p>`:"Ve vybraném turnaji zatím nejsou přihlášení hráči.";
+    $("adminEntries").innerHTML=es.length
+      ? `<p>Ve vybraném turnaji je přihlášeno: <strong>${es.length}</strong> hráčů</p>
+         <div class="table-wrap"><table><tr><th>Hráč</th><th>Akce</th></tr>
+         ${es.map(e=>`<tr><td>${esc(players.find(p=>p.id===e.player_id)?.name||"Neznámý hráč")}</td>
+           <td><button type="button" class="danger" data-remove-entry="${esc(e.id)}">Odebrat ze startovní listiny</button></td></tr>`).join("")}
+         </table></div>`
+      : "Ve vybraném turnaji zatím nejsou přihlášení hráči.";
     $("adminMatches").innerHTML=ms.length?ms.map(adminMatchHTML).join(""):"Zatím nejsou vytvořené zápasy.";
     renderAdminBoards();
     renderAutomaticPlacementsStatus();
@@ -1222,6 +1228,32 @@ $("historicalPointsEditor").addEventListener("click",async event=>{
   alert("Body byly uloženy.");
 });
 
+$("adminEntries").addEventListener("click",async event=>{
+  const button=event.target.closest("button[data-remove-entry]");
+  if(!button)return;
+  if(!isAdmin)return alert("Tuto akci může provést pouze pořadatel.");
+  const entryId=button.dataset.removeEntry;
+  const entry=entries.find(e=>e.id===entryId);
+  if(!entry)return alert("Hráč už na startovní listině není.");
+  const player=players.find(p=>p.id===entry.player_id);
+  const tournament=tournaments.find(t=>t.id===entry.tournament_id);
+  const linkedMatches=matches.filter(m=>
+    m.tournament_id===entry.tournament_id&&
+    (m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)
+  );
+  if(linkedMatches.length||entry.final_place!=null||entry.series_points!=null){
+    return alert("Hráče nelze odebrat, protože už má v tomto turnaji zápasy nebo uložené umístění/body. Nejdříve bezpečně zruš rozlosování; historie a výsledky zůstávají zachované.");
+  }
+  if(!confirm(`Opravdu odebrat hráče „${player?.name||"Neznámý hráč"}“ ze startovní listiny turnaje „${tournament?.name||"vybraný turnaj"}“? Samotný hráč ani jeho účasti v jiných turnajích se nesmažou.`))return;
+  button.disabled=true;
+  const {error}=await db.from("tournament_entries").delete().eq("id",entry.id);
+  if(error){
+    button.disabled=false;
+    return alert("Hráče se nepodařilo odebrat: "+error.message);
+  }
+  await loadData();
+  alert("Hráč byl odebrán ze startovní listiny vybraného turnaje.");
+});
 $("addEntryBtn").addEventListener("click",async()=>{
   const player_id=$("entryPlayer").value,tournament_id=$("entryTournament").value;
   if(!player_id||!tournament_id)return alert("Vyber hráče a turnaj.");
