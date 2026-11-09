@@ -1,5 +1,3 @@
-name = "nechyba-grand-prix"
-compatibility_date = "2026-11-05"
-
-[assets]
-directory = "."
+name = "nechyba-grand-prix-web1"
+pages_build_output_dir = "."
+compatibility_date = "2026-11-09"
