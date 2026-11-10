@@ -79,6 +79,16 @@ footer{text-align:center;color:#999;padding:25px}
   main{padding:10px}
   .panel{padding:12px}
 }
+
+.admin-section{margin:10px 0;border:1px solid var(--border, #444);border-radius:12px;overflow:hidden;background:var(--panel, transparent)}
+.admin-section>summary{cursor:pointer;padding:14px 16px;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.admin-section>summary::-webkit-details-marker{display:none}
+.admin-section>summary::after{content:"＋";font-size:1.1em;opacity:.7}
+.admin-section[open]>summary::after{content:"−"}
+.admin-section>.panel{border:0;border-radius:0;padding-top:4px}
+.admin-board-score{margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #444)}
+.admin-board-score .score-input{width:64px;max-width:22vw}
+
 </style>
 </head>
 <body>
@@ -94,7 +104,7 @@ footer{text-align:center;color:#999;padding:25px}
 <button data-tab="start" role="tab" aria-selected="false" aria-controls="start">Start list</button>
 <button data-tab="results" role="tab" aria-selected="false" aria-controls="results">Celkové výsledky</button>
 <button data-tab="players" role="tab" aria-selected="false" aria-controls="players">Hráči a statistiky</button>
-<button data-tab="admin" role="tab" aria-selected="false" aria-controls="admin">Administrace</button>
+<button data-tab="admin" role="tab" aria-selected="false" aria-controls="admin">Admin</button>
 </nav>
 
 <main>
@@ -137,7 +147,7 @@ footer{text-align:center;color:#999;padding:25px}
 </section>
 
 <section role="tabpanel" id="admin" class="hidden">
-<h2>Administrace pořadatele</h2>
+<h2>Admin</h2>
 <div class="panel" id="loginPanel">
 <p>Přihlášení pořadatele</p>
 <input id="email" type="email" placeholder="E-mail" autocomplete="username" aria-label="E-mail">
@@ -147,6 +157,14 @@ footer{text-align:center;color:#999;padding:25px}
 
 <div id="adminPanel" class="hidden">
 <div class="panel">
+<strong>Terče – zápis výsledků</strong>
+<p class="small">Aktuální zápasy a zadávání výsledků najdeš přímo u příslušného terče.</p>
+<div id="adminBoards"></div>
+</div>
+
+<details class="admin-section">
+<summary>Hráči</summary>
+<div class="panel">
 <strong>Správa hráčů a přihlášení do turnajů</strong>
 <p class="small">Rozklikni hráče, vyber nezávisle jeho účast v jednotlivých večerech a potvrď tlačítkem Uložit účast.</p>
 <input id="playerName" placeholder="Jméno hráče" aria-label="Jméno hráče">
@@ -154,6 +172,10 @@ footer{text-align:center;color:#999;padding:25px}
 <div id="adminPlayers"></div>
 </div>
 
+</details>
+
+<details class="admin-section">
+<summary>Startovní listina a losování</summary>
 <div class="panel">
 <strong>Startovní listina turnaje</strong>
 <p class="small">Vyber hráče a turnaj. Skupiny zatím nevyplňuješ – vytvoří je automaticky losování.</p>
@@ -171,6 +193,10 @@ footer{text-align:center;color:#999;padding:25px}
 <div id="bracketSeedControl"></div>
 </div>
 
+</details>
+
+<details class="admin-section">
+<summary>Pořadí a body</summary>
 <div class="panel">
 <strong>Automatické pořadí a body</strong>
 <p class="small">Do pavouka postupuje nejvýše 8 hráčů: při dvou skupinách první 4 z každé skupiny, při jedné skupině nejlepší 8 (nebo všichni, pokud jich je méně). Ostatní mají 1 bod. Vyřazení v 1. kole pavouka mají 2 body, v každém dalším kole o bod více.</p>
@@ -184,6 +210,10 @@ footer{text-align:center;color:#999;padding:25px}
 <div id="historicalPointsEditor"></div>
 </div>
 
+</details>
+
+<details class="admin-section">
+<summary>Finálová osmička</summary>
 <div class="panel">
 <strong>Finálová osmička</strong>
 <p class="small">Po dokončení a zadání výsledků prvních pěti večerů zkontroluj TOP 8 a tlačítkem nastav startovní listinu šestého večera. Nezadaná umístění zatím znamenají 0 bodů. Existující finálové zápasy ani výsledky se nikdy nepřepisují.</p>
@@ -191,15 +221,15 @@ footer{text-align:center;color:#999;padding:25px}
 <button class="action" id="syncFinalistsBtn">Nastavit finálovou osmičku podle série</button>
 </div>
 
-<div class="panel">
-<strong>Terče a zápasy</strong>
-<div id="adminBoards"></div>
-</div>
+</details>
 
+<details class="admin-section">
+<summary>Historie zápasů a opravy výsledků</summary>
 <div class="panel">
-<strong>Všechny zápasy turnaje</strong>
+<p class="small">Zde najdeš čekající zápasy a možnost opravit už uložené výsledky. Právě hrané zápasy zapisuj u terče výše.</p>
 <div id="adminMatches"></div>
 </div>
+</details>
 
 <button class="secondary" id="logoutBtn">Odhlásit se</button>
 </div>
@@ -920,7 +950,7 @@ function renderAll(){
            ${adminEntriesForTournament.map(e=>`<tr><td>${esc(players.find(p=>p.id===e.player_id)?.name||"Neznámý hráč")}</td></tr>`).join("")}
            </table></div>`
         : "V tomto turnaji zatím nejsou přihlášení hráči."}`;
-    setFormHTML($("adminMatches"),ms.length?ms.map(adminMatchHTML).join(""):"Zatím nejsou vytvořené zápasy.");
+    setFormHTML($("adminMatches"),ms.filter(m=>m.status!=="live").length?`<input id="adminMatchSearch" type="search" placeholder="Hledat hráče nebo zápas…" aria-label="Hledat hráče nebo zápas" style="width:100%;margin:8px 0 12px">${ms.filter(m=>m.status!=="live").map(adminMatchHTML).join("")}`:"Žádné další zápasy k zobrazení.");
     renderAdminBoards();
     renderAutomaticPlacementsStatus();
     renderAdminFinalists();
@@ -950,7 +980,7 @@ function adminMatchHTML(m){
   return `<div class="admin-match">
     <div><strong>${esc(playerName(m.player1_entry_id))} vs. ${esc(playerName(m.player2_entry_id))}</strong>
     <span class="small"> · ${esc(m.stage)} ${m.group_name&&!String(m.group_name).startsWith("DE:")?"/ skupina "+esc(m.group_name):""} · ${esc(m.status||"waiting")}</span></div>
-    ${isPlaying?`<div class="small">Terč ${esc(m.board_no)} · běží <span class="elapsed" data-start="${esc(m.started_at||"")}">${formatDuration(m.started_at)}</span></div>
+    ${isPlaying?`<div class="small">Terč ${esc(m.board_no)} · zápis výsledku je přímo u terče.</div>
       <label>Legy (do ${need} vítězných):</label>
       <input class="score-input" type="number" min="0" max="${need}" id="score1-${id}" value="${m.legs1??0}" aria-label="Legy hráče 1">
       :
@@ -997,7 +1027,16 @@ function renderAdminBoards(){
     const scorekeeper=chooseBoardScorekeeper(playing,next,active,scheduled,board);
     return `<div class="panel"><strong>Terč ${board}</strong><br>
       ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · <span class="elapsed" data-start="${esc(playing.started_at||"")}">${formatDuration(playing.started_at)}</span></p>
-        <p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen"}</strong>${next?" · vybrán z hráčů následujícího zápasu na tomto terči":""}</p>`
+        <p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen"}</strong>${next?" · vybrán z hráčů následujícího zápasu na tomto terči":""}</p>
+        <div class="admin-board-score">
+          <label>Legy (do ${legsToWin(playing)} vítězných):</label>
+          <input class="score-input" type="number" min="0" max="${legsToWin(playing)}" id="score1-${esc(playing.id)}" value="${playing.legs1??0}" aria-label="Legy hráče 1"> :
+          <input class="score-input" type="number" min="0" max="${legsToWin(playing)}" id="score2-${esc(playing.id)}" value="${playing.legs2??0}" aria-label="Legy hráče 2">
+          <div class="small">Nejvyšší zavření a nához (nepovinné):</div>
+          <div class="small">${esc(playerName(playing.player1_entry_id))}: zavření <input class="score-input" type="number" min="1" max="170" id="checkout1-${esc(playing.id)}" value="${playing.p1_highest_checkout??''}" placeholder="—"> nához <input class="score-input" type="number" min="1" max="180" id="high1-${esc(playing.id)}" value="${playing.p1_highest_score??''}" placeholder="—"></div>
+          <div class="small">${esc(playerName(playing.player2_entry_id))}: zavření <input class="score-input" type="number" min="1" max="170" id="checkout2-${esc(playing.id)}" value="${playing.p2_highest_checkout??''}" placeholder="—"> nához <input class="score-input" type="number" min="1" max="180" id="high2-${esc(playing.id)}" value="${playing.p2_highest_score??''}" placeholder="—"></div>
+          <button class="action" data-finish-match="${esc(playing.id)}">Uložit výsledek a ukončit zápas</button>
+        </div>`
         :`<p class="muted">Terč je volný.</p>`}
       ${next?`<p>${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
         ${!playing?`<button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na terči ${board}</button>`:""}`
@@ -1251,6 +1290,8 @@ function guardClick(id,handler){
 }
 // Delegace kliků místo inline onclick
 $("adminBoards").addEventListener("click",event=>{
+  const finish=event.target.closest("button[data-finish-match]");
+  if(finish){finishMatch(finish.dataset.finishMatch);return;}
   const b=event.target.closest("button[data-start-board]");
   if(b)startNextMatch(Number(b.dataset.startBoard),b.dataset.matchId);
 });
@@ -1259,6 +1300,13 @@ $("adminMatches").addEventListener("click",event=>{
   if(f){finishMatch(f.dataset.finishMatch);return;}
   const ed=event.target.closest("button[data-edit-match]");
   if(ed)editMatchResult(ed.dataset.editMatch);
+});
+$("adminMatches").addEventListener("input",event=>{
+  if(event.target.id!=="adminMatchSearch")return;
+  const q=event.target.value.trim().toLocaleLowerCase("cs");
+  $("adminMatches").querySelectorAll(".admin-match").forEach(row=>{
+    row.hidden=!!q&&!row.textContent.toLocaleLowerCase("cs").includes(q);
+  });
 });
 $("playerProfileContent").addEventListener("click",event=>{
   if(event.target.closest("[data-close-profile]"))$("playerProfileContent").innerHTML="";
