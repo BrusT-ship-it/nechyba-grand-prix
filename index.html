@@ -90,6 +90,18 @@ footer{text-align:center;color:#999;padding:25px}
 .admin-board-score{margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #444)}
 .admin-board-score .score-input{width:64px;max-width:22vw}
 
+/* Mobilní zápis statistik: popisek nad polem, zavření a nához vedle sebe */
+.admin-player-stats{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}
+.admin-player-name{font-weight:600;min-width:0}
+.admin-stat-field{display:inline-flex;align-items:center;gap:6px}
+@media(max-width:650px){
+  /* Na mobilu jsou statistiky každého hráče v jednom svislém sloupci. */
+  .admin-player-stats{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:12px 0}
+  .admin-player-name{display:block;min-width:0;margin-bottom:2px}
+  .admin-stat-field{display:flex;flex-direction:column;align-items:stretch;gap:5px;width:100%;min-width:0;font-size:13px;color:#aaa}
+  .admin-stat-field .score-input{display:block;width:100%;max-width:none;min-width:0;margin:0;padding:10px 12px;font-size:16px}
+}
+
 </style>
 </head>
 <body>
