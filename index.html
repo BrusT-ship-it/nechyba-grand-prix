@@ -80,6 +80,7 @@ footer{text-align:center;color:#999;padding:25px}
   .panel{padding:12px}
 }
 
+/* Základní rozložení administrace */
 .admin-section{margin:10px 0;border:1px solid var(--border, #444);border-radius:12px;overflow:hidden;background:var(--panel, transparent)}
 .admin-section>summary{cursor:pointer;padding:14px 16px;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .admin-section>summary::-webkit-details-marker{display:none}
@@ -1029,16 +1030,28 @@ function renderAdminBoards(){
       ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · <span class="elapsed" data-start="${esc(playing.started_at||"")}">${formatDuration(playing.started_at)}</span></p>
         <p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen"}</strong>${next?" · vybrán z hráčů následujícího zápasu na tomto terči":""}</p>
         <div class="admin-board-score">
-          <label>Legy (do ${legsToWin(playing)} vítězných):</label>
-          <input class="score-input" type="number" min="0" max="${legsToWin(playing)}" id="score1-${esc(playing.id)}" value="${playing.legs1??0}" aria-label="Legy hráče 1"> :
-          <input class="score-input" type="number" min="0" max="${legsToWin(playing)}" id="score2-${esc(playing.id)}" value="${playing.legs2??0}" aria-label="Legy hráče 2">
-          <div class="small">Nejvyšší zavření a nához (nepovinné):</div>
-          <div class="small">${esc(playerName(playing.player1_entry_id))}: zavření <input class="score-input" type="number" min="1" max="170" id="checkout1-${esc(playing.id)}" value="${playing.p1_highest_checkout??''}" placeholder="—"> nához <input class="score-input" type="number" min="1" max="180" id="high1-${esc(playing.id)}" value="${playing.p1_highest_score??''}" placeholder="—"></div>
-          <div class="small">${esc(playerName(playing.player2_entry_id))}: zavření <input class="score-input" type="number" min="1" max="170" id="checkout2-${esc(playing.id)}" value="${playing.p2_highest_checkout??''}" placeholder="—"> nához <input class="score-input" type="number" min="1" max="180" id="high2-${esc(playing.id)}" value="${playing.p2_highest_score??''}" placeholder="—"></div>
+          <label>Legy (do ${legsToWin(playing)} vítězných)</label>
+          <div class="admin-score-line">
+            <span class="small">Výsledek zápasu</span>
+            <input class="score-input" type="number" min="0" max="${legsToWin(playing)}" id="score1-${esc(playing.id)}" value="${playing.legs1??0}" aria-label="Legy hráče 1">
+            <span class="admin-score-separator">:</span>
+            <input class="score-input" type="number" min="0" max="${legsToWin(playing)}" id="score2-${esc(playing.id)}" value="${playing.legs2??0}" aria-label="Legy hráče 2">
+          </div>
+          <div class="small admin-stats-title">Nejvyšší zavření a nához (nepovinné)</div>
+          <div class="admin-player-stats">
+            <span class="admin-player-name">${esc(playerName(playing.player1_entry_id))}</span>
+            <label class="admin-stat-field">Zavření<input class="score-input" type="number" min="1" max="170" id="checkout1-${esc(playing.id)}" value="${playing.p1_highest_checkout??''}" placeholder="—" aria-label="Nejvyšší zavření hráče 1"></label>
+            <label class="admin-stat-field">Nához<input class="score-input" type="number" min="1" max="180" id="high1-${esc(playing.id)}" value="${playing.p1_highest_score??''}" placeholder="—" aria-label="Nejvyšší nához hráče 1"></label>
+          </div>
+          <div class="admin-player-stats">
+            <span class="admin-player-name">${esc(playerName(playing.player2_entry_id))}</span>
+            <label class="admin-stat-field">Zavření<input class="score-input" type="number" min="1" max="170" id="checkout2-${esc(playing.id)}" value="${playing.p2_highest_checkout??''}" placeholder="—" aria-label="Nejvyšší zavření hráče 2"></label>
+            <label class="admin-stat-field">Nához<input class="score-input" type="number" min="1" max="180" id="high2-${esc(playing.id)}" value="${playing.p2_highest_score??''}" placeholder="—" aria-label="Nejvyšší nához hráče 2"></label>
+          </div>
           <button class="action" data-finish-match="${esc(playing.id)}">Uložit výsledek a ukončit zápas</button>
         </div>`
         :`<p class="muted">Terč je volný.</p>`}
-      ${next?`<p>${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
+      ${next?`<p class="admin-next-match">${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
         ${!playing?`<button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na terči ${board}</button>`:""}`
         :`<p class="muted">Není připravený další zápas.</p>`}
     </div>`;
