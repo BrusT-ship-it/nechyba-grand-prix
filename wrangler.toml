@@ -1,4 +1,3 @@
-name = "nechyba-grand-prix-web"
-compatibility_date = "2026-11-09"
+name = 'nechyba-grand-prix'
 
-assets = { directory = "." }
+[previews]
