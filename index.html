@@ -7,8 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
-<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="icon" type="image/svg+xml" href="/icons/app.svg">
 <title>NECHYBA GRAND PRIX</title>
 <!-- Doporučení: před ostrým nasazením připni přesnou verzi (např. @2.x.y) a přidej integrity (SRI) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1933,8 +1932,7 @@ if(tabletBoard){
   document.body.classList.add("tablet-mode");
   document.title=`NECHYBA – TERČ ${tabletBoard}`;
   const tabletManifest=document.querySelector('link[rel="manifest"]');if(tabletManifest)tabletManifest.href=`/manifest-terc${tabletBoard}.webmanifest`;
-  const tabletIcon=document.querySelector('link[rel="apple-touch-icon"]');if(tabletIcon)tabletIcon.href=`/icons/terc${tabletBoard}-192.png`;
-  const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href=`/icons/terc${tabletBoard}-192.png`;
+const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href="/icons/app.svg";
   $("tabletRoot").classList.remove("hidden");
   $("tabletLoginBtn").addEventListener("click",async()=>{
     const {error}=await db.auth.signInWithPassword({email:$("tabletEmail").value,password:$("tabletPassword").value});
