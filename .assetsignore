@@ -1,1 +1,6 @@
-
+*.sql
+README_NASAZENI.txt
+TEST_DEPLOY_TRIGGER.txt
+wrangler.toml
+.git/
+.wrangler/
