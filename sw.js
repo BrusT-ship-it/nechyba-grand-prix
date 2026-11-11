@@ -1,8 +1,12 @@
 const CACHE_NAME = "nechyba-grand-prix-v1";
-const APP_SHELL = [
-  "/", "/index.html", "/manifest.webmanifest", "/manifest-terc1.webmanifest", "/manifest-terc2.webmanifest",
-  "/icons/icon-192.png", "/icons/icon-512.png",
-  "/icons/terc1-192.png", "/icons/terc1-512.png", "/icons/terc2-192.png", "/icons/terc2-512.png"
+const APP_SHELL = [const APP_SHELL = [
+  "/",
+  "/index.html",
+  "/manifest.webmanifest",
+  "/manifest-terc1.webmanifest",
+  "/manifest-terc2.webmanifest",
+  "/icons/app.svg"
+];
 ];
 
 self.addEventListener("install", event => {
