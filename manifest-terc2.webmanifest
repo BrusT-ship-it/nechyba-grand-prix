@@ -1,0 +1,26 @@
+{
+  "name": "NECHYBA – TERČ 2",
+  "short_name": "TERČ 2",
+  "description": "Počítadlo turnaje NECHYBA GRAND PRIX – terč 2.",
+  "lang": "cs-CZ",
+  "start_url": "/tablet/terc2",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111111",
+  "theme_color": "#d71920",
+  "icons": [
+    {
+      "src": "/icons/terc2-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/terc2-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
