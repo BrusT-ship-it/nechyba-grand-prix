@@ -223,9 +223,21 @@ body.tablet-mode>#tabletRoot{display:block!important}
 <div id="adminPanel" class="hidden">
 <div class="panel">
 <strong>Terče – zápis výsledků</strong>
-<p class="small">Aktuální zápasy a zadávání výsledků najdeš přímo u příslušného terče.</p>
+<p class="small">Zde můžeš spustit zápas na terči nebo zadat jeho výsledek ručně, pokud se nebude hrát přes tablet. Ruční výsledek zadávej u zápasu, který ještě nebyl spuštěn.</p>
 <div id="adminBoards"></div>
 </div>
+
+<details class="admin-section">
+<summary>Tabletová počítadla</summary>
+<div class="panel">
+<strong>Otevření počítadel na jednotlivých terčích</strong>
+<p class="small">Otevři počítadlo na zařízení, které bude u daného terče zapisovat šipky.</p>
+<div class="row" style="gap:10px;flex-wrap:wrap">
+<a class="action" href="/tablet/terc1" target="_blank" rel="noopener">Otevřít počítadlo – terč 1</a>
+<a class="action" href="/tablet/terc2" target="_blank" rel="noopener">Otevřít počítadlo – terč 2</a>
+</div>
+</div>
+</details>
 
 <details class="admin-section">
 <summary>Hráči</summary>
@@ -291,7 +303,7 @@ body.tablet-mode>#tabletRoot{display:block!important}
 <details class="admin-section">
 <summary>Historie zápasů a opravy výsledků</summary>
 <div class="panel">
-<p class="small">Zde najdeš čekající zápasy a možnost opravit už uložené výsledky. Právě hrané zápasy zapisuj u terče výše.</p>
+<p class="small">Zde najdeš čekající zápasy pro ruční zadání výsledku bez tabletu a možnost opravit už uložené výsledky. Zápasy hrané přes tablet se zapisují automaticky.</p>
 <div id="adminMatches"></div>
 </div>
 </details>
@@ -1194,10 +1206,10 @@ function renderAdminBoards(){
     const playing=active.find(m=>Number(m.board_no)===board);
     const next=scheduled.get(board);
     const scorekeeper=chooseBoardScorekeeper(playing,next,active,scheduled,board);
-    return `<div class="panel"><strong>Terč ${board}</strong> · <a href="/tablet/terc${board}" target="_blank" rel="noopener">Otevřít počítadlo na tabletu</a><br>
+    return `<div class="panel"><strong>Terč ${board}</strong>
       ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · <span class="elapsed" data-start="${esc(playing.started_at||"")}">${formatDuration(playing.started_at)}</span></p>
         <p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen – není volný hráč"}</strong></p>
-        <div class="admin-board-score"><p class="small">Legy: <strong>${playing.legs1??0} : ${playing.legs2??0}</strong>. Počítadlo 501 a dokončení legů probíhá na tabletu.</p><a href="/tablet/terc${board}" target="_blank" rel="noopener">Otevřít počítadlo na terči ${board}</a></div>`
+        <div class="admin-board-score"><p class="small">Legy: <strong>${playing.legs1??0} : ${playing.legs2??0}</strong>. Zápis šipek probíhá v samostatné sekci Tabletová počítadla.</p></div>`
         :`<p class="muted">Terč je volný.</p>`}
       ${next?`<p class="admin-next-match">${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
         ${!playing?`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p><button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na terči ${board}</button><button class="secondary" data-manual-result="${esc(next.id)}">Zadat ruční výsledek</button>`:""}`
