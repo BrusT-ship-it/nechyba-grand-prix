@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/icons/app.svg">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
 <title>NECHYBA GRAND PRIX</title>
 <!-- Doporučení: před ostrým nasazením připni přesnou verzi (např. @2.x.y) a přidej integrity (SRI) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -117,6 +118,25 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--red);padding-bottom:12px}
 .tablet-score{font-size:clamp(54px,13vw,100px);font-weight:800;text-align:center;font-variant-numeric:tabular-nums;margin:8px 0}
 .tablet-player{text-align:center;font-size:clamp(20px,5vw,32px);font-weight:bold}
+.tablet-live-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;text-align:center;margin:8px 0 12px}
+.tablet-current-score{font-size:clamp(76px,19vw,142px);font-weight:900;line-height:1;color:#39d477;text-align:center;font-variant-numeric:tabular-nums}
+.tablet-opponent-score{font-size:clamp(30px,8vw,52px);font-weight:800;color:#fff;white-space:nowrap}
+.tablet-counter-layout{display:grid;grid-template-columns:minmax(0,7fr) minmax(112px,3fr);gap:8px;align-items:stretch;margin-top:10px}
+.tablet-number-pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-content:start}
+.tablet-number-pad button,.tablet-special button{min-height:clamp(42px,7vh,62px);font-size:clamp(17px,4vw,25px);font-weight:800;background:#292929;color:#fff;border:1px solid #555;border-radius:7px}
+.tablet-number-pad button.selected,.tablet-multipliers button.selected,.tablet-special button.selected{background:var(--red);border-color:#ff7777;color:#fff}
+.tablet-special{display:flex;flex-direction:column;gap:6px}
+.tablet-special h4{margin:4px 0;text-align:center;font-size:clamp(13px,3vw,17px);color:#fff}
+.tablet-special button{min-height:clamp(38px,6vh,52px);font-size:clamp(12px,2.8vw,16px);padding:4px 2px}
+.tablet-counter-actions{display:grid;grid-template-columns:1.5fr 1fr 1.2fr;gap:6px;margin-top:10px}
+.tablet-counter-actions button{min-height:58px;font-size:clamp(13px,3vw,19px);font-weight:800;margin:0;padding:7px 3px}
+.tablet-dart.selected{border:2px solid var(--red);color:#fff;background:#482023}
+.tablet-multipliers button{min-height:42px}
+.tablet-mode-switch{display:flex;gap:6px;margin:8px 0}
+.tablet-mode-switch button{flex:1;min-height:42px}
+.tablet-digit-entry{font-size:clamp(25px,6vw,38px);font-weight:800;text-align:center;letter-spacing:3px;background:#111;border:1px solid #555;border-radius:7px;padding:7px;margin:6px 0}
+.tablet-special-note{font-size:12px;color:#aaa;text-align:center;margin:5px 0}
+@media(orientation:portrait){#tabletRoot{max-width:680px;padding:10px}.tablet-head{padding-bottom:8px}.tablet-counter-layout{grid-template-columns:minmax(0,7fr) minmax(105px,3fr)}}
 .tablet-keypad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 0}
 .tablet-keypad button,.tablet-multipliers button{min-height:56px;font-size:20px;font-weight:bold;background:#292929;color:#fff;border:1px solid #555;border-radius:7px}
 .tablet-multipliers{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
@@ -311,7 +331,7 @@ let loadSeq = 0, loadTimer = null, lastLoadOk = 0, realtimeOk = false;
 let entryById = new Map(), playerById = new Map();
 let adminOpBusy = false;
 const tabletBoard = (()=>{const m=location.pathname.match(/^\/tablet\/terc([12])\/?$/i);return m?Number(m[1]):0;})();
-let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;
+let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;let tabletAggregateValue="";let tabletSpecialType="";let tabletSpecialDart=0;
 const DEFAULT_TARGET_LEGS = 2;
 
 const $ = id => document.getElementById(id);
@@ -1849,11 +1869,11 @@ async function renderTablet(){
   const {data:legs,error:legError}=await db.from("match_legs").select("*").eq("match_id",match.id).order("leg_no",{ascending:false}).limit(1);
   if(legError){app.innerHTML=`<div class="panel warning">${esc(legError.message)}<p class="small">Nejdříve je nutné spustit SQL migraci.</p></div>`;return;}
   const leg=legs?.[0]||null;
-  if(!leg||tabletDraftLegId!==leg.id){tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletDraftLegId=leg?.id||null;}
+  if(!leg||tabletDraftLegId!==leg.id){tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=leg?.id||null;}
   const scorekeeper=match.scorekeeper_entry_id?playerName(match.scorekeeper_entry_id):"neurčen";
   const p1=playerName(match.player1_entry_id),p2=playerName(match.player2_entry_id);
   if(!leg){
-    app.innerHTML=`<div class="panel"><h2>${esc(p1)} vs. ${esc(p2)}</h2><p class="small">Zapisovatel: <strong>${esc(scorekeeper)}</strong></p><h3>Začínající hráč – 1. leg</h3><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player1_entry_id)}">${esc(p1)} začíná</button><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player2_entry_id)}">${esc(p2)} začíná</button></div>`;
+    app.innerHTML=`<div class="panel"><h2>${esc(p1)} vs. ${esc(p2)}</h2><h3>Začínající hráč – 1. leg</h3><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player1_entry_id)}">${esc(p1)} začíná</button><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player2_entry_id)}">${esc(p2)} začíná</button></div>`;
     return;
   }
   if(leg.status==="finished"){
@@ -1864,31 +1884,42 @@ async function renderTablet(){
     }
     const first=legRows.data?.find(x=>x.leg_no===1);
     const starter=nextNo===2?(first?.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id):first?.starting_entry_id;
-    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button><p class="small">Zapisovatel: ${esc(scorekeeper)}</p></div>`;return;
+    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
   }
   const {data:visits,error:visitError}=await db.from("dart_visits").select("*").eq("leg_id",leg.id).order("visit_no");
   if(visitError){app.innerHTML=`<div class="panel warning">${esc(visitError.message)}</div>`;return;}
   const visitCount=visits?.length||0;
   const current=visitCount%2===0?leg.starting_entry_id:(leg.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id);
   const latestFor=id=>[...(visits||[])].reverse().find(v=>v.player_entry_id===id);
-  const remaining=latestFor(current)?.score_after??501;
+  const remaining=Number(latestFor(current)?.score_after??501);
   const other=current===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id;
-  const otherScore=latestFor(other)?.score_after??501;
+  const otherScore=Number(latestFor(other)?.score_after??501);
   const dartsThrown=id=>(visits||[]).filter(v=>v.player_entry_id===id).reduce((sum,v)=>sum+Number(v.darts_counted||0),0);
   const currentVisitNo=(visits||[]).filter(v=>v.player_entry_id===current).length+1;
   const lastVisit=visits?.[visits.length-1];
-  const lastVisitText=lastVisit?`${lastVisit.mode==="per_dart"?(lastVisit.darts||[]).map(d=>d.points).join(" · "):`${lastVisit.entered_points} bodů (součet)`}${lastVisit.is_bust?` · BUST šipka ${lastVisit.bust_dart}`:lastVisit.is_checkout?` · zavření šipka ${lastVisit.checkout_dart}`:""}`:"zatím žádná";
+  const lastVisitText=lastVisit?`${lastVisit.mode==="per_dart"?(lastVisit.darts||[]).map(d=>d.points).join(" · "):`${lastVisit.entered_points} bodů (součet)`}${lastVisit.is_bust?` · PŘEHOZENO šipka ${lastVisit.bust_dart}`:lastVisit.is_checkout?` · ZAVŘENO šipka ${lastVisit.checkout_dart}`:""}`:"zatím žádná";
+  const draftPoints=tabletDraft.reduce((a,d)=>a+d.points,0);
+  const aggregateNumber=tabletAggregateValue===""?null:Number(tabletAggregateValue);
+  const liveRemaining=tabletSpecialType?remaining:tabletMode==="aggregate"?(aggregateNumber===null?remaining:remaining-aggregateNumber):remaining-draftPoints;
   const preview=tabletPreview(remaining,tabletDraft);
-  const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
-  app.innerHTML=`<div class="panel"><div class="small" style="text-align:center">${esc(p1)} vs. ${esc(p2)} · ${match.legs1}:${match.legs2} · ${leg.leg_no}. leg</div>
-    <div class="row" style="justify-content:space-between"><span>${esc(p1)}: <strong>${current===match.player1_entry_id?remaining:otherScore}</strong> <small>(${dartsThrown(match.player1_entry_id)} šipek)</small></span><span>${esc(p2)}: <strong>${current===match.player2_entry_id?remaining:otherScore}</strong> <small>(${dartsThrown(match.player2_entry_id)} šipek)</small></span></div>
-    <div class="tablet-player">Nyní hází: ${esc(playerName(current))}</div><div class="small" style="text-align:center">Návštěva č. ${currentVisitNo}</div><div class="tablet-score">${remaining}</div>
-    <p class="small" style="text-align:center">Zapisuje: <strong>${esc(scorekeeper)}</strong></p>
-    <p class="small" style="text-align:center">Poslední návštěva (${esc(playerName(lastVisit?.player_entry_id))}): ${esc(lastVisitText)}</p>
-    <div class="row" style="justify-content:center"><button class="secondary" data-tablet-mode="per_dart">Po 1 šipce</button><button class="secondary" data-tablet-mode="aggregate">Součet 3 šipek</button></div>
-    ${tabletMode==="per_dart"?`<div class="tablet-darts">${dartsMarkup}</div><div class="tablet-multipliers"><button data-tablet-mult="2" ${tabletDraft.length>=3||preview.stop?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" ${tabletDraft.length>=3||preview.stop?"disabled":""}>TRIPLE</button></div><div class="tablet-keypad">${Array.from({length:20},(_,i)=>i+1).map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||preview.stop?"disabled":""}>${n}</button>`).join("")}<button data-tablet-base="25" ${tabletDraft.length>=3||preview.stop?"disabled":""}>25</button><button data-tablet-base="50" ${tabletDraft.length>=3||preview.stop?"disabled":""}>BULL 50</button><button data-tablet-base="0" ${tabletDraft.length>=3||preview.stop?"disabled":""}>MISS 0</button></div><div class="row"><button class="secondary" data-tablet-delete>⌫ Smazat poslední</button><button class="action" data-tablet-add ${tabletBase===null||tabletDraft.length>=3||preview.stop?"disabled":""}>Přidat šipku ${tabletBase===null?"":`(${tabletBase*tabletMultiplier})`}</button></div><p class="small">Součet návštěvy: <strong>${tabletDraft.reduce((a,d)=>a+d.points,0)}</strong> · Po návštěvě: <strong>${preview.left}</strong>${preview.bust?` · BUST na šipce ${preview.dart}`:preview.checkout?` · ZAVŘENO šipkou ${preview.dart}`:""}</p><button class="action tablet-primary" data-tablet-submit ${!(tabletDraft.length===3||preview.stop)||tabletBusy?"disabled":""}>Potvrdit návštěvu</button>`:
-    `<label>Součet tří šipek <input id="tabletAggregate" type="number" min="0" max="180" placeholder="např. 140" style="width:100%;font-size:28px"></label><label>Šipka při zavření / bustu <select id="tabletSpecialDart"><option value="">Neřešit</option><option value="1">1. šipka</option><option value="2">2. šipka</option><option value="3">3. šipka</option></select></label><label><input id="tabletDoubleCheckout" type="checkbox"> Zavření bylo doublem</label><div class="row"><button class="secondary" data-tablet-clear-aggregate>Smazat součet</button><button class="action" data-tablet-submit-aggregate ${tabletBusy?"disabled":""}>Potvrdit součet</button></div>`}
-    <div class="notice">Návštěvy: ${visitCount} · Aktuální leg: ${esc(playerName(leg.starting_entry_id))} začínal</div></div>`;
+  const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}. šipkou</button>`).join("");
+  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("");
+  const perDartButtons=[...Array.from({length:20},(_,i)=>i+1),25,50,0].map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n===50?"BULL 50":n===0?"MISS 0":n}</button>`).join("");
+  const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${tabletDraft[i]?"selected":""}">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
+  const specialActive=!!tabletSpecialType;
+  const ready=tabletMode==="aggregate"?(aggregateNumber!==null||specialActive):(tabletDraft.length===3||specialActive);
+  app.innerHTML=`<div class="panel tablet-counter-panel">
+    <div class="small" style="text-align:center">${esc(p1)} vs. ${esc(p2)} · ${match.legs1}:${match.legs2} · ${leg.leg_no}. leg</div>
+    <div class="tablet-live-top"><div><div class="tablet-player">${esc(playerName(current))}</div><div class="tablet-current-score">${Number.isFinite(liveRemaining)?liveRemaining:remaining}</div><div class="small">Návštěva č. ${currentVisitNo}</div></div><div><div class="small">${esc(playerName(other))}</div><div class="tablet-opponent-score">${otherScore}</div></div></div>
+    <div class="small" style="text-align:center">Poslední nához (${lastVisit?esc(playerName(lastVisit.player_entry_id)):"—"}): ${esc(lastVisitText)}</div>
+    <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
+    ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div><div class="tablet-multipliers"><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button></div>`}
+    <div class="tablet-counter-layout"><div class="tablet-number-pad">${tabletMode==="aggregate"?digitButtons:perDartButtons}</div><div class="tablet-special"><h4>ZAVŘENO</h4>${specialButtons("checkout")}<h4 style="margin-top:9px">PŘEHOZENO</h4>${specialButtons("bust")}</div></div>
+    <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
+    <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button><button class="secondary" data-tablet-undo-dart ${tabletMode!=="per_dart"||!tabletDraft.length?"disabled":""}>1 ŠIPKA ZPĚT</button><button class="secondary" data-tablet-undo-visit ${(!tabletDraft.length&&!tabletAggregateValue&&!specialActive)?"disabled":""}>CELÉ KOLO ZPĚT</button></div>
+    <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
+  </div>`;
+
 }
 async function submitTabletVisit(mode){
   if(!isAdmin||tabletBusy)return;
@@ -1902,15 +1933,21 @@ async function submitTabletVisit(mode){
     const nextNo=(visits?.[0]?.visit_no||0)+1;
     const player=nextNo%2===1?legs.starting_entry_id:(legs.starting_entry_id===active.data.player1_entry_id?active.data.player2_entry_id:active.data.player1_entry_id);
     let args={p_leg_id:legs.id,p_player_entry_id:player,p_mode:mode,p_darts:[]};
-    if(mode==="per_dart")args.p_darts=tabletDraft;
-    else{
-      const rawTotal=$("tabletAggregate")?.value;
-      if(rawTotal==null||rawTotal.trim()==="")throw new Error("Nejdříve zadej součet tří šipek.");
-      const total=Number(rawTotal);
+    if(tabletSpecialType==="checkout"){
+      args.p_checkout_dart=tabletSpecialDart;
+      args.p_checkout_is_double=true;
+      args.p_darts=[];
+    }else if(tabletSpecialType==="bust"){
+      args.p_bust_dart=tabletSpecialDart;
+      args.p_darts=[];
+    }else if(mode==="per_dart"){
+      if(tabletDraft.length!==3)throw new Error("Zadej všechny tři šipky, nebo označ zavření/přehození.");
+      args.p_darts=tabletDraft;
+    }else{
+      if(tabletAggregateValue.trim()==="")throw new Error("Nejdříve zadej součet tří šipek.");
+      const total=Number(tabletAggregateValue);
       if(!Number.isInteger(total)||total<0||total>180)throw new Error("Zadej součet 0 až 180.");
       args.p_darts=[total];
-      const special=$("tabletSpecialDart")?.value;
-      if(special){args.p_checkout_dart=Number(special);args.p_bust_dart=Number(special);args.p_checkout_is_double=$("tabletDoubleCheckout")?.checked||false;}
     }
     const {error:saveError}=await db.rpc("record_dart_visit",args);
     if(saveError)throw new Error(saveError.message);
@@ -1921,7 +1958,7 @@ async function submitTabletVisit(mode){
       const fresh=await db.from("matches").select("*").eq("tournament_id",refreshedMatch.data.tournament_id);
       if(!fresh.error){try{await saveAutomaticPlacements(refreshedMatch.data.tournament_id,fresh.data||[]);}catch(err){notify("Zápas je dokončen, ale pořadí se nepodařilo přepočítat: "+err.message);}}
     }
-    tabletDraft=[];tabletBase=null;tabletMultiplier=1;
+    tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;
     tabletBusy=false;
     await loadData();await renderTablet();
   }catch(err){notify("Návštěvu se nepodařilo uložit: "+err.message);}
@@ -1932,7 +1969,8 @@ if(tabletBoard){
   document.body.classList.add("tablet-mode");
   document.title=`NECHYBA – TERČ ${tabletBoard}`;
   const tabletManifest=document.querySelector('link[rel="manifest"]');if(tabletManifest)tabletManifest.href=`/manifest-terc${tabletBoard}.webmanifest`;
-const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href="/icons/app.svg";
+  const tabletIcon=document.querySelector('link[rel="apple-touch-icon"]');if(tabletIcon)tabletIcon.href=`/icons/terc${tabletBoard}-192.png`;
+  const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href=`/icons/terc${tabletBoard}-192.png`;
   $("tabletRoot").classList.remove("hidden");
   $("tabletLoginBtn").addEventListener("click",async()=>{
     const {error}=await db.auth.signInWithPassword({email:$("tabletEmail").value,password:$("tabletPassword").value});
@@ -1943,7 +1981,7 @@ const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href
   $("tabletRefreshBtn").addEventListener("click",()=>{tabletAutoStartBlockedMatchId=null;renderTablet();});
   $("tabletLogoutBtn").addEventListener("click",async()=>{await db.auth.signOut();isAdmin=false;tabletDraft=[];tabletDraftLegId=null;await renderTablet();});
   ["tabletEmail","tabletPassword"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter")$("tabletLoginBtn").click();}));
-  $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletDraft=[];tabletDraftLegId=null;renderTablet();});
+  $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;renderTablet();});
   $("tabletApp").addEventListener("click",async event=>{
     const start=event.target.closest("[data-tablet-start-leg]");
     const next=event.target.closest("[data-tablet-start-next]");
@@ -1952,22 +1990,16 @@ const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href
       const starter=start?.dataset.starter||null;
       const {error}=await db.rpc("start_match_leg",{p_match_id:matchId,p_starting_entry_id:starter});
       if(error)notify("Leg se nepodařilo zahájit: "+error.message);
-      tabletDraft=[];tabletBase=null;tabletMultiplier=1;await renderTablet();return;
+      tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;await renderTablet();return;
     }
-    const mode=event.target.closest("[data-tablet-mode]");if(mode){tabletMode=mode.dataset.tabletMode;tabletDraft=[];tabletBase=null;await renderTablet();return;}
-    const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=Number(mult.dataset.tabletMult);await renderTablet();return;}
-    const base=event.target.closest("[data-tablet-base]");if(base){tabletBase=Number(base.dataset.tabletBase);await renderTablet();return;}
-    if(event.target.closest("[data-tablet-add]")){
-      if(tabletBase===null||tabletDraft.length>=3)return;
-      const pts=tabletBase===50?50:tabletBase*tabletMultiplier;
-      if(pts>60|| (tabletBase===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}
-      tabletDraft.push({points:pts,is_double:tabletBase===50||(tabletMultiplier===2&&tabletBase!==0)});
-      tabletBase=null;tabletMultiplier=1;await renderTablet();return;
-    }
-    if(event.target.closest("[data-tablet-delete]")){if(tabletBase!==null){tabletBase=null;tabletMultiplier=1;}else tabletDraft.pop();await renderTablet();return;}
-    if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit("per_dart");return;}
-    if(event.target.closest("[data-tablet-clear-aggregate]")){const input=$("tabletAggregate");if(input)input.value="";return;}
-    if(event.target.closest("[data-tablet-submit-aggregate]")){await submitTabletVisit("aggregate");return;}
+    const mode=event.target.closest("[data-tablet-mode]");if(mode){tabletMode=mode.dataset.tabletMode;tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;await renderTablet();return;}
+    const special=event.target.closest("[data-tablet-special]");if(special){tabletSpecialType=special.dataset.tabletSpecial;tabletSpecialDart=Number(special.dataset.tabletSpecialDart);tabletDraft=[];tabletAggregateValue="";tabletBase=null;tabletMultiplier=1;await renderTablet();return;}
+    const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;await renderTablet();return;}
+    const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);await renderTablet();return;}
+    const base=event.target.closest("[data-tablet-base]");if(base){if(tabletSpecialType||tabletDraft.length>=3)return;const n=Number(base.dataset.tabletBase);const pts=n===50?50:n*tabletMultiplier;if(pts>60||(n===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}tabletDraft.push({points:pts,is_double:n===50||(tabletMultiplier===2&&n!==0)});tabletMultiplier=1;await renderTablet();return;}
+    if(event.target.closest("[data-tablet-undo-dart]")){tabletDraft.pop();tabletMultiplier=1;await renderTablet();return;}
+    if(event.target.closest("[data-tablet-undo-visit]")){tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletMultiplier=1;notify("Rozpracovaný nához byl vymazán. Vrácení již uložených návštěv vyžaduje samostatnou bezpečnou databázovou funkci.");await renderTablet();return;}
+    if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit(tabletMode);return;}
   });
 }
 
