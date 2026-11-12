@@ -124,6 +124,7 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-counter-layout{display:grid;grid-template-columns:minmax(0,7fr) minmax(112px,3fr);gap:8px;align-items:stretch;margin-top:10px}
 .tablet-number-pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-content:start}
 .tablet-number-pad button,.tablet-special button{min-height:clamp(42px,7vh,62px);font-size:clamp(17px,4vw,25px);font-weight:800;background:#292929;color:#fff;border:1px solid #555;border-radius:7px}
+.tablet-number-pad button[data-tablet-delete-digit]{font-size:clamp(14px,3vw,19px);background:#444}
 .tablet-number-pad button.selected,.tablet-multipliers button.selected,.tablet-special button.selected{background:var(--red);border-color:#ff7777;color:#fff}
 .tablet-special{display:flex;flex-direction:column;gap:6px}
 .tablet-special h4{margin:4px 0;text-align:center;font-size:clamp(13px,3vw,17px);color:#fff}
@@ -131,7 +132,7 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-counter-actions{display:grid;grid-template-columns:1.5fr 1fr 1.2fr;gap:6px;margin-top:10px}
 .tablet-counter-actions button{min-height:58px;font-size:clamp(13px,3vw,19px);font-weight:800;margin:0;padding:7px 3px}
 .tablet-dart.selected{border:2px solid var(--red);color:#fff;background:#482023}
-.tablet-multipliers button{min-height:42px}
+.tablet-multipliers button{min-height:66px;min-width:124px;font-size:clamp(19px,3.8vw,25px);font-weight:900;padding:9px 16px}
 .tablet-mode-switch{display:flex;gap:6px;margin:8px 0}
 .tablet-mode-switch button{flex:1;min-height:42px}
 .tablet-digit-entry{font-size:clamp(25px,6vw,38px);font-weight:800;text-align:center;letter-spacing:3px;background:#111;border:1px solid #555;border-radius:7px;padding:7px;margin:6px 0}
@@ -140,7 +141,7 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-keypad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 0}
 .tablet-keypad button,.tablet-multipliers button{min-height:56px;font-size:20px;font-weight:bold;background:#292929;color:#fff;border:1px solid #555;border-radius:7px}
 .tablet-multipliers{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.tablet-multipliers button{min-width:90px;min-height:48px}
+.tablet-multipliers button{min-width:124px;min-height:66px;font-size:clamp(19px,3.8vw,25px);font-weight:900;padding:9px 16px}
 .tablet-darts{display:flex;justify-content:center;gap:10px;margin:12px 0}
 .tablet-dart{background:#191919;border:1px solid #555;border-radius:7px;padding:12px 18px;min-width:65px;text-align:center;font-size:24px;font-weight:bold}
 .tablet-primary{width:100%;min-height:58px;font-size:20px}
@@ -1864,6 +1865,15 @@ async function renderTablet(){
       tabletAutoStartBlockedMatchId=scheduled.match.id;
     }
     if(!scheduled)tabletAutoStartBlockedMatchId=null;
+    if(!scheduled){
+      const {data:finished}=await db.from("matches").select("*").eq("tournament_id",selectedTournament).eq("board_no",tabletBoard).eq("status","finished").order("ended_at",{ascending:false}).limit(1);
+      if(finished?.[0]){
+        const fm=finished[0];
+        const {data:fl}=await db.from("match_legs").select("id,leg_no").eq("match_id",fm.id).order("leg_no",{ascending:false}).limit(1);
+        const lastLeg=fl?.[0];
+        app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${fm.legs1}:${fm.legs2}</div><h3>Vítěz: ${esc(playerName(fm.winner_entry_id))}</h3>${lastLeg?`<button class="secondary" data-tablet-undo-finished-leg="${esc(lastLeg.id)}">CELÉ KOLO ZPĚT</button>`:""}<p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+      }
+    }
     app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Čekám na přidělení zápasu</h2><p class="muted">Jakmile bude na tomto terči volný vhodný zápas a zapisovatel, spustí se automaticky. Pokud se rozpis zasekne, stiskni Obnovit.</p></div>';return;
   }
   const {data:legs,error:legError}=await db.from("match_legs").select("*").eq("match_id",match.id).order("leg_no",{ascending:false}).limit(1);
@@ -1880,11 +1890,11 @@ async function renderTablet(){
     const legRows=await db.from("match_legs").select("leg_no,starting_entry_id,winner_entry_id,status").eq("match_id",match.id).order("leg_no");
     const nextNo=Number(leg.leg_no)+1;
     if(match.status==="finished"){
-      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>Vítěz: ${esc(playerName(match.winner_entry_id))}</h3><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>Vítěz: ${esc(playerName(match.winner_entry_id))}</h3><button class="secondary" data-tablet-undo-finished-leg="${esc(leg.id)}">CELÉ KOLO ZPĚT</button><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
     }
     const first=legRows.data?.find(x=>x.leg_no===1);
     const starter=nextNo===2?(first?.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id):first?.starting_entry_id;
-    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
+    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="secondary" data-tablet-undo-finished-leg="${esc(leg.id)}">CELÉ KOLO ZPĚT</button><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
   }
   const {data:visits,error:visitError}=await db.from("dart_visits").select("*").eq("leg_id",leg.id).order("visit_no");
   if(visitError){app.innerHTML=`<div class="panel warning">${esc(visitError.message)}</div>`;return;}
@@ -1903,7 +1913,7 @@ async function renderTablet(){
   const liveRemaining=tabletSpecialType?remaining:tabletMode==="aggregate"?(aggregateNumber===null?remaining:remaining-aggregateNumber):remaining-draftPoints;
   const preview=tabletPreview(remaining,tabletDraft);
   const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}. šipkou</button>`).join("");
-  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("");
+  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit class="secondary" style="grid-column:span 3">⌫ SMAZAT</button>`;
   const perDartButtons=[...Array.from({length:20},(_,i)=>i+1),25,50,0].map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n===50?"BULL 50":n===0?"MISS 0":n}</button>`).join("");
   const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${tabletDraft[i]?"selected":""}">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
   const specialActive=!!tabletSpecialType;
@@ -1916,7 +1926,7 @@ async function renderTablet(){
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div><div class="tablet-multipliers"><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button></div>`}
     <div class="tablet-counter-layout"><div class="tablet-number-pad">${tabletMode==="aggregate"?digitButtons:perDartButtons}</div><div class="tablet-special"><h4>ZAVŘENO</h4>${specialButtons("checkout")}<h4 style="margin-top:9px">PŘEHOZENO</h4>${specialButtons("bust")}</div></div>
     <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
-    <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button><button class="secondary" data-tablet-undo-dart ${tabletMode!=="per_dart"||!tabletDraft.length?"disabled":""}>1 ŠIPKA ZPĚT</button><button class="secondary" data-tablet-undo-visit ${(!tabletDraft.length&&!tabletAggregateValue&&!specialActive)?"disabled":""}>CELÉ KOLO ZPĚT</button></div>
+    <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button><button class="secondary" data-tablet-undo-dart ${tabletMode!=="per_dart"||!tabletDraft.length?"disabled":""}>1 ŠIPKA ZPĚT</button><button class="secondary" data-tablet-undo-visit ${(!tabletDraft.length&&!tabletAggregateValue&&!specialActive&&visitCount===0)?"disabled":""}>CELÉ KOLO ZPĚT</button></div>
     <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
 
@@ -1983,6 +1993,8 @@ if(tabletBoard){
   ["tabletEmail","tabletPassword"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter")$("tabletLoginBtn").click();}));
   $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;renderTablet();});
   $("tabletApp").addEventListener("click",async event=>{
+    const undoFinished=event.target.closest("[data-tablet-undo-finished-leg]");
+    if(undoFinished){const {error}=await db.rpc("undo_last_dart_visit",{p_leg_id:undoFinished.dataset.tabletUndoFinishedLeg});if(error){notify("Celé kolo se nepodařilo vrátit: "+error.message);return;}await loadData();await renderTablet();return;}
     const start=event.target.closest("[data-tablet-start-leg]");
     const next=event.target.closest("[data-tablet-start-next]");
     if(start||next){
@@ -1993,12 +2005,23 @@ if(tabletBoard){
       tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;await renderTablet();return;
     }
     const mode=event.target.closest("[data-tablet-mode]");if(mode){tabletMode=mode.dataset.tabletMode;tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;await renderTablet();return;}
-    const special=event.target.closest("[data-tablet-special]");if(special){const nextType=special.dataset.tabletSpecial;const nextDart=Number(special.dataset.tabletSpecialDart);if(tabletSpecialType===nextType&&tabletSpecialDart===nextDart){tabletSpecialType="";tabletSpecialDart=0;}else{tabletSpecialType=nextType;tabletSpecialDart=nextDart;tabletDraft=[];tabletAggregateValue="";tabletBase=null;tabletMultiplier=1;}await renderTablet();return;}
+    const special=event.target.closest("[data-tablet-special]");if(special){const nextType=special.dataset.tabletSpecial;const nextDart=Number(special.dataset.tabletSpecialDart);const sameSelection=tabletSpecialType===nextType&&tabletSpecialDart===nextDart;if(sameSelection){tabletSpecialType="";tabletSpecialDart=0;}else{tabletSpecialType=nextType;tabletSpecialDart=nextDart;tabletDraft=[];tabletAggregateValue="";tabletBase=null;tabletMultiplier=1;}await renderTablet();return;}
     const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;await renderTablet();return;}
     const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);await renderTablet();return;}
     const base=event.target.closest("[data-tablet-base]");if(base){if(tabletSpecialType||tabletDraft.length>=3)return;const n=Number(base.dataset.tabletBase);const pts=n===50?50:n*tabletMultiplier;if(pts>60||(n===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}tabletDraft.push({points:pts,is_double:n===50||(tabletMultiplier===2&&n!==0)});tabletMultiplier=1;await renderTablet();return;}
     if(event.target.closest("[data-tablet-undo-dart]")){tabletDraft.pop();tabletMultiplier=1;await renderTablet();return;}
-    if(event.target.closest("[data-tablet-undo-visit]")){tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletMultiplier=1;notify("Rozpracovaný nához byl vymazán. Vrácení již uložených návštěv vyžaduje samostatnou bezpečnou databázovou funkci.");await renderTablet();return;}
+    if(event.target.closest("[data-tablet-delete-digit]")){if(tabletMode==="aggregate"&&!tabletSpecialType){tabletAggregateValue=tabletAggregateValue.slice(0,-1);await renderTablet();}return;}
+    if(event.target.closest("[data-tablet-undo-visit]")){
+      if(tabletDraft.length||tabletAggregateValue||tabletSpecialType){tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletMultiplier=1;await renderTablet();return;}
+      const liveMatch=await db.from("matches").select("id").eq("tournament_id",selectedTournament).eq("board_no",tabletBoard).eq("status","live").maybeSingle();
+      if(liveMatch.error||!liveMatch.data){notify("Není aktivní zápas, ve kterém lze vrátit nához.");return;}
+      const liveLeg=await db.from("match_legs").select("id").eq("match_id",liveMatch.data.id).eq("status","live").maybeSingle();
+      if(liveLeg.error||!liveLeg.data){notify("Není aktivní leg, ve kterém lze vrátit nához.");return;}
+      const {error}=await db.rpc("undo_last_dart_visit",{p_leg_id:liveLeg.data.id});
+      if(error){notify("Celé kolo se nepodařilo vrátit: "+error.message);return;}
+      tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletMultiplier=1;
+      await loadData();await renderTablet();return;
+    }
     if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit(tabletMode);return;}
   });
 }
