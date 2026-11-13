@@ -20,6 +20,13 @@
 .service-counts-panel[open]>summary::before{content:"−";}
 .service-counts-panel .service-counts-content{margin-top:12px;}
 
+
+.tablet-counter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px;margin-top:14px;}
+.tablet-counter-item{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;}
+.tablet-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px;background:#fff;border-radius:10px;color:#222;max-width:204px;}
+.tablet-qr{display:block;width:180px;height:180px;object-fit:contain;background:#fff;}
+.tablet-qr-wrap .small{color:#444;text-align:center;}
+
 :root{--red:#d71920;--bg:#111;--panel:#1d1d1d;--line:#383838;--green:#16834a}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:#eee;font-family:Arial,sans-serif}
@@ -239,9 +246,21 @@ body.tablet-mode>#tabletRoot{display:block!important}
 <div class="panel">
 <strong>Otevření počítadel na jednotlivých terčích</strong>
 <p class="small">Otevři počítadlo na zařízení, které bude u daného terče zapisovat šipky.</p>
-<div class="row" style="gap:10px;flex-wrap:wrap">
-<a class="action" href="/tablet/terc1" target="_blank" rel="noopener">Otevřít počítadlo – terč 1</a>
-<a class="action" href="/tablet/terc2" target="_blank" rel="noopener">Otevřít počítadlo – terč 2</a>
+<div class="tablet-counter-grid">
+  <div class="tablet-counter-item">
+    <a class="action" href="/tablet/terc1" target="_blank" rel="noopener">Otevřít počítadlo – terč 1</a>
+    <div class="tablet-qr-wrap">
+      <img class="tablet-qr" data-qr-path="/tablet/terc1" alt="QR kód pro otevření počítadla – terč 1" width="180" height="180" loading="lazy">
+      <span class="small">Naskenuj a otevři počítadlo terče 1</span>
+    </div>
+  </div>
+  <div class="tablet-counter-item">
+    <a class="action" href="/tablet/terc2" target="_blank" rel="noopener">Otevřít počítadlo – terč 2</a>
+    <div class="tablet-qr-wrap">
+      <img class="tablet-qr" data-qr-path="/tablet/terc2" alt="QR kód pro otevření počítadla – terč 2" width="180" height="180" loading="lazy">
+      <span class="small">Naskenuj a otevři počítadlo terče 2</span>
+    </div>
+  </div>
 </div>
 </div>
 </details>
@@ -2134,7 +2153,15 @@ if(tabletBoard){
   });
 }
 
+function initTabletQrCodes(){
+  document.querySelectorAll(".tablet-qr[data-qr-path]").forEach(img=>{
+    const targetUrl=new URL(img.dataset.qrPath,window.location.origin).href;
+    img.src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data="+encodeURIComponent(targetUrl);
+  });
+}
+
 async function init(){
+  initTabletQrCodes();
   if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(error=>console.warn("PWA service worker:",error));}
   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   await syncClock();
