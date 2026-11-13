@@ -13,6 +13,13 @@
 <!-- Doporučení: před ostrým nasazením připni přesnou verzi (např. @2.x.y) a přidej integrity (SRI) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+.service-counts-panel{padding:12px 14px;}
+.service-counts-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;}
+.service-counts-panel>summary::-webkit-details-marker{display:none;}
+.service-counts-panel>summary::before{content:"＋";color:var(--red,#e53935);font-weight:700;margin-right:2px;}
+.service-counts-panel[open]>summary::before{content:"−";}
+.service-counts-panel .service-counts-content{margin-top:12px;}
+
 :root{--red:#d71920;--bg:#111;--panel:#1d1d1d;--line:#383838;--green:#16834a}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:#eee;font-family:Arial,sans-serif}
@@ -1255,7 +1262,7 @@ function renderAdminBoards(){
   const counts=new Map();
   serviceRows.forEach(m=>counts.set(m.scorekeeper_entry_id,(counts.get(m.scorekeeper_entry_id)||0)+1));
   const ordered=eventEntries.map(e=>({entry:e,count:counts.get(e.id)||0})).sort((a,b)=>a.count-b.count||String(playerName(a.entry.id)).localeCompare(String(playerName(b.entry.id)),"cs"));
-  $("adminBoards").innerHTML+=`<div class="panel"><strong>Počty zápisů v tomto turnaji</strong><p class="small">Počítáno od zavedení spravedlivé rotace. Při každém novém zápase dostane přednost hráč s nejnižším počtem služeb.</p><div class="table-wrap"><table><tr><th>Hráč</th><th>Počet zápisů</th></tr>${ordered.map(x=>`<tr><td>${esc(playerName(x.entry.id))}</td><td>${x.count}</td></tr>`).join("")||"<tr><td colspan='2'>Zatím nejsou přihlášení hráči.</td></tr>"}</table></div></div>`;
+  $("adminBoards").innerHTML+=`<details class="panel service-counts-panel"><summary><strong>Počty zápisů v tomto turnaji</strong><span class="small">Rozkliknutím zobrazíš přehled</span></summary><div class="service-counts-content"><p class="small">Počítáno od zavedení spravedlivé rotace. Při každém novém zápase dostane přednost hráč s nejnižším počtem služeb.</p><div class="table-wrap"><table><tr><th>Hráč</th><th>Počet zápisů</th></tr>${ordered.map(x=>`<tr><td>${esc(playerName(x.entry.id))}</td><td>${x.count}</td></tr>`).join("")||"<tr><td colspan='2'>Zatím nejsou přihlášení hráči.</td></tr>"}</table></div></div></details>`;
 }
 function renderAutomaticPlacementsStatus(){
   const eventMatches=tournamentMatches();
