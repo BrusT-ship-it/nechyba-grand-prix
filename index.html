@@ -768,8 +768,7 @@ function renderBracketSeedControl(){
     target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Zkontroluj přiřazení všech hráčů do jedné nebo dvou skupin a jejich zápasy.</p></div>`;
     return;
   }
-  target.innerHTML=`<div class="panel"><div class="notice">Do jednostranného play-off postupuje nejvýše 8 nejlepších hráčů. Při dvou skupinách se postupující nasazují střídavě podle pořadí ve skupinách; při menším počtu hráčů postupují všichni. Ostatní získají 1 bod.</div><button type="button" class="action seed-knockout-btn">Vylosovat pavouk</button></div>`;
-  target.querySelector(".seed-knockout-btn")?.addEventListener("click",seedKnockoutBracket);
+  target.innerHTML=`<div class="panel"><div class="notice">Všechny skupinové zápasy jsou dokončené. Pavouk se vytváří automaticky.</div></div>`;
 }
 function playoffSeedPositions(size){
   let positions=[1,2];
@@ -974,7 +973,29 @@ async function createNextKnockoutRound(tournamentId){
   const isDouble=all.some(m=>m.stage==="playoff"&&String(m.group_name||"").startsWith("DE:"));
   if(isDouble){await createDoubleEliminationNextPhase(tournamentId,all);return;}
   const knockout=all.filter(m=>m.stage==="playoff");
-  if(!knockout.length)return;
+  if(!knockout.length){
+    const groupMatches=all.filter(m=>m.stage==="group"||m.stage==="tiebreak");
+    if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished"&&m.winner_entry_id))return;
+    const {data:es,error:entriesError}=await db.from("tournament_entries").select("*").eq("tournament_id",tournamentId);
+    if(entriesError)throw new Error("Nepodařilo se načíst hráče pro automatický pavouk: "+entriesError.message);
+    const groupNames=[...new Set((es||[]).map(e=>e.group_name).filter(Boolean))].sort();
+    if((es||[]).length<2||(es||[]).length>16||!groupNames.length||groupNames.length>2||(es||[]).some(e=>!e.group_name))return;
+    if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)))return;
+    let seededEntries=[];
+    if(groupNames.length===1){seededEntries=groupStandingsFor(groupNames[0],es,groupMatches).slice(0,8).map(x=>x.entry);}
+    else{
+      const first=groupStandingsFor(groupNames[0],es,groupMatches),second=groupStandingsFor(groupNames[1],es,groupMatches);
+      for(let i=0;seededEntries.length<Math.min(8,es.length);i++){
+        if(first[i])seededEntries.push(first[i].entry);
+        if(second[i]&&seededEntries.length<Math.min(8,es.length))seededEntries.push(second[i].entry);
+      }
+    }
+    if(seededEntries.length!==Math.min(8,es.length)||new Set(seededEntries.map(e=>e.id)).size!==seededEntries.length)return;
+    const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,all);
+    const {error:insertError}=await db.from("matches").insert(bracketRows);
+    if(insertError)throw new Error("Skupiny jsou dokončené, ale automatické vytvoření pavouka selhalo: "+insertError.message);
+    return;
+  }
   const maxRound=Math.max(...knockout.map(m=>Number(m.round_no)||1));
   const current=knockout.filter(m=>(Number(m.round_no)||1)===maxRound);
   if(current.length<=1||!current.every(m=>m.status==="finished"&&m.winner_entry_id))return;
@@ -1860,9 +1881,9 @@ window.setManualMatchResult=async function(matchId){
   const {data,error}=await db.rpc("set_manual_match_result",{p_match_id:matchId,p_legs1:parts[0],p_legs2:parts[1]});
   if(error)return notify("Ruční výsledek se nepodařilo uložit: "+error.message);
   if(!data)return notify("Databáze nepotvrdila uložení výsledku.");
+  try{await createNextKnockoutRound(m.tournament_id);}
+  catch(err){notify(err.message||"Automatické vytvoření pavouka / dalšího kola se nepodařilo.");}
   if(m.stage==="playoff"){
-    try{await createNextKnockoutRound(m.tournament_id);}
-    catch(err){notify(err.message||"Další kolo pavouka se nepodařilo připravit.");}
     const refreshed=await db.from("matches").select("*").eq("tournament_id",m.tournament_id);
     if(!refreshed.error){try{await saveAutomaticPlacements(m.tournament_id,refreshed.data||[]);}catch(err){notify("Výsledek je uložen, ale body se nepodařilo přepočítat: "+err.message);}}
   }
@@ -2040,11 +2061,13 @@ async function submitTabletVisit(mode){
     const {error:saveError}=await db.rpc("record_dart_visit",args);
     if(saveError)throw new Error(saveError.message);
     const refreshedMatch=await db.from("matches").select("*").eq("id",active.data.id).maybeSingle();
-    if(refreshedMatch.data?.status==="finished"&&refreshedMatch.data.stage==="playoff"){
+    if(refreshedMatch.data?.status==="finished"){
       try{await createNextKnockoutRound(refreshedMatch.data.tournament_id);}
-      catch(err){notify(err.message||"Další kolo pavouka se nepodařilo připravit.");}
-      const fresh=await db.from("matches").select("*").eq("tournament_id",refreshedMatch.data.tournament_id);
-      if(!fresh.error){try{await saveAutomaticPlacements(refreshedMatch.data.tournament_id,fresh.data||[]);}catch(err){notify("Zápas je dokončen, ale pořadí se nepodařilo přepočítat: "+err.message);}}
+      catch(err){notify(err.message||"Automatické vytvoření pavouka / dalšího kola se nepodařilo.");}
+      if(refreshedMatch.data.stage==="playoff"){
+        const fresh=await db.from("matches").select("*").eq("tournament_id",refreshedMatch.data.tournament_id);
+        if(!fresh.error){try{await saveAutomaticPlacements(refreshedMatch.data.tournament_id,fresh.data||[]);}catch(err){notify("Zápas je dokončen, ale pořadí se nepodařilo přepočítat: "+err.message);}}
+      }
     }
     tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;
     tabletBusy=false;
