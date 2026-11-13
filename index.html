@@ -170,6 +170,9 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-counter-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .tablet-counter-actions button{min-height:62px;font-size:clamp(14px,3.2vw,19px);font-weight:900;margin:0;padding:8px 5px;border-radius:9px}
 .tablet-counter-actions button[data-tablet-submit]{background:var(--red);border-color:#ff7777;width:100%;min-height:72px;font-size:clamp(16px,3.4vw,22px)}
+.tablet-single-dart-undo{display:flex;justify-content:center;margin-top:10px}
+.tablet-single-dart-undo button{width:min(100%,420px);min-height:48px;font-weight:800;border:1px solid var(--red);color:#fff;background:#292929}
+.tablet-single-dart-undo button:disabled{opacity:.4}
 .tablet-counter-actions button[data-tablet-undo-match]{background:#292929;border:1px solid var(--red);color:#fff;width:100%;min-height:72px;font-size:clamp(15px,3.2vw,21px)}
 .tablet-counter-actions button[data-tablet-undo-match]{background:#292929;border:1px solid var(--red);color:#fff}
 .tablet-dart.selected{border:2px solid var(--red);color:#fff;background:#482023}
@@ -2068,7 +2071,7 @@ async function renderTablet(){
   const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}</button>`).join("");
   const digitButtons=[1,2,3,4,5,6,7,8,9,0].map(n=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit style="grid-column:span 2">ZPĚT</button>`;
   const keyRow=(numbers,cls)=>`<div class="tablet-key-row ${cls}">${numbers.map(n=>`<button data-tablet-base="${n}" class="${tabletBase===n?"selected":""}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n}</button>`).join("")}</div>`;
-  const perDartButtons=keyRow([1,2,3,4,5,6,7],"seven")+keyRow([8,9,10,11,12,13,14],"seven")+keyRow([15,16,17,18,19,20,25],"seven")+`<div class="tablet-key-row actions"><button data-tablet-base="0" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>0</button><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button></div>`;
+  const perDartButtons=keyRow([1,2,3,4,5,6,7],"seven")+keyRow([8,9,10,11,12,13,14],"seven")+keyRow([15,16,17,18,19,20,25],"seven")+`<div class="tablet-key-row actions"><button data-tablet-base="0" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>0</button><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button><button class="secondary" data-tablet-undo-dart ${!tabletDraft.length||tabletBusy?"disabled":""}>1 ŠIPKA ZPĚT</button></div>`;
   const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${tabletDraft[i]?"selected":""}">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
   const ready=tabletMode==="aggregate"?(aggregateNumber!==null||specialActive):(tabletDraft.length===3||specialActive);
   app.innerHTML=`<div class="panel tablet-counter-panel">
@@ -2180,6 +2183,7 @@ if(tabletBoard){
     const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;await renderTablet();return;}
     const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);await renderTablet();return;}
     const base=event.target.closest("[data-tablet-base]");if(base){if(tabletSpecialType||tabletDraft.length>=3)return;const n=Number(base.dataset.tabletBase);tabletBase=n;const pts=n===50?50:n*tabletMultiplier;if(pts>60||(n===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}tabletDraft.push({points:pts,is_double:n===50||(tabletMultiplier===2&&n!==0)});tabletMultiplier=1;await renderTablet();return;}
+    const undoOneDart=event.target.closest("[data-tablet-undo-dart]");if(undoOneDart){if(tabletMode==="per_dart"&&tabletDraft.length){tabletDraft.pop();tabletBase=null;tabletMultiplier=1;await renderTablet();}return;}
     if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit(tabletMode);return;}
   });
 }
