@@ -453,18 +453,25 @@ function planMatches(matchRows,includeOccupied){
       const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
       return restA-restB||(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0);
     });
-    let chosen=null,scorekeeper=null;
-    // Vybereme další zápas bez ohledu na dostupnost zapisovatele.
-    // Zapisovatel je pouze doplňková role; jeho nedostatek nesmí blokovat hru.
+    let chosen=null;
+    // Nejprve naplánujeme zápasy na VŠECHNY dostupné terče.
+    // Zapisovatele vybereme až potom, aby nikdo nebyl určen k zápisu,
+    // pokud má podle souběžného rozpisu nastoupit jako hráč na druhém terči.
     for(const candidate of candidates){
       chosen=candidate;
-      scorekeeper=pickFairScorekeeper(matchRows,candidate,board,[...busy,...busyScorekeepers]);
       break;
     }
     if(!chosen)break;
-    result.push({board,match:chosen,scorekeeper_entry_id:scorekeeper||null});
+    result.push({board,match:chosen,scorekeeper_entry_id:null});
     busy.add(chosen.player1_entry_id);busy.add(chosen.player2_entry_id);
-    if(scorekeeper)busyScorekeepers.add(scorekeeper);
+  }
+  // Všichni hráči naplánovaní k souběžné hře jsou pro zapisování nedostupní.
+  const plannedPlayers=new Set(result.flatMap(x=>[x.match.player1_entry_id,x.match.player2_entry_id]).filter(Boolean));
+  const unavailableForScoring=new Set([...busy,...busyScorekeepers,...plannedPlayers]);
+  for(const item of result){
+    const scorekeeper=pickFairScorekeeper(matchRows,item.match,item.board,[...unavailableForScoring]);
+    item.scorekeeper_entry_id=scorekeeper||null;
+    if(scorekeeper)unavailableForScoring.add(scorekeeper);
   }
   return result;
 }
