@@ -1221,7 +1221,8 @@ function renderAdminBoards(){
     return `<div class="panel"><strong>Terč ${board}</strong>
       ${playing?`<p class="live">Hraje: ${esc(playerName(playing.player1_entry_id))} vs. ${esc(playerName(playing.player2_entry_id))} · <span class="elapsed" data-start="${esc(playing.started_at||"")}">${formatDuration(playing.started_at)}</span></p>
         <p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen – není volný hráč"}</strong></p>
-        <div class="admin-board-score"><p class="small">Legy: <strong>${playing.legs1??0} : ${playing.legs2??0}</strong>. Zápis šipek probíhá v samostatné sekci Tabletová počítadla.</p></div>`
+        <div class="admin-board-score"><p class="small">Legy: <strong>${playing.legs1??0} : ${playing.legs2??0}</strong>. Zápis šipek probíhá v samostatné sekci Tabletová počítadla.</p></div>
+        <button class="secondary" type="button" data-manual-result="${esc(playing.id)}">Zadat ruční výsledek po dohrání</button>`
         :`<p class="muted">Terč je volný.</p>`}
       ${next?`<p class="admin-next-match">${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
         ${!playing?`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p><button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na terči ${board}</button>`:""}`
