@@ -167,9 +167,10 @@ footer{text-align:center;color:#999;padding:25px}
 @media(max-width:420px){.tablet-aggregate-layout{gap:6px}.tablet-aggregate-pad{gap:5px}.tablet-aggregate-special>div{padding:5px}}
 .tablet-bottom-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .tablet-bottom-actions button{min-height:56px;font-weight:900}
-.tablet-counter-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:12px}
+.tablet-counter-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .tablet-counter-actions button{min-height:62px;font-size:clamp(14px,3.2vw,19px);font-weight:900;margin:0;padding:8px 5px;border-radius:9px}
-.tablet-counter-actions button[data-tablet-submit]{background:var(--red);border-color:#ff7777;width:100%;min-height:72px;font-size:clamp(18px,4vw,24px);grid-column:1/-1}
+.tablet-counter-actions button[data-tablet-submit]{background:var(--red);border-color:#ff7777;width:100%;min-height:72px;font-size:clamp(16px,3.4vw,22px)}
+.tablet-counter-actions button[data-tablet-undo-match]{background:#292929;border:1px solid var(--red);color:#fff;width:100%;min-height:72px;font-size:clamp(15px,3.2vw,21px)}
 .tablet-counter-actions button[data-tablet-undo-match]{background:#292929;border:1px solid var(--red);color:#fff}
 .tablet-dart.selected{border:2px solid var(--red);color:#fff;background:#482023}
 .tablet-multipliers button{min-height:62px;min-width:124px;font-size:clamp(19px,3.8vw,25px);font-weight:900;padding:9px 16px;border-radius:9px}
@@ -2151,8 +2152,8 @@ if(tabletBoard){
     const undoMatch=event.target.closest("[data-tablet-undo-match]");
     if(undoMatch){
       if(tabletBusy)return;
-      // Toto tlačítko vrací poslední potvrzený nához v právě rozehraném legu.
-      // Rozpracovaný vstup na klávesnici se nemaže; k tomu slouží místní ZPĚT.
+      // Spodní tlačítko ZPĚT vždy vrací poslední potvrzený nához v legu.
+      // Rozpracovaný vstup se při tom zahodí; mazání číslice má vlastní klávesu.
       tabletBusy=true;
       const matchId=undoMatch.dataset.tabletUndoMatch;
       try{
