@@ -432,8 +432,11 @@ function eligibleWaitingMatches(matchRows,excludedEntryIds=[]){
  */
 function planMatches(matchRows,includeOccupied){
   const active=matchRows.filter(m=>m.status==="live");
-  // Obsazení zahrnuje hráče i zapisovatele právě hraných zápasů.
-  const busy=new Set(active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id,m.scorekeeper_entry_id].filter(Boolean)));
+  // Pro nasazení do hry jsou obsazeni pouze hráči, kteří právě hrají.
+  // Zapisovatel na druhém terči může být současně nasazen jako hráč.
+  const busy=new Set(active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id].filter(Boolean)));
+  // Zapisovatel ale nemůže současně zapisovat na dvou terčích.
+  const busyScorekeepers=new Set(active.map(m=>m.scorekeeper_entry_id).filter(Boolean));
   const freeBoards=[1,2].filter(board=>!active.some(m=>Number(m.board_no)===board));
   const occupiedBoards=[1,2].filter(board=>active.some(m=>Number(m.board_no)===board));
   const boards=includeOccupied?[...freeBoards,...occupiedBoards]:freeBoards;
@@ -450,14 +453,18 @@ function planMatches(matchRows,includeOccupied){
       const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
       return restA-restB||(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0);
     });
-    // Zapisovatel je volitelný: nedostatek volných hráčů nikdy nesmí
-    // zablokovat nasazení dalšího zápasu na volný terč.
-    const chosen=candidates[0]||null;
+    let chosen=null,scorekeeper=null;
+    // Vybereme další zápas bez ohledu na dostupnost zapisovatele.
+    // Zapisovatel je pouze doplňková role; jeho nedostatek nesmí blokovat hru.
+    for(const candidate of candidates){
+      chosen=candidate;
+      scorekeeper=pickFairScorekeeper(matchRows,candidate,board,[...busy,...busyScorekeepers]);
+      break;
+    }
     if(!chosen)break;
-    const scorekeeper=pickFairScorekeeper(matchRows,chosen,board,[...busy]);
-    result.push({board,match:chosen,scorekeeper_entry_id:scorekeeper});
+    result.push({board,match:chosen,scorekeeper_entry_id:scorekeeper||null});
     busy.add(chosen.player1_entry_id);busy.add(chosen.player2_entry_id);
-    if(scorekeeper)busy.add(scorekeeper);
+    if(scorekeeper)busyScorekeepers.add(scorekeeper);
   }
   return result;
 }
@@ -1210,7 +1217,7 @@ function renderAdminBoards(){
         <div class="admin-board-score"><p class="small">Legy: <strong>${playing.legs1??0} : ${playing.legs2??0}</strong>. Zápis šipek probíhá v samostatné sekci Tabletová počítadla.</p></div>`
         :`<p class="muted">Terč je volný.</p>`}
       ${next?`<p class="admin-next-match">${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
-        ${!playing?`<p class="small">Předběžně určený zapisovatel: <strong>${next.scorekeeper_entry_id?esc(playerName(next.scorekeeper_entry_id)):"bez zapisovatele – žádný hráč není volný"}</strong></p><button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na terči ${board}</button><button class="secondary" data-manual-result="${esc(next.id)}">Zadat ruční výsledek</button>`:""}`
+        ${!playing?`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p><button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na terči ${board}</button><button class="secondary" data-manual-result="${esc(next.id)}">Zadat ruční výsledek</button>`:""}`
         :`<p class="muted">Není připravený další zápas.</p>`}
     </div>`;
   }).join("");
@@ -1219,7 +1226,7 @@ function renderAdminBoards(){
   const counts=new Map();
   serviceRows.forEach(m=>counts.set(m.scorekeeper_entry_id,(counts.get(m.scorekeeper_entry_id)||0)+1));
   const ordered=eventEntries.map(e=>({entry:e,count:counts.get(e.id)||0})).sort((a,b)=>a.count-b.count||String(playerName(a.entry.id)).localeCompare(String(playerName(b.entry.id)),"cs"));
-  $("adminBoards").innerHTML+=`<details class="admin-section"><summary>Počty zápisů v tomto turnaji</summary><div class="panel"><p class="small">Počítáno od zavedení spravedlivé rotace. Při každém novém zápase dostane přednost hráč s nejnižším počtem služeb.</p><div class="table-wrap"><table><tr><th>Hráč</th><th>Počet zápisů</th></tr>${ordered.map(x=>`<tr><td>${esc(playerName(x.entry.id))}</td><td>${x.count}</td></tr>`).join("")||"<tr><td colspan='2'>Zatím nejsou přihlášení hráči.</td></tr>"}</table></div></div></details>`;
+  $("adminBoards").innerHTML+=`<div class="panel"><strong>Počty zápisů v tomto turnaji</strong><p class="small">Počítáno od zavedení spravedlivé rotace. Při každém novém zápase dostane přednost hráč s nejnižším počtem služeb.</p><div class="table-wrap"><table><tr><th>Hráč</th><th>Počet zápisů</th></tr>${ordered.map(x=>`<tr><td>${esc(playerName(x.entry.id))}</td><td>${x.count}</td></tr>`).join("")||"<tr><td colspan='2'>Zatím nejsou přihlášení hráči.</td></tr>"}</table></div></div>`;
 }
 function renderAutomaticPlacementsStatus(){
   const eventMatches=tournamentMatches();
@@ -1810,9 +1817,9 @@ window.startNextMatch=async function(board,matchId){
     if(!m||m.status!=="waiting")throw new Error("Zápas už není ve stavu čekání.");
     if(activePlayerIds.includes(m.player1_entry_id)||activePlayerIds.includes(m.player2_entry_id))
       throw new Error("Jeden z hráčů už hraje na druhém terči.");
-    const scorekeeperEntryId=scheduled.scorekeeper_entry_id||pickFairScorekeeper(rows,m,board,active.flatMap(x=>[x.player1_entry_id,x.player2_entry_id,x.scorekeeper_entry_id].filter(Boolean)));
-    // Zapisovatel může být null. Zápas se musí spustit i bez něj.
-    // Start probíhá atomicky v databázi; hráči a terč zůstávají rezervovaní.
+    const scorekeeperEntryId=scheduled.scorekeeper_entry_id||pickFairScorekeeper(rows,m,board,active.flatMap(x=>[x.player1_entry_id,x.player2_entry_id,x.scorekeeper_entry_id].filter(Boolean)))||null;
+    // Start musí proběhnout atomicky v databázi: dvě tablety nesmí současně
+    // přidělit stejného hráče, zapisovatele ani terč.
     const {data:updated,error}=await db.rpc("start_match_on_board",{
       p_match_id:matchId,
       p_board_no:Number(board),
@@ -1937,7 +1944,7 @@ async function renderTablet(){
         app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${fm.legs1}:${fm.legs2}</div><h3>Vítěz: ${esc(playerName(fm.winner_entry_id))}</h3>${lastLeg?`<button class="secondary" data-tablet-undo-finished-leg="${esc(lastLeg.id)}">CELÉ KOLO ZPĚT</button>`:""}<p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
       }
     }
-    app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Čekám na přidělení zápasu</h2><p class="muted">Jakmile bude na tomto terči volný vhodný zápas, spustí se automaticky; zapisovatel není podmínkou. Pokud se rozpis zasekne, stiskni Obnovit.</p></div>';return;
+    app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Čekám na přidělení zápasu</h2><p class="muted">Jakmile bude na tomto terči volný vhodný zápas a zapisovatel, spustí se automaticky. Pokud se rozpis zasekne, stiskni Obnovit.</p></div>';return;
   }
   const {data:legs,error:legError}=await db.from("match_legs").select("*").eq("match_id",match.id).order("leg_no",{ascending:false}).limit(1);
   if(legError){app.innerHTML=`<div class="panel warning">${esc(legError.message)}<p class="small">Nejdříve je nutné spustit SQL migraci.</p></div>`;return;}
