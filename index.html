@@ -141,14 +141,22 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-opponent-score{font-size:clamp(38px,9vw,62px)}
 .tablet-current-score{font-size:clamp(76px,19vw,142px);font-weight:900;line-height:1;color:#39d477;text-align:center;font-variant-numeric:tabular-nums}
 .tablet-opponent-score{font-size:clamp(30px,8vw,52px);font-weight:800;color:#fff;white-space:nowrap}
-.tablet-counter-layout{display:grid;grid-template-columns:minmax(0,7fr) minmax(112px,3fr);gap:8px;align-items:stretch;margin-top:10px}
-.tablet-number-pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-content:start}
-.tablet-number-pad button,.tablet-special button{min-height:clamp(46px,7.5vh,66px);font-size:clamp(17px,4vw,25px);font-weight:850;background:#292929;color:#fff;border:1px solid #555;border-radius:9px;box-shadow:0 2px 0 #080808}
-.tablet-number-pad button[data-tablet-delete-digit]{font-size:clamp(14px,3vw,19px);background:#444}
+.tablet-counter-layout{display:block;width:100%;margin-top:12px}
+.tablet-number-pad{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;width:100%;align-content:start}
+.tablet-number-pad button,.tablet-special button{min-width:0;min-height:clamp(48px,7.2vh,68px);font-size:clamp(17px,3.3vw,25px);font-weight:850;background:#292929;color:#fff;border:1px solid #555;border-radius:9px;box-shadow:0 2px 0 #080808}
+.tablet-number-pad button[data-tablet-delete-digit]{font-size:clamp(14px,2.8vw,19px);background:#444}
 .tablet-number-pad button.selected,.tablet-multipliers button.selected,.tablet-special button.selected{background:var(--red);border-color:#ff7777;color:#fff}
-.tablet-special{display:flex;flex-direction:column;gap:6px}
-.tablet-special h4{margin:4px 0;text-align:center;font-size:clamp(13px,3vw,17px);color:#fff}
-.tablet-special button{min-height:clamp(38px,6vh,52px);font-size:clamp(12px,2.8vw,16px);padding:4px 2px}
+.tablet-number-pad .tablet-key-row{grid-column:1/-1;display:grid;gap:7px;width:100%}
+.tablet-number-pad .tablet-key-row.seven{grid-template-columns:repeat(7,minmax(0,1fr))}
+.tablet-number-pad .tablet-key-row.eleven{grid-template-columns:repeat(11,minmax(0,1fr))}
+.tablet-number-pad .tablet-key-row.actions{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tablet-number-pad .tablet-key-row.actions button{font-size:clamp(15px,2.8vw,21px);min-height:clamp(50px,7.5vh,70px)}
+.tablet-special{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.tablet-special h4{grid-column:1/-1;margin:5px 0 0;text-align:center;font-size:clamp(13px,3vw,17px);color:#fff}
+.tablet-special button{min-height:clamp(42px,6vh,54px);font-size:clamp(13px,2.8vw,17px);padding:5px}
+.tablet-special-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.tablet-bottom-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.tablet-bottom-actions button{min-height:56px;font-weight:900}
 .tablet-counter-actions{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px;margin-top:12px}
 .tablet-counter-actions button{min-height:62px;font-size:clamp(14px,3.2vw,19px);font-weight:900;margin:0;padding:8px 5px;border-radius:9px}
 .tablet-counter-actions button[data-tablet-submit]{background:var(--red);border-color:#ff7777}
@@ -159,7 +167,7 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-mode-switch button{flex:1;min-height:42px}
 .tablet-digit-entry{font-size:clamp(25px,6vw,38px);font-weight:800;text-align:center;letter-spacing:3px;background:#111;border:1px solid #555;border-radius:7px;padding:7px;margin:6px 0}
 .tablet-special-note{font-size:12px;color:#aaa;text-align:center;margin:5px 0}
-@media(orientation:portrait){#tabletRoot{max-width:680px;padding:10px}.tablet-head{padding-bottom:8px}.tablet-counter-layout{grid-template-columns:minmax(0,7fr) minmax(105px,3fr)}}
+@media(orientation:portrait){#tabletRoot{max-width:680px;padding:10px}.tablet-head{padding-bottom:8px}}
 .tablet-keypad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 0}
 .tablet-keypad button,.tablet-multipliers button{min-height:56px;font-size:20px;font-weight:bold;background:#292929;color:#fff;border:1px solid #555;border-radius:7px}
 .tablet-multipliers{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
@@ -2045,9 +2053,10 @@ async function renderTablet(){
   const aggregateNumber=tabletAggregateValue===""?null:Number(tabletAggregateValue);
   const liveRemaining=tabletSpecialType?remaining:tabletMode==="aggregate"?(aggregateNumber===null?remaining:remaining-aggregateNumber):remaining-draftPoints;
   const preview=tabletPreview(remaining,tabletDraft);
-  const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}. šipkou</button>`).join("");
-  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit class="secondary" style="grid-column:span 3">⌫ SMAZAT</button>`;
-  const perDartButtons=[...Array.from({length:20},(_,i)=>i+1),25,50,0].map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n===50?"BULL 50":n===0?"MISS 0":n}</button>`).join("");
+  const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}</button>`).join("");
+  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit class="secondary" style="grid-column:span 3">⌫ ZPĚT</button>`;
+  const keyRow=(numbers,cls)=>`<div class="tablet-key-row ${cls}">${numbers.map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n}</button>`).join("")}</div>`;
+  const perDartButtons=keyRow([1,2,3,4,5,6,7],"seven")+keyRow([8,9,10,11,12,13,14],"seven")+keyRow([15,16,17,18,19,20,21,22,23,24,25],"eleven")+`<div class="tablet-key-row actions"><button data-tablet-base="0" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>0</button><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button><button data-tablet-undo-dart ${!tabletDraft.length?"disabled":""}>ZPĚT</button></div>`;
   const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${tabletDraft[i]?"selected":""}">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
   const specialActive=!!tabletSpecialType;
   const ready=tabletMode==="aggregate"?(aggregateNumber!==null||specialActive):(tabletDraft.length===3||specialActive);
@@ -2056,8 +2065,9 @@ async function renderTablet(){
     <div class="tablet-live-top"><div><div class="tablet-player">${esc(playerName(current))}</div><div class="tablet-current-score">${Number.isFinite(liveRemaining)?liveRemaining:remaining}</div><div class="small">Návštěva č. ${currentVisitNo}</div></div><div><div class="small">${esc(playerName(other))}</div><div class="tablet-opponent-score">${otherScore}</div></div></div>
     <div class="small" style="text-align:center">Poslední nához (${lastVisit?esc(playerName(lastVisit.player_entry_id)):"—"}): ${esc(lastVisitText)}</div>
     <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
-    ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div><div class="tablet-multipliers"><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button></div>`}
-    <div class="tablet-counter-layout"><div class="tablet-number-pad">${tabletMode==="aggregate"?digitButtons:perDartButtons}</div><div class="tablet-special"><h4>ZAVŘENO</h4>${specialButtons("checkout")}<h4 style="margin-top:9px">PŘEHOZENO</h4>${specialButtons("bust")}</div></div>
+    ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
+    <div class="tablet-counter-layout"><div class="tablet-number-pad">${tabletMode==="aggregate"?digitButtons:perDartButtons}</div></div>
+    ${tabletMode==="per_dart"?`<div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`:""}
     <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
     <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy?"disabled":""}>↶ ZRUŠIT POSLEDNÍ ZÁPIS</button></div>
     <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
@@ -2157,6 +2167,7 @@ if(tabletBoard){
     const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;await renderTablet();return;}
     const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);await renderTablet();return;}
     const base=event.target.closest("[data-tablet-base]");if(base){if(tabletSpecialType||tabletDraft.length>=3)return;const n=Number(base.dataset.tabletBase);const pts=n===50?50:n*tabletMultiplier;if(pts>60||(n===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}tabletDraft.push({points:pts,is_double:n===50||(tabletMultiplier===2&&n!==0)});tabletMultiplier=1;await renderTablet();return;}
+    if(event.target.closest("[data-tablet-undo-dart]")){if(tabletDraft.length){tabletDraft.pop();tabletMultiplier=1;await renderTablet();}return;}
     if(event.target.closest("[data-tablet-delete-digit]")){if(tabletMode==="aggregate"&&!tabletSpecialType){tabletAggregateValue=tabletAggregateValue.slice(0,-1);await renderTablet();}return;}
     if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit(tabletMode);return;}
   });
