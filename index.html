@@ -223,7 +223,7 @@ body.tablet-mode>#tabletRoot{display:block!important}
 <div id="adminPanel" class="hidden">
 <div class="panel">
 <strong>Terče – zápis výsledků</strong>
-<p class="small">Zde můžeš spustit zápas na terči nebo zadat jeho výsledek ručně, pokud se nebude hrát přes tablet. Ruční výsledek zadávej u zápasu, který ještě nebyl spuštěn.</p>
+<p class="small">Zde můžeš spustit zápas na terči nebo zadat jeho výsledek ručně, pokud se nebude hrát přes tablet. Ruční výsledek můžeš zadat i u ručně spuštěného zápasu, pokud se nezačalo zapisovat přes tablet.</p>
 <div id="adminBoards"></div>
 </div>
 
@@ -1174,7 +1174,7 @@ function adminMatchHTML(m){
   return `<div class="admin-match">
     <div><strong>${esc(playerName(m.player1_entry_id))} vs. ${esc(playerName(m.player2_entry_id))}</strong>
     <span class="small"> · ${esc(m.stage)} ${m.group_name&&!String(m.group_name).startsWith("DE:")?"/ skupina "+esc(m.group_name):""} · ${esc(m.status||"waiting")}</span></div>
-    ${isPlaying?`<div class="small">Terč ${esc(m.board_no)} · probíhá na tabletu · legy ${m.legs1??0}:${m.legs2??0}</div>`:
+    ${isPlaying?`<div class="small">Terč ${esc(m.board_no)} · ručně spuštěno / probíhá · legy ${m.legs1??0}:${m.legs2??0}</div><button class="secondary" data-manual-result="${id}">Zadat ruční výsledek</button>`:
       `<span class="small">${isFinished?`Výsledek ${m.legs1}:${m.legs2} · čas ${m.started_at&&m.ended_at?formatSavedDuration(Math.max(0,Math.floor((new Date(m.ended_at)-new Date(m.started_at))/1000))):"nezaznamenán"}`:"Čeká na rozehrání"}</span>${isFinished?`<button class="secondary" data-edit-match="${id}">Opravit výsledek</button>`:`<button class="secondary" data-manual-result="${id}">Zadat ruční výsledek</button>`}`}
   </div>`;
 }
@@ -1848,14 +1848,14 @@ window.startNextMatch=async function(board,matchId){
 window.setManualMatchResult=async function(matchId){
   if(!isAdmin)return notify("Tuto akci může provést pouze pořadatel.");
   const m=matches.find(x=>x.id===matchId);
-  if(!m||m.status!=="waiting")return notify("Ruční výsledek lze zadat pouze u čekajícího zápasu.");
+  if(!m||!(["waiting","live"].includes(m.status)))return notify("Ruční výsledek lze zadat pouze u čekajícího nebo ručně rozehraného zápasu.");
   const need=legsToWin(m);
   const allowed=need===2?["2:0","2:1","1:2","0:2"]:[`${need}:0`,`${need}:${need-1}`,`${need-1}:${need}`,`0:${need}`];
   const choice=prompt(`Ruční výsledek pro ${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}\nZadej: ${allowed.join(", ")}`,allowed[0]);
   if(choice===null)return;
   const parts=choice.trim().split(":").map(Number);
   if(parts.length!==2||!isValidLegScore(parts[0],parts[1],need))return notify(legScoreHelp(need));
-  if(!confirm(`Uložit ruční výsledek ${parts[0]}:${parts[1]}? Tento zápas se nezapočítá do šipkového průměru.`))return;
+  if(!confirm(`Uložit ruční výsledek ${parts[0]}:${parts[1]}? Zápas bude dokončen a uvolní se terč. Tento zápas se nezapočítá do šipkového průměru.`))return;
   const {data,error}=await db.rpc("set_manual_match_result",{p_match_id:matchId,p_legs1:parts[0],p_legs2:parts[1]});
   if(error)return notify("Ruční výsledek se nepodařilo uložit: "+error.message);
   if(!data)return notify("Databáze nepotvrdila uložení výsledku.");
