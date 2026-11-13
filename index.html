@@ -157,9 +157,10 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-special-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
 .tablet-bottom-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .tablet-bottom-actions button{min-height:56px;font-weight:900}
-.tablet-counter-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+.tablet-counter-actions{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px;margin-top:12px}
 .tablet-counter-actions button{min-height:62px;font-size:clamp(14px,3.2vw,19px);font-weight:900;margin:0;padding:8px 5px;border-radius:9px}
-.tablet-counter-actions button[data-tablet-submit]{background:var(--red);border-color:#ff7777;width:100%;min-height:72px;font-size:clamp(18px,4vw,24px)}
+.tablet-counter-actions button[data-tablet-submit]{background:var(--red);border-color:#ff7777}
+.tablet-counter-actions button[data-tablet-undo-match]{background:#292929;border:1px solid var(--red);color:#fff}
 .tablet-dart.selected{border:2px solid var(--red);color:#fff;background:#482023}
 .tablet-multipliers button{min-height:62px;min-width:124px;font-size:clamp(19px,3.8vw,25px);font-weight:900;padding:9px 16px;border-radius:9px}
 .tablet-mode-switch{display:flex;gap:6px;margin:8px 0}
@@ -2011,7 +2012,7 @@ async function renderTablet(){
         const fm=finished[0];
         const {data:fl}=await db.from("match_legs").select("id,leg_no").eq("match_id",fm.id).order("leg_no",{ascending:false}).limit(1);
         const lastLeg=fl?.[0];
-        app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${fm.legs1}:${fm.legs2}</div><h3>Vítěz: ${esc(playerName(fm.winner_entry_id))}</h3><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+        app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${fm.legs1}:${fm.legs2}</div><h3>Vítěz: ${esc(playerName(fm.winner_entry_id))}</h3>${lastLeg?`<button class="secondary" data-tablet-undo-match="${esc(fm.id)}">↶ ZRUŠIT POSLEDNÍ ZÁPIS</button>`:""}<p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
       }
     }
     app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Čekám na přidělení zápasu</h2><p class="muted">Jakmile bude na tomto terči volný vhodný zápas a zapisovatel, spustí se automaticky. Pokud se rozpis zasekne, stiskni Obnovit.</p></div>';return;
@@ -2030,47 +2031,45 @@ async function renderTablet(){
     const legRows=await db.from("match_legs").select("leg_no,starting_entry_id,winner_entry_id,status").eq("match_id",match.id).order("leg_no");
     const nextNo=Number(leg.leg_no)+1;
     if(match.status==="finished"){
-      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>Vítěz: ${esc(playerName(match.winner_entry_id))}</h3><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>Vítěz: ${esc(playerName(match.winner_entry_id))}</h3><button class="secondary" data-tablet-undo-match="${esc(match.id)}">↶ ZRUŠIT POSLEDNÍ ZÁPIS</button><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
     }
     const first=legRows.data?.find(x=>x.leg_no===1);
     const starter=nextNo===2?(first?.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id):first?.starting_entry_id;
-    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
+    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="secondary" data-tablet-undo-match="${esc(match.id)}">↶ ZRUŠIT POSLEDNÍ ZÁPIS</button><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
   }
   const {data:visits,error:visitError}=await db.from("dart_visits").select("*").eq("leg_id",leg.id).order("visit_no");
   if(visitError){app.innerHTML=`<div class="panel warning">${esc(visitError.message)}</div>`;return;}
   const visitCount=visits?.length||0;
-  const lastVisit=visits?.[visits.length-1];
-  const partialLastVisit=!!(lastVisit&&lastVisit.mode==="per_dart"&&!lastVisit.is_bust&&!lastVisit.is_checkout&&Array.isArray(lastVisit.darts)&&lastVisit.darts.length>0&&lastVisit.darts.length<3);
-  const current=partialLastVisit?lastVisit.player_entry_id:(visitCount%2===0?leg.starting_entry_id:(leg.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id));
+  const current=visitCount%2===0?leg.starting_entry_id:(leg.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id);
   const latestFor=id=>[...(visits||[])].reverse().find(v=>v.player_entry_id===id);
   const remaining=Number(latestFor(current)?.score_after??501);
   const other=current===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id;
   const otherScore=Number(latestFor(other)?.score_after??501);
   const dartsThrown=id=>(visits||[]).filter(v=>v.player_entry_id===id).reduce((sum,v)=>sum+Number(v.darts_counted||0),0);
-  const currentVisitNo=(visits||[]).filter(v=>v.player_entry_id===current).length+(partialLastVisit?0:1);
+  const currentVisitNo=(visits||[]).filter(v=>v.player_entry_id===current).length+1;
+  const lastVisit=visits?.[visits.length-1];
   const lastVisitText=lastVisit?`${lastVisit.mode==="per_dart"?(lastVisit.darts||[]).map(d=>d.points).join(" · "):`${lastVisit.entered_points} bodů (součet)`}${lastVisit.is_bust?` · PŘEHOZENO šipka ${lastVisit.bust_dart}`:lastVisit.is_checkout?` · ZAVŘENO šipka ${lastVisit.checkout_dart}`:""}`:"zatím žádná";
   const draftPoints=tabletDraft.reduce((a,d)=>a+d.points,0);
   const aggregateNumber=tabletAggregateValue===""?null:Number(tabletAggregateValue);
   const liveRemaining=tabletSpecialType?remaining:tabletMode==="aggregate"?(aggregateNumber===null?remaining:remaining-aggregateNumber):remaining-draftPoints;
   const preview=tabletPreview(remaining,tabletDraft);
   const specialActive=!!tabletSpecialType;
-  const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}" ${partialLastVisit?"disabled":""}>${n}</button>`).join("");
-  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit class="secondary" style="grid-column:span 3">ZPĚT</button>`;
-  const keyRow=(numbers,cls)=>`<div class="tablet-key-row ${cls}">${numbers.map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||tabletSpecialType||partialLastVisit?"disabled":""}>${n}</button>`).join("")}</div>`;
-  const perDartButtons=keyRow([1,2,3,4,5,6,7],"seven")+keyRow([8,9,10,11,12,13,14],"seven")+keyRow([15,16,17,18,19,20,25],"seven")+`<div class="tablet-key-row actions"><button data-tablet-base="0" ${tabletDraft.length>=3||tabletSpecialType||partialLastVisit?"disabled":""}>0</button><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive||partialLastVisit?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive||partialLastVisit?"disabled":""}>TRIPLE</button><button data-tablet-undo-leg="${esc(leg.id)}">ZPĚT</button></div>`;
-  const visibleDarts=tabletDraft.length?tabletDraft:(partialLastVisit?lastVisit.darts:[]);
-  const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${visibleDarts[i]?"selected":""}">${visibleDarts[i]?esc(visibleDarts[i].points):"—"}</div>`).join("");
-  const ready=!partialLastVisit&&(tabletMode==="aggregate"?(aggregateNumber!==null||specialActive):(tabletDraft.length===3||specialActive));
+  const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}</button>`).join("");
+  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit class="secondary" style="grid-column:span 3">⌫ ZPĚT</button>`;
+  const keyRow=(numbers,cls)=>`<div class="tablet-key-row ${cls}">${numbers.map(n=>`<button data-tablet-base="${n}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n}</button>`).join("")}</div>`;
+  const perDartButtons=keyRow([1,2,3,4,5,6,7],"seven")+keyRow([8,9,10,11,12,13,14],"seven")+keyRow([15,16,17,18,19,20,25],"seven")+`<div class="tablet-key-row actions"><button data-tablet-base="0" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>0</button><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button><button data-tablet-undo-dart ${!tabletDraft.length?"disabled":""}>ZPĚT</button></div>`;
+  const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${tabletDraft[i]?"selected":""}">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
+  const ready=tabletMode==="aggregate"?(aggregateNumber!==null||specialActive):(tabletDraft.length===3||specialActive);
   app.innerHTML=`<div class="panel tablet-counter-panel">
     <div class="small" style="text-align:center">${esc(p1)} vs. ${esc(p2)} · ${match.legs1}:${match.legs2} · ${leg.leg_no}. leg</div>
     <div class="tablet-live-top"><div><div class="tablet-player">${esc(playerName(current))}</div><div class="tablet-current-score">${Number.isFinite(liveRemaining)?liveRemaining:remaining}</div><div class="small">Návštěva č. ${currentVisitNo}</div></div><div><div class="small">${esc(playerName(other))}</div><div class="tablet-opponent-score">${otherScore}</div></div></div>
     <div class="small" style="text-align:center">Poslední nához (${lastVisit?esc(playerName(lastVisit.player_entry_id)):"—"}): ${esc(lastVisitText)}</div>
-    <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate" ${partialLastVisit?"disabled":""}>Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart" ${partialLastVisit?"disabled":""}>Po 1 šipce</button></div>
+    <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
     <div class="tablet-counter-layout"><div class="tablet-number-pad">${tabletMode==="aggregate"?digitButtons:perDartButtons}</div></div>
     ${tabletMode==="per_dart"?`<div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`:""}
-    <div class="tablet-special-note">${partialLastVisit?`Vrácený nához: ${lastVisit.darts.length}/3 šipek – pro návrat pokračuj tlačítkem ZPĚT`:specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
-    <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button></div>
+    <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
+    <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy?"disabled":""}>↶ ZRUŠIT POSLEDNÍ ZÁPIS</button></div>
     <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
 
@@ -2139,20 +2138,18 @@ if(tabletBoard){
   ["tabletEmail","tabletPassword"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter")$("tabletLoginBtn").click();}));
   $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;renderTablet();});
   $("tabletApp").addEventListener("click",async event=>{
-    const undoLeg=event.target.closest("[data-tablet-undo-leg]");
-    if(undoLeg){
+    const undoMatch=event.target.closest("[data-tablet-undo-match]");
+    if(undoMatch){
       if(tabletBusy)return;
-      // Nejdřív vracíme právě rozepsanou akci, vždy jen jeden krok.
-      if(tabletDraft.length){tabletDraft.pop();tabletMultiplier=1;await renderTablet();return;}
-      if(tabletAggregateValue){tabletAggregateValue=tabletAggregateValue.slice(0,-1);await renderTablet();return;}
-      if(tabletSpecialType){tabletSpecialType="";tabletSpecialDart=0;await renderTablet();return;}
       tabletBusy=true;
+      const matchId=undoMatch.dataset.tabletUndoMatch;
       try{
-        const {error}=await db.rpc("undo_last_dart_in_leg",{p_leg_id:undoLeg.dataset.tabletUndoLeg});
+        const {error}=await db.rpc("undo_last_match_entry",{p_match_id:matchId});
         if(error)throw error;
         tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;
+        tabletDraftLegId=null;
         await loadData();await renderTablet();
-      }catch(err){notify("Poslední šipku se nepodařilo vrátit: "+(err.message||err));}
+      }catch(err){notify("Poslední zápis se nepodařilo vrátit: "+(err.message||err));}
       finally{tabletBusy=false;}
       return;
     }
@@ -2170,6 +2167,7 @@ if(tabletBoard){
     const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;await renderTablet();return;}
     const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);await renderTablet();return;}
     const base=event.target.closest("[data-tablet-base]");if(base){if(tabletSpecialType||tabletDraft.length>=3)return;const n=Number(base.dataset.tabletBase);const pts=n===50?50:n*tabletMultiplier;if(pts>60||(n===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}tabletDraft.push({points:pts,is_double:n===50||(tabletMultiplier===2&&n!==0)});tabletMultiplier=1;await renderTablet();return;}
+    if(event.target.closest("[data-tablet-undo-dart]")){if(tabletDraft.length){tabletDraft.pop();tabletMultiplier=1;await renderTablet();}return;}
     if(event.target.closest("[data-tablet-delete-digit]")){if(tabletMode==="aggregate"&&!tabletSpecialType){tabletAggregateValue=tabletAggregateValue.slice(0,-1);await renderTablet();}return;}
     if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit(tabletMode);return;}
   });
