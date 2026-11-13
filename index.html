@@ -155,6 +155,16 @@ footer{text-align:center;color:#999;padding:25px}
 .tablet-special h4{grid-column:1/-1;margin:5px 0 0;text-align:center;font-size:clamp(13px,3vw,17px);color:#fff}
 .tablet-special button{min-height:clamp(42px,6vh,54px);font-size:clamp(13px,2.8vw,17px);padding:5px}
 .tablet-special-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.tablet-aggregate-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;align-items:stretch}
+.tablet-aggregate-pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;align-content:start}
+.tablet-aggregate-pad button{min-width:0;min-height:clamp(48px,8vh,68px);font-size:clamp(20px,4vw,29px);font-weight:900;background:#292929;color:#fff;border:1px solid #555;border-radius:9px;box-shadow:0 2px 0 #080808}
+.tablet-aggregate-pad button[data-tablet-delete-digit]{font-size:clamp(14px,2.8vw,19px);background:#444;border-color:var(--red)}
+.tablet-aggregate-special{display:flex;flex-direction:column;gap:10px;min-width:0}
+.tablet-aggregate-special>div{background:#181818;border:1px solid #444;border-radius:9px;padding:8px}
+.tablet-aggregate-special h4{margin:2px 0 8px;text-align:center;font-size:clamp(13px,2.8vw,18px);color:#fff}
+.tablet-aggregate-special button{min-height:clamp(48px,7.5vh,64px);font-size:clamp(16px,3vw,22px);font-weight:900;background:#292929;color:#fff;border:1px solid #555;border-radius:8px}
+.tablet-aggregate-special button.selected{background:var(--red);border-color:#ff7777;color:#fff}
+@media(max-width:420px){.tablet-aggregate-layout{gap:6px}.tablet-aggregate-pad{gap:5px}.tablet-aggregate-special>div{padding:5px}}
 .tablet-bottom-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .tablet-bottom-actions button{min-height:56px;font-weight:900}
 .tablet-counter-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
@@ -2055,7 +2065,7 @@ async function renderTablet(){
   const preview=tabletPreview(remaining,tabletDraft);
   const specialActive=!!tabletSpecialType;
   const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}</button>`).join("");
-  const digitButtons=Array.from({length:10},(_,n)=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit data-tablet-undo-match="${esc(match.id)}" class="secondary" style="grid-column:span 3">ZPĚT</button>`;
+  const digitButtons=[1,2,3,4,5,6,7,8,9,0].map(n=>`<button data-tablet-digit="${n}">${n}</button>`).join("")+`<button data-tablet-delete-digit style="grid-column:span 2">ZPĚT</button>`;
   const keyRow=(numbers,cls)=>`<div class="tablet-key-row ${cls}">${numbers.map(n=>`<button data-tablet-base="${n}" class="${tabletBase===n?"selected":""}" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>${n}</button>`).join("")}</div>`;
   const perDartButtons=keyRow([1,2,3,4,5,6,7],"seven")+keyRow([8,9,10,11,12,13,14],"seven")+keyRow([15,16,17,18,19,20,25],"seven")+`<div class="tablet-key-row actions"><button data-tablet-base="0" ${tabletDraft.length>=3||tabletSpecialType?"disabled":""}>0</button><button data-tablet-mult="2" class="${tabletMultiplier===2?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>DOUBLE</button><button data-tablet-mult="3" class="${tabletMultiplier===3?"selected":""}" ${tabletDraft.length>=3||specialActive?"disabled":""}>TRIPLE</button><button data-tablet-undo-match="${esc(match.id)}">ZPĚT</button></div>`;
   const dartsMarkup=[0,1,2].map(i=>`<div class="tablet-dart ${tabletDraft[i]?"selected":""}">${tabletDraft[i]?esc(tabletDraft[i].points):"—"}</div>`).join("");
@@ -2066,8 +2076,7 @@ async function renderTablet(){
     <div class="small" style="text-align:center">Poslední nához (${lastVisit?esc(playerName(lastVisit.player_entry_id)):"—"}): ${esc(lastVisitText)}</div>
     <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
-    <div class="tablet-counter-layout"><div class="tablet-number-pad">${tabletMode==="aggregate"?digitButtons:perDartButtons}</div></div>
-    ${tabletMode==="per_dart"?`<div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`:""}
+    ${tabletMode==="aggregate"?`<div class="tablet-aggregate-layout"><div class="tablet-aggregate-pad">${digitButtons}</div><div class="tablet-aggregate-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div></div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${perDartButtons}</div></div><div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`}
     <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
     <div class="tablet-counter-actions"><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button></div>
     <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
@@ -2138,6 +2147,7 @@ if(tabletBoard){
   ["tabletEmail","tabletPassword"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter")$("tabletLoginBtn").click();}));
   $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;renderTablet();});
   $("tabletApp").addEventListener("click",async event=>{
+    const digitBack=event.target.closest("[data-tablet-delete-digit]");if(digitBack){if(tabletMode==="aggregate"){if(tabletSpecialType){tabletSpecialType="";tabletSpecialDart=0;}else{tabletAggregateValue=tabletAggregateValue.slice(0,-1);}await renderTablet();}return;}
     const undoMatch=event.target.closest("[data-tablet-undo-match]");
     if(undoMatch){
       if(tabletBusy)return;
@@ -2171,7 +2181,6 @@ if(tabletBoard){
     const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;await renderTablet();return;}
     const mult=event.target.closest("[data-tablet-mult]");if(mult){tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);await renderTablet();return;}
     const base=event.target.closest("[data-tablet-base]");if(base){if(tabletSpecialType||tabletDraft.length>=3)return;const n=Number(base.dataset.tabletBase);tabletBase=n;const pts=n===50?50:n*tabletMultiplier;if(pts>60||(n===25&&tabletMultiplier===3)){notify("Tato kombinace neexistuje.");return;}tabletDraft.push({points:pts,is_double:n===50||(tabletMultiplier===2&&n!==0)});tabletMultiplier=1;await renderTablet();return;}
-    if(event.target.closest("[data-tablet-delete-digit]")){if(tabletMode==="aggregate"&&!tabletSpecialType){tabletAggregateValue=tabletAggregateValue.slice(0,-1);await renderTablet();}return;}
     if(event.target.closest("[data-tablet-submit]")){await submitTabletVisit(tabletMode);return;}
   });
 }
