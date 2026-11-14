@@ -193,6 +193,28 @@ footer{text-align:center;color:#999;padding:25px}
 body.tablet-mode>header,body.tablet-mode>nav,body.tablet-mode>main,body.tablet-mode>.moje-med-ale-banner,body.tablet-mode>footer{display:none!important}
 body.tablet-mode>#tabletRoot{display:block!important}
 @media(max-width:520px){#tabletRoot{padding:10px}.tablet-keypad{gap:5px}.tablet-keypad button{min-height:54px;font-size:18px}}
+.bracket-scroll{overflow-x:auto;padding:6px 2px 12px;margin:6px 0}
+.bracket-scroll svg{display:block;max-width:none}
+.bk-card{fill:#181818;stroke:#3d3d3d;stroke-width:1.2}
+.bk-card.done{stroke:#555}
+.bk-card.live{stroke:var(--red);stroke-width:2.2}
+.bk-card.ghost{fill:transparent;stroke:#333;stroke-dasharray:4 4}
+.bk-divider{stroke:#2c2c2c;stroke-width:1}
+.bk-name{fill:#ddd;font-size:13px;font-family:Arial,Helvetica,sans-serif}
+.bk-name.win{fill:#fff;font-weight:700}
+.bk-name.lose{fill:#7d7d7d}
+.bk-score{fill:#ddd;font-size:14px;font-weight:700;text-anchor:end;font-family:Arial,Helvetica,sans-serif}
+.bk-score.win{fill:#4cd98a}
+.bk-bye{fill:#777;font-size:11px;font-style:italic;font-family:Arial,Helvetica,sans-serif}
+.bk-link{fill:none;stroke:#5a5a5a;stroke-width:1.5}
+.bk-title{fill:#aaa;font-size:12px;font-weight:700;font-family:Arial,Helvetica,sans-serif}
+.bk-live{fill:var(--red);font-size:10px;font-weight:700;font-family:Arial,Helvetica,sans-serif}
+.bracket-champion{font-size:17px;margin:8px 0}
+@media print{
+  .bk-card{fill:#fff;stroke:#555}.bk-card.ghost{stroke:#aaa}.bk-divider{stroke:#bbb}
+  .bk-name,.bk-score{fill:#111!important}.bk-name.lose{fill:#666!important}.bk-title{fill:#333}.bk-link{stroke:#777}
+  .bracket-scroll{overflow:visible}
+}
 </style>
 </head>
 <body>
@@ -443,6 +465,20 @@ document.querySelectorAll("nav button").forEach(btn=>{
   });
 });
 
+(function setupTabAccessibility(){
+  const tabs=[...document.querySelectorAll("nav button[data-tab]")];
+  tabs.forEach((b,i)=>{
+    b.id="tab-"+b.dataset.tab;
+    const panel=document.getElementById(b.dataset.tab);
+    if(panel)panel.setAttribute("aria-labelledby",b.id);
+    b.addEventListener("keydown",e=>{
+      if(e.key!=="ArrowRight"&&e.key!=="ArrowLeft")return;
+      e.preventDefault();
+      const n=tabs[(i+(e.key==="ArrowRight"?1:tabs.length-1))%tabs.length];
+      n.focus();n.click();
+    });
+  });
+})();
 function esc(value){
   return String(value ?? "").replace(/[&<>"']/g,c=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -509,14 +545,10 @@ function planMatches(matchRows,includeOccupied){
       const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
       return restA-restB||(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0);
     });
-    let chosen=null;
     // Nejprve naplánujeme zápasy na VŠECHNY dostupné terče.
     // Zapisovatele vybereme až potom, aby nikdo nebyl určen k zápisu,
     // pokud má podle souběžného rozpisu nastoupit jako hráč na druhém terči.
-    for(const candidate of candidates){
-      chosen=candidate;
-      break;
-    }
+    const chosen=candidates[0]||null;
     if(!chosen)break;
     result.push({board,match:chosen,scorekeeper_entry_id:null});
     busy.add(chosen.player1_entry_id);busy.add(chosen.player2_entry_id);
@@ -579,32 +611,40 @@ function renderLive(){
   }).join("");
   $("liveBoards").innerHTML=cards;
 }
+function miniTableFor(ids,matchList){
+  const mini=new Map([...ids].map(id=>[id,{w:0,f:0,a:0}]));
+  matchList.filter(m=>m.status==="finished"&&ids.has(m.player1_entry_id)&&ids.has(m.player2_entry_id)).forEach(m=>{
+    const p1=mini.get(m.player1_entry_id),p2=mini.get(m.player2_entry_id);
+    p1.f+=Number(m.legs1)||0;p1.a+=Number(m.legs2)||0;
+    p2.f+=Number(m.legs2)||0;p2.a+=Number(m.legs1)||0;
+    if(m.winner_entry_id===m.player1_entry_id)p1.w++;
+    else if(m.winner_entry_id===m.player2_entry_id)p2.w++;
+  });
+  return mini;
+}
+function groupBaseCompare(a,b){
+  return b.wins-a.wins||(b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||b.legsFor-a.legsFor;
+}
+// Pořadí ve skupině: výhry → rozdíl legů → získané legy (jen ze skupinových zápasů)
+// → vzájemné zápasy → rozhodovací zápasy na 1 leg → abeceda.
+// Tabulka (výhry/legy) se počítá jen ze skupinových zápasů; rozhodovací zápasy slouží výhradně k seřazení.
 function orderGroupStandings(rows, groupMatches){
   const nameOf=row=>String(players.find(p=>p.id===row.entry.player_id)?.name||"");
-  const baseCompare=(a,b)=>b.wins-a.wins||
-    (b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||
-    b.legsFor-a.legsFor;
-  const sorted=[...rows].sort((a,b)=>baseCompare(a,b));
-  // Při shodě výher, rozdílu legů i počtu získaných legů rozhodnou vzájemné zápasy
-  // mezi hráči se shodou (u dvou hráčů přímý zápas, u tří a více mini-tabulka:
-  // výhry, rozdíl legů, získané legy). Teprve potom abeceda.
+  const regular=groupMatches.filter(m=>m.stage==="group");
+  const tiebreaks=groupMatches.filter(m=>m.stage==="tiebreak");
+  const sorted=[...rows].sort(groupBaseCompare);
   for(let i=0;i<sorted.length;){
     let j=i+1;
-    while(j<sorted.length&&baseCompare(sorted[i],sorted[j])===0)j++;
+    while(j<sorted.length&&groupBaseCompare(sorted[i],sorted[j])===0)j++;
     if(j-i>=2){
       const block=sorted.slice(i,j);
       const ids=new Set(block.map(r=>r.entry.id));
-      const mini=new Map(block.map(r=>[r.entry.id,{w:0,f:0,a:0}]));
-      groupMatches.filter(m=>m.status==="finished"&&ids.has(m.player1_entry_id)&&ids.has(m.player2_entry_id)).forEach(m=>{
-        const p1=mini.get(m.player1_entry_id),p2=mini.get(m.player2_entry_id);
-        p1.f+=Number(m.legs1)||0;p1.a+=Number(m.legs2)||0;
-        p2.f+=Number(m.legs2)||0;p2.a+=Number(m.legs1)||0;
-        if(m.winner_entry_id===m.player1_entry_id)p1.w++;
-        else if(m.winner_entry_id===m.player2_entry_id)p2.w++;
-      });
+      const mini=miniTableFor(ids,regular),tb=miniTableFor(ids,tiebreaks);
       block.sort((a,b)=>{
         const x=mini.get(a.entry.id),y=mini.get(b.entry.id);
-        return y.w-x.w||(y.f-y.a)-(x.f-x.a)||y.f-x.f;
+        return y.w-x.w||(y.f-y.a)-(x.f-x.a)||y.f-x.f||
+          tb.get(b.entry.id).w-tb.get(a.entry.id).w||
+          nameOf(a).localeCompare(nameOf(b),"cs");
       });
       sorted.splice(i,j-i,...block);
     }
@@ -612,53 +652,76 @@ function orderGroupStandings(rows, groupMatches){
   }
   return sorted;
 }
-async function ensureGroupTiebreaks(groupName, members, groupMatches){
-  if(!isAdmin)return;
-  const regular=groupMatches.filter(m=>m.stage==="group");
-  if(!regular.length||!regular.every(m=>m.status==="finished"))return;
-  const allTies=groupMatches.filter(m=>m.stage==="tiebreak");
-  if(allTies.some(m=>m.status!=="finished"))return;
-  const stats=members.map(entry=>{
-    let wins=0,legsFor=0,legsAgainst=0;
-    groupMatches.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
-      const first=m.player1_entry_id===entry.id;
-      const own=Number(first?m.legs1:m.legs2)||0,opp=Number(first?m.legs2:m.legs1)||0;
-      legsFor+=own;legsAgainst+=opp;if(m.winner_entry_id===entry.id)wins++;
-    });
-    return {entry,wins,legsFor,legsAgainst};
-  });
-  const ordered=orderGroupStandings(stats,groupMatches);
-  const base=(a,b)=>b.wins-a.wins||(b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||b.legsFor-a.legsFor;
-  const tiedBlocks=[];
-  for(let i=0;i<ordered.length;){
-    let j=i+1;while(j<ordered.length&&base(ordered[i],ordered[j])===0)j++;
-    if(j-i>1){
-      const block=ordered.slice(i,j),ids=new Set(block.map(x=>x.entry.id));
-      const mini=new Map(block.map(x=>[x.entry.id,{w:0,f:0,a:0}]));
-      groupMatches.filter(m=>m.status==="finished"&&ids.has(m.player1_entry_id)&&ids.has(m.player2_entry_id)).forEach(m=>{
-        const a=mini.get(m.player1_entry_id),b=mini.get(m.player2_entry_id);
-        a.f+=Number(m.legs1)||0;a.a+=Number(m.legs2)||0;b.f+=Number(m.legs2)||0;b.a+=Number(m.legs1)||0;
-        if(m.winner_entry_id===m.player1_entry_id)a.w++;else if(m.winner_entry_id===m.player2_entry_id)b.w++;
+// Kolik hráčů z každé skupiny postupuje do pavouka (musí odpovídat seedKnockoutBracket / createNextKnockoutRound).
+function qualifiersPerGroup(groupCount,totalPlayers,groupSize){
+  if(groupCount<=1)return Math.min(8,groupSize);
+  return totalPlayers<=8?groupSize:Math.min(4,groupSize);
+}
+const tiebreakBusy=new Set();
+// Rozhodovací zápasy se tvoří JEN při vyhodnocení po dokončeném zápase (ne při vykreslování)
+// a jen pro shody, které leží na hranici postupu do pavouka. Vrací true, pokud něco vytvořil.
+async function createTiebreaksIfNeeded(tournamentId,groupNames,es,all){
+  if(tiebreakBusy.has(tournamentId))return false;
+  tiebreakBusy.add(tournamentId);
+  try{
+    const next=[];
+    let matchNo=Math.max(0,...all.map(m=>Number(m.match_no)||0));
+    for(const g of groupNames){
+      const members=es.filter(e=>e.group_name===g);
+      const gm=all.filter(m=>(m.stage==="group"||m.stage==="tiebreak")&&m.group_name===g);
+      const regular=gm.filter(m=>m.stage==="group"),ties=gm.filter(m=>m.stage==="tiebreak");
+      if(!regular.length||!regular.every(m=>m.status==="finished"))continue;
+      if(ties.some(m=>m.status!=="finished"))continue;
+      const cutoff=qualifiersPerGroup(groupNames.length,es.length,members.length);
+      if(cutoff>=members.length)continue;
+      const stats=members.map(entry=>{
+        let wins=0,legsFor=0,legsAgainst=0;
+        regular.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
+          const first=m.player1_entry_id===entry.id;
+          legsFor+=Number(first?m.legs1:m.legs2)||0;legsAgainst+=Number(first?m.legs2:m.legs1)||0;
+          if(m.winner_entry_id===entry.id)wins++;
+        });
+        return {entry,wins,legsFor,legsAgainst};
       });
-      const sig=x=>{const z=mini.get(x.entry.id);return [z.w,z.f-z.a,z.f].join("/");};
-      const remaining=block.filter(x=>sig(x)===sig(block[0]));
-      if(remaining.length>1)tiedBlocks.push(remaining.map(x=>x.entry.id));
+      const ordered=orderGroupStandings(stats,gm);
+      const round=Math.max(0,...ties.map(m=>Number(m.round_no)||0))+1;
+      for(let i=0;i<ordered.length;){
+        let j=i+1;
+        while(j<ordered.length&&groupBaseCompare(ordered[i],ordered[j])===0)j++;
+        if(j-i>1){
+          const block=ordered.slice(i,j),ids=new Set(block.map(x=>x.entry.id));
+          const mini=miniTableFor(ids,regular),tb=miniTableFor(ids,ties);
+          const sig=x=>{const z=mini.get(x.entry.id);return [z.w,z.f-z.a,z.f,tb.get(x.entry.id).w].join("/");};
+          for(let a=0;a<block.length;){
+            let b=a+1;
+            while(b<block.length&&sig(block[b])===sig(block[a]))b++;
+            const start=i+a,end=i+b;
+            // Shoda je důležitá, jen když hranice postupu leží uvnitř ní.
+            if(b-a>1&&start<cutoff&&end>cutoff){
+              const tied=block.slice(a,b).map(x=>x.entry.id);
+              for(let p=0;p<tied.length;p++)for(let q=p+1;q<tied.length;q++){
+                next.push({tournament_id:tournamentId,stage:"tiebreak",group_name:g,round_no:round,match_no:++matchNo,board_no:null,player1_entry_id:tied[p],player2_entry_id:tied[q],legs1:0,legs2:0,target_legs:1,status:"waiting"});
+              }
+            }
+            a=b;
+          }
+        }
+        i=j;
+      }
     }
-    i=j;
+    if(!next.length)return false;
+    // Pojistka proti souběhu: pokud mezitím jiné zařízení rozhodovací zápasy vytvořilo, nic nevkládáme.
+    const fresh=await db.from("matches").select("id").eq("tournament_id",tournamentId).eq("stage","tiebreak");
+    if(fresh.error)throw new Error(fresh.error.message);
+    if((fresh.data||[]).length!==all.filter(m=>m.stage==="tiebreak").length)return false;
+    const {error}=await db.from("matches").insert(next);
+    if(error)throw new Error("Rozhodovací zápasy se nepodařilo vytvořit: "+error.message);
+    await loadData();
+    notify("Při shodě na hranici postupu byly vytvořeny rozhodovací zápasy na jeden leg.");
+    return true;
+  }finally{
+    tiebreakBusy.delete(tournamentId);
   }
-  if(!tiedBlocks.length)return;
-  const round=Math.max(0,...allTies.map(m=>Number(m.round_no)||0))+1;
-  const next=[];let matchNo=Math.max(0,...groupMatches.map(m=>Number(m.match_no)||0));
-  tiedBlocks.forEach(ids=>{
-    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
-      next.push({tournament_id:selectedTournament,stage:"tiebreak",group_name:groupName,round_no:round,match_no:++matchNo,board_no:null,player1_entry_id:ids[i],player2_entry_id:ids[j],legs1:0,legs2:0,target_legs:1,status:"waiting"});
-    }
-  });
-  if(!next.length)return;
-  const {error}=await db.from("matches").insert(next);
-  if(error){notify("Rozhodovací zápasy se nepodařilo vytvořit: "+error.message);return;}
-  await loadData();
-  notify(`Ve skupině ${groupName} byly vytvořeny rozhodovací zápasy na jeden leg.`);
 }
 function renderGroups(){
   const es=tournamentEntries();
@@ -669,10 +732,10 @@ function renderGroups(){
     const members=es.filter(e=>e.group_name===g);
     const stats=members.map(entry=>{
       let played=0,wins=0,legsFor=0,legsAgainst=0;
-      ms.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
+      ms.filter(m=>m.stage==="group"&&m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
         played++;
         const first=m.player1_entry_id===entry.id;
-        const own=Number(first?m.legs1:m.legs2),opp=Number(first?m.legs2:m.legs1);
+        const own=Number(first?m.legs1:m.legs2)||0,opp=Number(first?m.legs2:m.legs1)||0;
         legsFor+=own;legsAgainst+=opp;
         if(m.winner_entry_id===entry.id)wins++;
       });
@@ -683,16 +746,11 @@ function renderGroups(){
     return `<div class="panel"><h3>Skupina ${esc(g)}</h3>
       <table><tr><th>Hráč</th><th>Odehráno</th><th>Výhry</th><th>Legy</th></tr>
       ${orderedStats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
-      <p class="small">Při shodě rozhoduje rozdíl legů, počet získaných legů a vzájemné zápasy. Pokud ani ty nerozhodnou, následují automatické rozhodovací zápasy na jeden leg. Abeceda se nepoužívá.</p>
+      <p class="small">Při shodě rozhoduje rozdíl legů, počet získaných legů a vzájemné zápasy. Pokud ani ty nerozhodnou a shoda leží na hranici postupu, následují automatické rozhodovací zápasy na jeden leg (do tabulky se nezapočítávají). Shody mimo hranici postupu řeší abeceda.</p>
       <h3>Program a výsledky</h3>
       ${matchRows.map(m=>`<p>${m.stage==="tiebreak"?'<strong class="warning">ROZHODOVACÍ · 1 LEG</strong> ':''}${esc(playerName(m.player1_entry_id))} <strong>${m.status==="finished"?`${m.legs1}:${m.legs2}`:"– : –"}</strong> ${esc(playerName(m.player2_entry_id))} <span class="small">(${esc(m.status||"waiting")})</span></p>`).join("")}
     </div>`;
   }).join("");
-  groups.forEach(g=>{
-    const members=es.filter(e=>e.group_name===g);
-    const groupRows=ms.filter(m=>m.group_name===g);
-    ensureGroupTiebreaks(g,members,groupRows);
-  });
 }
 function sortTournaments(list){
   return [...list].sort((a,b)=>(Number(a.event_no)||0)-(Number(b.event_no)||0)||
@@ -783,9 +841,9 @@ function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMat
   const groupMatches=eventMatches.filter(m=>(m.stage==="group"||m.stage==="tiebreak")&&m.group_name===groupName);
   const rows=eventEntries.filter(e=>e.group_name===groupName).map(entry=>{
     let wins=0,legsFor=0,legsAgainst=0;
-    groupMatches.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
+    groupMatches.filter(m=>m.stage==="group"&&m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
       const first=m.player1_entry_id===entry.id;
-      const own=Number(first?m.legs1:m.legs2),opp=Number(first?m.legs2:m.legs1);
+      const own=Number(first?m.legs1:m.legs2)||0,opp=Number(first?m.legs2:m.legs1)||0;
       legsFor+=own;legsAgainst+=opp;
       if(m.winner_entry_id===entry.id)wins++;
     });
@@ -923,26 +981,100 @@ async function seedKnockoutBracket(){
   notify(`Jednostranný play-off pavouk pro ${seededEntries.length} postupujících byl vytvořen. Vítězové budou postupovat automaticky.`);
 }
 
-function renderBracketMatches(rows){
+function bracketCardSVG(m,x,y,W,H,tip,board){
+  const cut=s=>{s=String(s||"—");return s.length>21?s.slice(0,20)+"…":s;};
+  if(m.placeholder){
+    return `<g><rect class="bk-card ghost" x="${x}" y="${y}" width="${W}" height="${H}" rx="6"/><line class="bk-divider" x1="${x}" x2="${x+W}" y1="${y+H/2}" y2="${y+H/2}"/><text class="bk-name lose" x="${x+10}" y="${y+19}">čeká na postup</text><text class="bk-name lose" x="${x+10}" y="${y+H-9}">čeká na postup</text></g>`;
+  }
+  const fin=m.status==="finished",live=m.status==="live";
+  const bye=fin&&m.player1_entry_id===m.player2_entry_id;
+  const w1=fin&&m.winner_entry_id===m.player1_entry_id,w2=fin&&!bye&&m.winner_entry_id===m.player2_entry_id;
+  const score=(v,show)=>show?String(v??0):"";
+  const showScore=fin||live;
+  const cls=live?"live":fin?"done":"";
+  const r1=`<text class="bk-name${w1?" win":fin&&!bye?" lose":""}" x="${x+10}" y="${y+19}">${esc(cut(playerName(m.player1_entry_id)))}</text><text class="bk-score${w1&&!bye?" win":""}" x="${x+W-10}" y="${y+19}">${bye?"":score(m.legs1,showScore)}</text>`;
+  const r2=bye
+    ?`<text class="bk-bye" x="${x+10}" y="${y+H-9}">volný los</text>`
+    :`<text class="bk-name${w2?" win":fin?" lose":""}" x="${x+10}" y="${y+H-9}">${esc(cut(playerName(m.player2_entry_id)))}</text><text class="bk-score${w2?" win":""}" x="${x+W-10}" y="${y+H-9}">${score(m.legs2,showScore)}</text>`;
+  const badge=live?`<text class="bk-live" x="${x}" y="${y-6}">● PRÁVĚ SE HRAJE${board?` · TERČ ${esc(board)}`:""}</text>`:"";
+  return `<g>${tip?`<title>${esc(tip)}</title>`:""}${badge}<rect class="bk-card ${cls}" x="${x}" y="${y}" width="${W}" height="${H}" rx="6"/><line class="bk-divider" x1="${x}" x2="${x+W}" y1="${y+H/2}" y2="${y+H/2}"/>${r1}${r2}</g>`;
+}
+// columns: [{title, matches:[...]}]; connect=true → spojnice mezi koly (jen když se počet zápasů půlí)
+function bracketSVG(columns,connect){
+  const W=230,H=56,GX=60,GY=26,TOP=38;
+  const maxN=Math.max(1,...columns.map(c=>c.matches.length));
+  const totalH=maxN*(H+GY)-GY;
+  const ys=[];
+  columns.forEach((col,c)=>{
+    const n=col.matches.length,prev=ys[c-1];
+    ys.push(connect&&prev&&prev.length===n*2
+      ?col.matches.map((_,i)=>(prev[2*i]+prev[2*i+1])/2)
+      :col.matches.map((_,i)=>(totalH+GY)/n*(i+.5)-GY/2));
+  });
+  const width=columns.length*(W+GX)-GX,height=TOP+totalH+6;
+  let links="",cards="",titles="";
+  columns.forEach((col,c)=>{
+    const x=c*(W+GX);
+    titles+=`<text class="bk-title" x="${x}" y="18">${esc(col.title)}</text>`;
+    col.matches.forEach((m,i)=>{
+      const cy=TOP+ys[c][i];
+      if(connect&&c>0&&ys[c-1].length===col.matches.length*2){
+        [2*i,2*i+1].forEach(k=>{
+          const y1=TOP+ys[c-1][k];
+          links+=`<path class="bk-link" d="M${x-GX} ${y1}H${x-GX/2}V${cy}H${x}"/>`;
+        });
+      }
+      cards+=bracketCardSVG(m,x,cy-H/2,W,H,m.tip||"",m.board_no);
+    });
+  });
+  return `<div class="bracket-scroll"><svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Pavouk turnaje">${links}${cards}${titles}</svg></div>`;
+}
+function bracketRoundColumns(rows,titleFn){
   const rounds=[...new Set(rows.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
+  return rounds.map((r,idx)=>{
+    const ms=rows.filter(m=>(Number(m.round_no)||1)===r).sort((a,b)=>(Number(a.match_no)||0)-(Number(b.match_no)||0));
+    return {title:titleFn(ms,idx),matches:ms};
+  });
+}
+function renderBracketMatches(rows){
+  if(!rows.length)return "";
   const active=activeMatches();
   const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
-  return rounds.map(round=>{
-    const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round);
-    const phase=String(roundRows[0]?.group_name||"");
-    let title;
-    if(phase.startsWith("DE:WB:"))title=`Oboustranný pavouk – horní část, ${phase.split(":")[2]}. kolo`;
-    else if(phase.startsWith("DE:LB:"))title=phase.split(":")[2]?.startsWith("FINAL")?"Oboustranný pavouk – rozhodující kolo spodní části":`Oboustranný pavouk – spodní část, ${phase.split(":")[2]||"další"}. kolo`;
-    else if(phase.startsWith("DE:GF:2"))title="Rozhodující finále";
-    else if(phase.startsWith("DE:GF:"))title="Velké finále";
-    else title=roundRows.length===1?"Finále":roundRows.length===2?"Semifinále":round===1?"1. kolo":`${round}. kolo`;
-    return `<h3>${esc(title)}</h3>${roundRows.map(m=>{
-      const bye=m.player1_entry_id===m.player2_entry_id&&m.status==="finished";
-      const board=Number(m.board_no);
-      const scorekeeper=m.status==="live"&&board?chooseBoardScorekeeper(m,scheduled.get(board),active,scheduled,board):null;
-      return `<div class="panel"><div class="match"><span>${esc(playerName(m.player1_entry_id))} <strong>${bye?"VOLNÝ LOS":m.status==="finished"?`${m.legs1}:${m.legs2}`:"vs."}</strong> ${bye?"—":esc(playerName(m.player2_entry_id))}</span><span class="muted">${bye?"Postup bez zápasu":m.status==="finished"?"Odehráno":m.status==="live"?`Právě se hraje · terč ${board||"—"}`:"Čeká na zápas"}</span></div>${m.status==="live"?`<p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen"}</strong></p>`:""}</div>`;
-    }).join("")}`;
-  }).join("");
+  const tipped=rows.map(m=>{
+    const board=Number(m.board_no);
+    let tip=phaseLabel(m);
+    if(m.status==="live"&&board){
+      const sk=chooseBoardScorekeeper(m,scheduled.get(board),active,scheduled,board);
+      tip+=` · zapisovatel: ${sk?playerName(sk):"zatím není určen"}`;
+    }
+    return {...m,tip};
+  });
+  const champion=m=>m&&m.status==="finished"&&m.winner_entry_id?`<p class="bracket-champion">🏆 Vítěz: <strong>${esc(playerName(m.winner_entry_id))}</strong></p>`:"";
+  const isDouble=tipped.some(m=>String(m.group_name||"").startsWith("DE:"));
+  if(!isDouble){
+    const cols=bracketRoundColumns(tipped,()=> "");
+    // Dosud nevytvořená kola dokreslíme jako prázdná políčka, aby byl vidět celý strom.
+    while(cols[cols.length-1].matches.length>1&&cols[cols.length-1].matches.length%2===0){
+      const n=cols[cols.length-1].matches.length/2;
+      cols.push({title:"",matches:Array.from({length:n},()=>({placeholder:true}))});
+    }
+    cols.forEach((c,idx)=>{
+      const n=c.matches.length;
+      c.title=n===1?"Finále":n===2?"Semifinále":n===4?"Čtvrtfinále":`${idx+1}. kolo`;
+    });
+    const last=tipped.filter(m=>(Number(m.round_no)||1)===Math.max(...tipped.map(x=>Number(x.round_no)||1)));
+    return champion(last.length===1?last[0]:null)+bracketSVG(cols,true);
+  }
+  const part=prefix=>tipped.filter(m=>String(m.group_name||"").startsWith(prefix));
+  const wb=part("DE:WB:"),lb=part("DE:LB:"),gf=part("DE:GF:");
+  let html="";
+  const gfSorted=[...gf].sort((a,b)=>(Number(b.round_no)||0)-(Number(a.round_no)||0));
+  const lastGf=gfSorted[0];
+  if(lastGf&&(lastGf.group_name==="DE:GF:2"||lastGf.winner_entry_id===lastGf.player1_entry_id))html+=champion(lastGf);
+  if(wb.length)html+=`<h3>Horní pavouk</h3>`+bracketSVG(bracketRoundColumns(wb,ms=>`${String(ms[0].group_name).split(":")[2]}. kolo`),true);
+  if(lb.length)html+=`<h3>Spodní pavouk</h3>`+bracketSVG(bracketRoundColumns(lb,ms=>{const p=String(ms[0].group_name).split(":")[2]||"";return p.startsWith("FINAL")?"Rozhodující kolo":`${p}. kolo`;}),false);
+  if(gf.length)html+=`<h3>Finále</h3>`+bracketSVG(bracketRoundColumns(gf,ms=>String(ms[0].group_name)==="DE:GF:2"?"Rozhodující finále":"Velké finále"),false);
+  return html;
 }
 function makeDoubleEliminationPhaseRows(tournamentId,entryIds,roundNo,phaseName,existingRows=[]){
   const ids=[...entryIds];
@@ -1037,6 +1169,7 @@ async function createNextKnockoutRound(tournamentId){
     const groupNames=[...new Set((es||[]).map(e=>e.group_name).filter(Boolean))].sort();
     if((es||[]).length<2||(es||[]).length>16||!groupNames.length||groupNames.length>2||(es||[]).some(e=>!e.group_name))return;
     if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)))return;
+    if(await createTiebreaksIfNeeded(tournamentId,groupNames,es,all))return;
     let seededEntries=[];
     if(groupNames.length===1){seededEntries=groupStandingsFor(groupNames[0],es,groupMatches).slice(0,8).map(x=>x.entry);}
     else{
@@ -1224,7 +1357,6 @@ function renderAll(){
         : "V tomto turnaji zatím nejsou přihlášení hráči."}`;
     setFormHTML($("adminMatches"),ms.filter(m=>m.status!=="live").length?`<input id="adminMatchSearch" type="search" placeholder="Hledat hráče nebo zápas…" aria-label="Hledat hráče nebo zápas" style="width:100%;margin:8px 0 12px">${ms.filter(m=>m.status!=="live").map(adminMatchHTML).join("")}`:"Žádné další zápasy k zobrazení.");
     renderAdminBoards();
-    renderAutomaticPlacementsStatus();
     renderAdminFinalists();
     renderHistoricalPointsEditor();
   }
@@ -1399,9 +1531,14 @@ async function saveAutomaticPlacements(tournamentId,freshMatches){
   for(const item of placements){
     const entry=eventEntries.find(e=>e.id===item.entryId);
     const points=isQualifier?pointsForFinalPlace(item.place,eventEntries.length):null;
-    if(Number(entry?.final_place)===item.place&&(isQualifier?Number(entry?.series_points)===points:true))continue;
-    const update={final_place:item.place};
-    if(isQualifier)update.series_points=points;
+    const placeDiffers=entry?.final_place==null||Number(entry.final_place)!==item.place;
+    const hasPoints=entry?.series_points!=null;
+    // Body se dopočítají jen když chybí nebo se změnilo umístění. Ručně zadané body (bez umístění) zůstanou.
+    const pointsNeeded=isQualifier&&(!hasPoints||(entry?.final_place!=null&&placeDiffers));
+    if(!placeDiffers&&!pointsNeeded)continue;
+    const update={};
+    if(placeDiffers)update.final_place=item.place;
+    if(pointsNeeded)update.series_points=points;
     jobs.push(db.from("tournament_entries").update(update).eq("id",item.entryId));
   }
   const results=await Promise.all(jobs);
@@ -1472,8 +1609,8 @@ async function loadData(){
       fetchAll("players",["name","id"]),
       fetchAll("tournament_entries",["id"]),
       fetchAll("matches",["round_no","id"]),
-      db.from("player_dart_averages").select("player_entry_id,tournament_id,counted_points,darts_counted,average_3dart,visits,highest_visit"),
-      db.from("match_player_dart_averages").select("match_id,player_entry_id,counted_points,darts_counted,average_3dart")
+      fetchAll("player_dart_averages",["tournament_id","player_entry_id"]),
+      fetchAll("match_player_dart_averages",["match_id","player_entry_id"])
     ]);
   }catch(err){
     if(seq===loadSeq)setStatus("Chyba načítání: "+(err?.message||err));
@@ -1790,8 +1927,8 @@ function shuffle(array){
   return a;
 }
 function chooseGroupCount(n){
-  // Turnaj má vždy dvě náhodně rozlosované a co nejvyrovnanější skupiny.
-  return n>=2?2:1;
+  // Od 4 hráčů dvě náhodně rozlosované, co nejvyrovnanější skupiny; 2–3 hráči hrají jednu skupinu.
+  return n>=4?2:1;
 }
 function createRoundRobin(entryIds){
   let list=[...entryIds];
@@ -1825,7 +1962,7 @@ async function cancelTournamentDraw(tournamentId){
     if(error){notify("Zápasy se nepodařilo odstranit: "+error.message);return false;}
   }
   const {error:entryError}=await db.from("tournament_entries").update({group_name:null,final_place:null,series_points:null}).eq("tournament_id",tournamentId);
-  if(entryError){await loadData();{notify("Zápasy byly odstraněny, ale nepodařilo se vynulovat skupiny a body: "+entryError.message);return false;}}
+  if(entryError){await loadData();notify("Zápasy byly odstraněny, ale nepodařilo se vynulovat skupiny a body: "+entryError.message);return false;}
   selectedTournament=tournamentId;
   await loadData();
   return true;
@@ -1873,6 +2010,7 @@ async function drawGroups(){
   }
   const rows=[];let matchNo=1;
   groups.forEach((group,i)=>createRoundRobin(group.map(e=>e.id)).forEach(m=>rows.push({tournament_id,stage:"group",group_name:String.fromCharCode(65+i),round_no:m.round_no,match_no:matchNo++,board_no:null,player1_entry_id:m.player1_entry_id,player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:DEFAULT_TARGET_LEGS,status:"waiting"})));
+  if(!rows.length){notify("Pro tento počet hráčů nevznikl žádný zápas. Přidej do startovní listiny další hráče.");return;}
   const {error}=await db.from("matches").insert(rows);
   if(error)return notify("Skupiny byly uloženy, ale zápasy se nepodařilo vytvořit: "+error.message);
   selectedTournament=tournament_id;await loadData();
@@ -1964,11 +2102,16 @@ window.editMatchResult=async function(matchId){
   const later=matches.filter(x=>x.tournament_id===m.tournament_id&&x.stage==="playoff"&&(Number(x.round_no)||0)>(Number(m.round_no)||0));
   if(m.stage==="playoff"&&winner!==m.winner_entry_id&&later.length)return notify("Vítěz by se změnil, ale další kolo už existuje. Kvůli ochraně pavouka tuto opravu nelze provést automaticky. Nejprve je nutné bezpečně opravit navazující zápasy.");
   if(String(m.group_name)==="DE:GF:1"&&winner!==m.winner_entry_id)return notify("Změna vítěze velkého finále by vyžadovala vytvoření nebo zrušení rozhodujícího finále. Tuto opravu proto nelze provést automaticky.");
-  if(m.stage==="group"&&matches.some(x=>x.tournament_id===m.tournament_id&&x.stage==="playoff"))return notify("Skupinový zápas už ovlivnil nasazení vytvořeného pavouka. Kvůli ochraně pavouka lze skupinový výsledek opravit pouze před jeho vytvořením.");
+  if((m.stage==="group"||m.stage==="tiebreak")&&matches.some(x=>x.tournament_id===m.tournament_id&&x.stage==="playoff"))return notify("Skupinový zápas už ovlivnil nasazení vytvořeného pavouka. Kvůli ochraně pavouka lze skupinový výsledek opravit pouze před jeho vytvořením.");
+  if(m.stage==="group"&&matches.some(x=>x.tournament_id===m.tournament_id&&x.stage==="tiebreak"))return notify("Ve skupině už existují rozhodovací zápasy, které vznikly z původních výsledků. Oprava skupinového zápasu je proto zablokovaná; nejdřív zruš rozlosování nebo smaž rozhodovací zápasy.");
   if(!confirm(`Opravdu uložit nový výsledek ${a}:${b}? Pořadí a body se znovu přepočítají, pokud to průběh turnaje umožňuje.`))return;
   const {data:updated,error}=await db.from("matches").update({legs1:a,legs2:b,winner_entry_id:winner}).eq("id",matchId).eq("status","finished").select("id").maybeSingle();
   if(error)return notify("Oprava se nepodařila: "+error.message);
   if(!updated){await loadData();return notify("Zápas mezitím někdo změnil. Obnovuji stav.");}
+  if(m.stage==="group"||m.stage==="tiebreak"){
+    try{await createNextKnockoutRound(m.tournament_id);}
+    catch(err){notify("Výsledek je opraven, ale navazující krok selhal: "+err.message);}
+  }
   if(m.stage==="playoff"){
     const fresh=await db.from("matches").select("*").eq("tournament_id",m.tournament_id);
     if(!fresh.error){
@@ -2066,6 +2209,8 @@ async function renderTablet(){
   const draftPoints=tabletDraft.reduce((a,d)=>a+d.points,0);
   const aggregateNumber=tabletAggregateValue===""?null:Number(tabletAggregateValue);
   const liveRemaining=tabletSpecialType?remaining:tabletMode==="aggregate"?(aggregateNumber===null?remaining:remaining-aggregateNumber):remaining-draftPoints;
+  const overshoot=Number.isFinite(liveRemaining)&&(liveRemaining<0||liveRemaining===1);
+  const displayRemaining=Number.isFinite(liveRemaining)&&!overshoot?liveRemaining:remaining;
   const preview=tabletPreview(remaining,tabletDraft);
   const specialActive=!!tabletSpecialType;
   const specialButtons=(kind)=>[1,2,3].map(n=>`<button data-tablet-special="${kind}" data-tablet-special-dart="${n}" class="${tabletSpecialType===kind&&tabletSpecialDart===n?"selected":""}">${n}</button>`).join("");
@@ -2076,12 +2221,12 @@ async function renderTablet(){
   const ready=tabletMode==="aggregate"?(aggregateNumber!==null||specialActive):(tabletDraft.length===3||specialActive);
   app.innerHTML=`<div class="panel tablet-counter-panel">
     <div class="small" style="text-align:center">${esc(p1)} vs. ${esc(p2)} · ${match.legs1}:${match.legs2} · ${leg.leg_no}. leg</div>
-    <div class="tablet-live-top"><div><div class="tablet-player">${esc(playerName(current))}</div><div class="tablet-current-score">${Number.isFinite(liveRemaining)?liveRemaining:remaining}</div><div class="small">Návštěva č. ${currentVisitNo}</div></div><div><div class="small">${esc(playerName(other))}</div><div class="tablet-opponent-score">${otherScore}</div></div></div>
+    <div class="tablet-live-top"><div><div class="tablet-player">${esc(playerName(current))}</div><div class="tablet-current-score">${displayRemaining}</div><div class="small">Návštěva č. ${currentVisitNo}</div></div><div><div class="small">${esc(playerName(other))}</div><div class="tablet-opponent-score">${otherScore}</div></div></div>
     <div class="small" style="text-align:center">Poslední nához (${lastVisit?esc(playerName(lastVisit.player_entry_id)):"—"}): ${esc(lastVisitText)}</div>
     <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
     ${tabletMode==="aggregate"?`<div class="tablet-aggregate-layout"><div class="tablet-aggregate-pad">${digitButtons}</div><div class="tablet-aggregate-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div></div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${perDartButtons}</div></div><div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`}
-    <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
+    <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · ${overshoot?"⚠ přehozeno – zvol PŘEHOZENO":"po náhozu: "+displayRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · ${overshoot?"⚠ přehozeno – zvol PŘEHOZENO":"po náhozu: "+displayRemaining}`}</div>
     <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button></div>
     <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
@@ -2211,7 +2356,7 @@ async function init(){
     if(event==="SIGNED_IN"&&tabletBoard){verifyAdmin().then(ok=>{isAdmin=ok;renderTablet();});}
   });
   db.channel("grand-prix-live")
-    .on("postgres_changes",{event:"*",schema:"public"},()=>{scheduleLoad();if(tabletBoard)renderTablet();})
+    .on("postgres_changes",{event:"*",schema:"public"},()=>scheduleLoad())
     .subscribe(state=>{realtimeOk=state==="SUBSCRIBED";if(lastLoadOk)updateConnectionStatus();});
   // Záložní obnova: při výpadku realtime kanálu nebo po delším klidu
   setInterval(()=>{if(!realtimeOk||Date.now()-lastLoadOk>60000)scheduleLoad();},15000);
