@@ -233,6 +233,26 @@ body.tablet-mode>#tabletRoot{display:block!important}
 #landingHome .create-form .field{width:100%;box-sizing:border-box}
 #landingHome .panel .note{color:#aaa}
 @media(max-width:560px){#landingHome .training-grid,#landingHome .create-form{grid-template-columns:1fr}#landingHome .create-form .wide{grid-column:auto}}
+
+/* 501LIVE – hlavní nabídka a skutečně oddělené obrazovky */
+#landingHome{min-height:100svh;display:flex;align-items:center;justify-content:center;padding:clamp(12px,2.5vh,24px) 16px}
+#landingHome .hero{width:min(100%,900px)}
+#landingHome .hero>.panel,#landingHome .topbar,#landingHome>footer{display:none!important}
+#landingHome .hero .eyebrow,#landingHome .hero .intro{display:none!important}
+#landingHome .hero .logo{max-width:min(88vw,680px)!important;max-height:38svh!important;object-fit:contain}
+#landingHome .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;max-width:760px;margin:0 auto;gap:clamp(10px,2vw,18px)}
+#landingHome .actions .action{min-height:clamp(64px,10vh,92px);margin:0!important;border-radius:12px!important;background:#191919!important;border:1px solid #444!important}
+#portalPages{min-height:100svh;padding:clamp(18px,4vh,38px) 16px;box-sizing:border-box}
+#portalPages>.portal-page{display:none;width:min(100%,760px);margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:clamp(16px,3vw,26px);box-sizing:border-box}
+#portalPages>.portal-page.active{display:block}
+#portalPages .portal-back{display:block;margin:0 0 16px;background:transparent;border:0;color:#ddd;font-size:15px;padding:8px 0;cursor:pointer}
+#portalPages .training-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#portalPages .training-item{min-height:76px;display:flex;align-items:center;justify-content:center;background:#202020;border:1px solid #555;border-radius:10px;color:#fff;padding:14px;cursor:pointer}
+#portalPages .create-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}
+#portalPages .create-form label{display:flex;flex-direction:column;gap:7px;color:#ddd;font-size:14px}
+#portalPages .create-form .wide{grid-column:1/-1}
+#portalPages .create-form .field{width:100%;box-sizing:border-box}
+@media(max-width:560px){#landingHome{padding:14px}#landingHome .hero{gap:18px}#landingHome .hero .logo{max-width:90vw!important;max-height:34svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#portalPages .training-grid,#portalPages .create-form{grid-template-columns:1fr}#portalPages .create-form .wide{grid-column:auto}}
 </style>
 </head><body><div id="landingHome"><header class="topbar"><div class="brand">501<span>LIVE</span></div><div class="status">ŠIPKOVÁ PLATFORMa</div></header>
 <main class="hero">
@@ -287,6 +307,7 @@ body.tablet-mode>#tabletRoot{display:block!important}
 </section>
 </main>
 </div>
+<div id="portalPages" hidden></div>
 <div id="legacyApp" hidden><header>
 <h1>NECHYBA GRAND PRIX</h1>
 <p>STEEL DARTS SERIES</p>
@@ -2318,13 +2339,16 @@ init();
 (function(){
  const $=id=>document.getElementById(id);
  const notice=(id,msg,good=false)=>{const el=$(id);if(!el)return;el.textContent=msg;el.classList.add('show');el.style.color=good?'#9be7b0':'#ffb2b2';};
- function showLegacy(){ $('landingHome').hidden=true; $('legacyApp').hidden=false; window.scrollTo(0,0); }
- function showLanding(){ $('legacyApp').hidden=true; $('landingHome').hidden=false; $('landingHome').classList.remove('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.remove('active-panel'));window.scrollTo(0,0); }
- function openLandingPanel(id){const home=$('landingHome');home.classList.add('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.toggle('active-panel',p.id===id));window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
+ const pageIds=['findPanel','trainingPanel','accountPanel','createPanel'];
+ const pages=$('portalPages');
+ pageIds.forEach(id=>{const panel=$(id);if(panel){panel.classList.add('portal-page');const back=document.createElement('button');back.type='button';back.className='portal-back';back.textContent='← ZPĚT NA HLAVNÍ STRÁNKU';back.addEventListener('click',showLanding);panel.insertBefore(back,panel.firstChild);pages.appendChild(panel);}});
+ function showLegacy(){pages.hidden=true;$('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);}
+ function showLanding(){ $('legacyApp').hidden=true;pages.hidden=true;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.remove('active'));$('landingHome').hidden=false;history.pushState({portal:'home'},'',location.pathname+location.search);window.scrollTo(0,0); }
+ function openLandingPanel(id,addHistory=true){const panel=$(id);if(!panel)return;$('landingHome').hidden=true;$('legacyApp').hidden=true;pages.hidden=false;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.toggle('active',p.id===id));if(addHistory)history.pushState({portal:id},'',location.pathname+location.search+'#'+id);window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
  window.show501LiveApp=showLegacy;
  document.querySelectorAll('#landingHome [data-panel]').forEach(b=>b.addEventListener('click',()=>openLandingPanel(b.dataset.panel)));
- const back=document.createElement('button');back.className='landing-back';back.type='button';back.textContent='← ZPĚT';back.onclick=showLanding;$('landingHome').insertBefore(back,$('landingHome').querySelector('.hero'));back.hidden=true;
- const observer=new MutationObserver(()=>{back.hidden=!$('landingHome').classList.contains('has-panel');});observer.observe($('landingHome'),{attributes:true,attributeFilter:['class']});
+ window.addEventListener('popstate',()=>{const id=location.hash.slice(1);if(pageIds.includes(id))openLandingPanel(id,false);else if($('legacyApp').hidden===false)showLanding();else{pages.hidden=true;$('landingHome').hidden=false;}});
+ const initial=location.hash.slice(1);if(pageIds.includes(initial))openLandingPanel(initial,false);
  // Odkaz pro pořadatele otevře přihlášení až po výběru této možnosti.
  const createBtn=document.querySelector('#createPanel [data-open-account="login"]');
  if(createBtn)createBtn.addEventListener('click',()=>openLandingPanel('accountPanel'));
