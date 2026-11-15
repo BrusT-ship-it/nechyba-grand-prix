@@ -5828,4 +5828,164 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
  configureNames();
 })();
 </script>
+
+<style id="501live-player-ux-20261115">
+#uxPlayerPanel,#uxSmartAdmin{background:#191b20;border:1px solid #35363e;border-radius:14px;padding:clamp(15px,3vw,24px);margin:14px 0 22px;color:#f7f7f7}
+.ux-kicker{font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#e11d1d;font-size:12px}
+.ux-title{font-size:clamp(22px,4vw,31px);margin:6px 0 12px;line-height:1.2}
+.ux-muted{color:#b8bac1;line-height:1.45;font-size:14px}
+.ux-card{border:1px solid #40414a;background:#22242b;padding:14px;border-radius:11px;margin-top:12px}
+.ux-row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ux-chip{display:inline-block;border-radius:999px;background:#2b2c35;color:#f5f5f5;padding:5px 10px;font-size:12px;font-weight:700}
+.ux-chip.ux-active{background:#e11d1d;color:#fff}
+.ux-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ux-button{font:inherit!important;font-weight:800!important;font-size:14px!important;padding:13px 16px!important;min-height:47px;background:#e11d1d!important;color:white!important;border:1px solid #ef2929!important;border-radius:9px!important;cursor:pointer}
+.ux-button.secondary{background:#292a32!important;border-color:#555761!important}
+.ux-button:disabled{opacity:.5;cursor:default}
+.ux-filterline{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
+.ux-filter{font:inherit;font-size:13px;min-height:42px;padding:9px 13px;background:#292a31;border:1px solid #484951;border-radius:9px;color:#f2f2f2;cursor:pointer}
+.ux-filter[aria-pressed="true"]{background:#e11d1d;color:#fff;border-color:#e11d1d}
+#uxSearchInput{width:100%;box-sizing:border-box;background:#1a1b20;border:1px solid #555760;border-radius:9px;color:#fff;padding:13px 14px;font-size:16px}
+.ux-search-card{display:block;width:100%;box-sizing:border-box;text-align:left;border:1px solid #46464f;border-radius:10px;padding:15px;margin:9px 0;color:#fff;background:#202127;cursor:pointer;font:inherit}
+.ux-search-card strong{display:block;font-size:16px}.ux-search-card small{color:#bdbfc7;display:block;margin-top:5px;font-size:12px}
+.ux-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+#uxPlayerPanel [hidden],#uxSmartAdmin [hidden],#findForm[hidden]{display:none!important}
+@media(max-width:640px){#uxPlayerPanel,#uxSmartAdmin{padding:14px 12px;margin:10px 0 18px}.ux-grid{grid-template-columns:1fr}.ux-search-card{min-height:68px}}
+</style>
+
+<script id="501live-player-ux-controller">
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const getClient=()=>window.db || (typeof db!=='undefined'?db:null) || window.supabaseClient || null;
+const fmtDate=x=>{if(!x)return 'Bez data';const [y,m,d]=String(x).slice(0,10).split('-');return d&&m&&y?`${d}. ${m}. ${y}`:String(x)};
+const statusName=s=>({active:'Právě probíhá',planned:'Nadcházející',finished:'Odehráno'}[s]||s||'');
+const openTournament=id=>{if(!id)return;const url=new URL(location.href);url.searchParams.set('turnaj',id);url.hash='';location.assign(url.toString())};
+const openProfile=()=>{$('portalMyProfile')?.click()};
+
+// 1) Osobní hráčská obrazovka; používá potvrzené propojení players.profile_id.
+const profileHost=()=> $('profileMe')||$('profilePanel');
+function mountPlayer(){
+ const host=profileHost();if(!host||$('uxPlayerPanel'))return !!host;
+ const node=document.createElement('section');node.id='uxPlayerPanel';node.innerHTML=`
+ <div class="ux-kicker">Můj turnaj · Osobní přehled</div>
+ <h3 class="ux-title">Kde mám hrát?</h3>
+ <p class="ux-muted">Tvoje nadcházející zápasy, rozpis a osobní QR kód na jednom místě.</p>
+ <div id="uxPlayerStatus" class="ux-muted" role="status" aria-live="polite">Po otevření profilu načtu tvoje zápasy.</div>
+ <div id="uxPlayerMatches"></div>
+ <div class="ux-grid" style="margin-top:12px"><button id="uxPlayerReload" class="ux-button" type="button">OBNOVIT MOJE ZÁPASY</button><button id="uxPlayerQrButton" class="ux-button secondary" type="button">UKÁZAT MŮJ QR KÓD</button></div>`;
+ const qr=$('profileQr'); const anchor=qr?.parentElement;
+ if(anchor&&anchor.parentElement===host)host.insertBefore(node,anchor);
+ else host.insertBefore(node,host.firstChild);
+ $('uxPlayerReload').onclick=loadPlayer;
+ $('uxPlayerQrButton').onclick=()=>{if(!qr){$('uxPlayerStatus').textContent='Osobní QR kód otevřeš v profilu hráče.';return;}qr.scrollIntoView({behavior:'smooth',block:'center'});};
+ return true;
+}
+let playerSeq=0;
+async function loadPlayer(){
+ if(!mountPlayer())return;
+ const seq=++playerSeq,info=$('uxPlayerStatus'),target=$('uxPlayerMatches');
+ info.textContent='Načítám tvoje turnaje…';target.replaceChildren();
+ try{
+  const client=getClient();if(!client)throw Error('Databáze ještě není připojená.');
+  const {data:au,error:authError}=await client.auth.getUser();if(authError)throw authError;
+  const user=au?.user;if(!user){info.textContent='Přihlas se, abys viděl svoje turnajové zápasy.';return;}
+  const {data:linked,error:linkedError}=await client.from('players').select('id').eq('profile_id',user.id).limit(30);
+  if(linkedError)throw linkedError;
+  const playerIds=(linked||[]).map(p=>p.id);
+  if(!playerIds.length){info.textContent='Tvůj účet zatím není propojený s turnajovým hráčem. Pořadatel tě může přidat přes osobní QR kód.';return;}
+  const {data:entries,error:entriesError}=await client.from('tournament_entries').select('id,tournament_id,player_id').in('player_id',playerIds).limit(600);
+  if(entriesError)throw entriesError;
+  const own=(entries||[]);if(!own.length){info.textContent='Zatím nejsi přihlášený do žádného turnaje. Ukaž pořadateli svůj QR kód.';return;}
+  const tids=[...new Set(own.map(e=>e.tournament_id))].slice(0,100);
+  const eids=own.map(e=>e.id);
+  const [trs,ms]=await Promise.all([
+    client.from('tournaments').select('id,name,event_date,status').in('id',tids),
+    client.from('matches').select('id,tournament_id,player1_entry_id,player2_entry_id,scorekeeper_entry_id,status,board_no,stage,round_no,legs1,legs2').in('tournament_id',tids).limit(1600)
+  ]);
+  if(trs.error)throw trs.error;if(ms.error)throw ms.error;
+  if(seq!==playerSeq)return;
+  const ts=new Map((trs.data||[]).map(t=>[t.id,t]));
+  const relevant=(ms.data||[]).filter(m=>eids.includes(m.player1_entry_id)||eids.includes(m.player2_entry_id)||eids.includes(m.scorekeeper_entry_id))
+   .filter(m=>m.status!=='finished').sort((a,b)=>({live:0,waiting:1}[a.status]??3)-({live:0,waiting:1}[b.status]??3)||Number(a.board_no||99)-Number(b.board_no||99));
+  const oppIds=[...new Set(relevant.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]).filter(Boolean))];
+  const {data:allEntries}=oppIds.length?await client.from('tournament_entries').select('id,player_id').in('id',oppIds):{data:[]};
+  const playerNameIds=[...new Set((allEntries||[]).map(e=>e.player_id))];
+  const {data:players}=playerNameIds.length?await client.from('players').select('id,name').in('id',playerNameIds):{data:[]};
+  const names=new Map((players||[]).map(p=>[p.id,p.name]));const entryNames=new Map((allEntries||[]).map(e=>[e.id,names.get(e.player_id)||'Hráč']));
+  const cards=relevant.slice(0,12).map(m=>{
+   const mine=eids.includes(m.player1_entry_id)||eids.includes(m.player2_entry_id);
+   const counting=eids.includes(m.scorekeeper_entry_id)&&!mine;
+   const title=mine?`${entryNames.get(m.player1_entry_id)||'Hráč 1'} vs. ${entryNames.get(m.player2_entry_id)||'Hráč 2'}`:'Jdeš zapisovat zápas';
+   const pill=m.status==='live'?'PRÁVĚ SE HRAJE':counting?'PŘIPRAV SE ZAPISOVAT':'ČEKÁ NA SPUŠTĚNÍ';
+   return `<article class="ux-card"><div class="ux-row"><span class="ux-chip ${m.status==='live'?'ux-active':''}">${pill}</span><strong>TERČ ${m.board_no??'—'}</strong></div><h4 style="margin:12px 0 5px">${esc(title)}</h4><p class="ux-muted">${esc(ts.get(m.tournament_id)?.name||'Turnaj')} · ${esc(fmtDate(ts.get(m.tournament_id)?.event_date))}</p><button class="ux-button secondary" type="button" data-ux-tournament="${esc(m.tournament_id)}">OTEVŘÍT TURNAJ</button></article>`;
+  });
+  target.innerHTML=cards.join('')||'<p class="ux-muted">Teď nemáš žádný čekající ani rozehraný zápas. Můžeš sledovat výsledky svých turnajů.</p>';
+  const registered=[...new Set(own.map(e=>e.tournament_id))].length;
+  info.textContent=`Přihlášené turnaje: ${registered} · Aktuální úkoly: ${relevant.length}. Údaje se obnovují po stisknutí tlačítka.`;
+  target.querySelectorAll('[data-ux-tournament]').forEach(b=>b.onclick=()=>openTournament(b.dataset.uxTournament));
+ }catch(err){if(seq===playerSeq)info.textContent='Osobní přehled se nepodařilo načíst: '+(err.message||err);}
+}
+// Návštěva osobního profilu již obsahuje existující QR; doplňujeme jen rychlý přístup a přehled zápasů.
+const playerObserver=new MutationObserver(()=>{
+ if(mountPlayer()&&$('profileMe')&&!$('profileMe').hidden){
+   if(!$('profileMe').dataset.uxLoaded){$('profileMe').dataset.uxLoaded='1';loadPlayer();}
+ }else if($('profileMe')&&$('profileMe').hidden){$('profileMe').dataset.uxLoaded='';}
+});
+playerObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
+mountPlayer();
+
+// 2) Chytré kroky v administraci: používáme existující souhrn pořadatele, ne nový zdroj pravdy.
+function mountAdmin(){
+ const root=$('admin501Overview');if(!root||$('uxSmartAdmin'))return;
+ const block=document.createElement('div');block.id='uxSmartAdmin';block.innerHTML=`<div class="ux-kicker">Doporučený další krok</div><h4 class="ux-title" style="font-size:21px">Co teď udělat?</h4><p id="uxAdminSuggestion" class="ux-muted">Vyber turnaj.</p><div class="ux-grid"><button id="uxAdminNext" class="ux-button" type="button">POKRAČOVAT</button><button id="uxAdminQr" class="ux-button secondary" type="button">📷 REGISTRACE PŘES QR</button></div>`;
+ root.after(block);
+ $('uxAdminQr').onclick=()=>{
+  const sect=$('admin501StartSection');if(sect){sect.open=true;sect.scrollIntoView({behavior:'smooth',block:'start'});}
+  $('openPlayerQrScanner')?.click();
+ };
+ const source=$('admin501Next');let last='';
+ function update(){
+  const text=source?.textContent?.trim()||'Vyber turnaj a pokračuj v administraci.';
+  if(text===last)return;last=text;$('uxAdminSuggestion').textContent=text;
+  const section=/přidáním hráčů/i.test(text)?'admin501StartSection':/rozlosovat/i.test(text)?'admin501StartSection':/terče|spusť|probíhá/i.test(text)?'admin501BoardSection':/výsledky|statistiky/i.test(text)?'admin501HistorySection':'admin501StartSection';
+  $('uxAdminNext').onclick=()=>{const s=$(section);if(s){s.open=true;s.scrollIntoView({behavior:'smooth',block:'start'});}};
+ }
+ update();if(source)new MutationObserver(update).observe(source,{childList:true,subtree:true,characterData:true});
+}
+mountAdmin();
+
+// 3) Vyhledání turnaje včetně filtrů termínu a stavu. Nevyžaduje přihlášení.
+function mountSearch(){
+ const panel=$('findPanel');if(!panel||$('uxSearch'))return;
+ const original=$('findForm');if(original)original.hidden=true;
+ const block=document.createElement('div');block.id='uxSearch';
+ block.innerHTML=`<label for="uxSearchInput" class="ux-muted">Název turnaje nebo pořadatele</label><input id="uxSearchInput" placeholder="Hledat turnaj…" autocomplete="off"/>
+ <div class="ux-filterline" role="group" aria-label="Filtrovat turnaje"><button type="button" class="ux-filter" data-ux-filter="all" aria-pressed="true">Všechny</button><button type="button" class="ux-filter" data-ux-filter="active" aria-pressed="false">Právě probíhají</button><button type="button" class="ux-filter" data-ux-filter="planned" aria-pressed="false">Nadcházející</button><button type="button" class="ux-filter" data-ux-filter="finished" aria-pressed="false">Odehrané</button></div>
+ <div class="ux-row"><span id="uxSearchInfo" class="ux-muted" role="status" aria-live="polite">Vyhledej nebo vyber filtr.</span><button class="ux-button secondary" id="uxSearchRefresh" type="button">OBNOVIT</button></div><div id="uxSearchResults"></div>`;
+ panel.append(block);
+ let all=[],filter='all',serial=0;
+ const paint=()=>{
+  const q=$('uxSearchInput').value.trim().toLocaleLowerCase('cs');
+  const data=all.filter(t=>(filter==='all'||t.status===filter)&&(!q||[t.name,t.event_date].some(v=>String(v||'').toLocaleLowerCase('cs').includes(q))));
+  $('uxSearchInfo').textContent=`Nalezeno ${data.length} turnajů${all.length>=300?' (z prvních 300 dostupných)':''}.`;
+  $('uxSearchResults').innerHTML=data.slice(0,70).map(t=>`<button type="button" class="ux-search-card" data-ux-open="${esc(t.id)}"><strong>${esc(t.name)}</strong><small>${esc(fmtDate(t.event_date))} · ${esc(statusName(t.status))}</small></button>`).join('')||'<p class="ux-muted">Žádný odpovídající turnaj.</p>';
+  $('uxSearchResults').querySelectorAll('[data-ux-open]').forEach(b=>b.onclick=()=>openTournament(b.dataset.uxOpen));
+ };
+ async function reload(){const seq=++serial;$('uxSearchInfo').textContent='Načítám turnaje…';try{
+  const client=getClient();if(!client)throw Error('Databáze není připravená.');
+  const {data,error}=await client.from('tournaments').select('id,name,event_date,status').order('event_date',{ascending:false}).limit(300);if(error)throw error;
+  if(seq!==serial)return;all=data||[];paint();
+ }catch(e){if(seq===serial)$('uxSearchInfo').textContent='Turnaje se nepodařilo načíst: '+(e.message||e);}}
+ block.querySelectorAll('[data-ux-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.uxFilter;block.querySelectorAll('[data-ux-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));paint()});
+ $('uxSearchInput').addEventListener('input',paint);
+ $('uxSearchRefresh').onclick=reload;
+ const watch=new MutationObserver(()=>{if(panel.classList.contains('active-panel')&&!panel.dataset.uxInit){panel.dataset.uxInit='1';reload()}});
+ watch.observe(panel,{attributes:true,attributeFilter:['class']});
+ if(panel.classList.contains('active-panel'))reload();
+}
+mountSearch();
+})();
+</script>
 </body></html>
