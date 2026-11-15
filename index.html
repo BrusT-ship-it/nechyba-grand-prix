@@ -2850,9 +2850,9 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
   const client=getDb();if(!client||!user){$('profileNameMessage').textContent='Databáze není připravena. Obnov stránku.';return;}
   const name=$('profileNickname').value.trim();const msg=$('profileNameMessage');
   if(name.length<2){msg.textContent='Jméno musí mít alespoň 2 znaky.';return;}
-  const {data:updated,error}=await client.from('profiles').update({display_name:name}).eq('id',user.id).select('display_name');
+  const {data:updated,error}=await client.from('profiles').upsert({id:user.id,display_name:name},{onConflict:'id'}).select('display_name');
   if(error){msg.textContent=error.code==='23505'?'Toto jméno už používá jiný hráč.':('Jméno se nepodařilo uložit: '+error.message);return;}
-  if(!updated||updated.length!==1){msg.textContent='Jméno se nepotvrdilo v databázi. Zkontroluj oprávnění profilu.';return;}
+  if(!updated||updated.length!==1){msg.textContent='Databáze nevrátila uložený profil. Zkontroluj, zda má účet vlastní záznam v profiles.';return;}
   $('profilePlayerName').textContent=updated[0].display_name;$('profileNickname').value=updated[0].display_name;$('profileNameEditor').hidden=true;$('profileEditName').hidden=false;msg.textContent='Jméno uloženo.';
  };
 })();
