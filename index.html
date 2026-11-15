@@ -2829,9 +2829,9 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
  const $=id=>document.getElementById(id);
  const button=$('profileOpenMe');if(!button)return;
  let user=null;
- const db=()=>window.db||(typeof window.supabaseClient!=='undefined'?window.supabaseClient:null);
+ const getDb=()=>window.db||(typeof db!=='undefined'?db:null)||(typeof window.supabaseClient!=='undefined'?window.supabaseClient:null);
  async function load(){
-  const client=db();if(!client)return;
+  const client=getDb();if(!client)throw new Error('Databáze není připravena. Obnov stránku.');
   const {data:{user:u}={}}=await client.auth.getUser();if(!u)return;user=u;
   const {data:profile}=await client.from('profiles').select('display_name').eq('id',u.id).maybeSingle();
   const name=profile?.display_name||u.user_metadata?.display_name||u.email?.split('@')[0]||'Hráč';
@@ -2842,12 +2842,12 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
   $('profileAverage').textContent='Turnajový průměr: zatím nezjištěn';
   // Zatím neexistuje bezpečné propojení auth uživatele s turnajovými záznamy.
  }
- button.onclick=()=>{$('profileDashboard').hidden=true;$('profileStatistics').hidden=true;$('profileMe').hidden=false;load().catch(e=>{$('profileNameMessage').textContent=e.message})};
+ button.onclick=()=>{$('profileDashboard').hidden=true;$('profileStatistics').hidden=true;$('profileMe').hidden=false;$('profileNameEditor').hidden=true;$('profileEditName').hidden=false;load().catch(e=>{$('profileNameMessage').textContent=e.message})};
  $('profileMeBack').onclick=()=>window._501liveReturnDashboard?.();
  $('profileEditName').onclick=()=>{$('profileNameEditor').hidden=false;$('profileEditName').hidden=true;$('profileNameMessage').textContent='';$('profileNickname').focus()};
  $('profileCancelName').onclick=()=>{$('profileNameEditor').hidden=true;$('profileEditName').hidden=false;$('profileNickname').value=$('profilePlayerName').textContent;$('profileNameMessage').textContent=''};
  $('profileSaveName').onclick=async()=>{
-  const client=db();if(!client||!user)return;
+  const client=getDb();if(!client||!user){$('profileNameMessage').textContent='Databáze není připravena. Obnov stránku.';return;}
   const name=$('profileNickname').value.trim();const msg=$('profileNameMessage');
   if(name.length<2){msg.textContent='Jméno musí mít alespoň 2 znaky.';return;}
   const {data:updated,error}=await client.from('profiles').update({display_name:name}).eq('id',user.id).select('display_name');
