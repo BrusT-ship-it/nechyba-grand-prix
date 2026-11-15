@@ -234,6 +234,16 @@ body.tablet-mode>#tabletRoot{display:block!important}
 #landingHome .panel .note{color:#aaa}
 @media(max-width:560px){#landingHome .training-grid,#landingHome .create-form{grid-template-columns:1fr}#landingHome .create-form .wide{grid-column:auto}}
 
+/* Opravdové skrytí obrazovek: display pravidla nesmí přebít atribut hidden */
+#landingHome[hidden],#portalPages[hidden],#legacyApp[hidden]{display:none!important}
+
+/* Jemné označení značky na spodní hraně vnitřních stránek */
+.powered-footer{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px 18px;margin:10px auto 0;color:#888;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;text-align:center}
+.powered-footer img{display:block;width:24px;height:24px;max-width:24px;max-height:24px;object-fit:contain;opacity:.8}
+.powered-footer strong{color:#aaa;font-size:11px;letter-spacing:1.2px}
+#portalPages>.powered-footer{width:min(100%,760px)}
+#legacyApp>.powered-footer{width:100%}
+
 /* 501LIVE – hlavní nabídka a skutečně oddělené obrazovky */
 #landingHome{min-height:100svh;display:flex;align-items:center;justify-content:center;padding:clamp(12px,2.5vh,24px) 16px}
 #landingHome .hero{width:min(100%,900px)}
@@ -2341,6 +2351,18 @@ init();
  const notice=(id,msg,good=false)=>{const el=$(id);if(!el)return;el.textContent=msg;el.classList.add('show');el.style.color=good?'#9be7b0':'#ffb2b2';};
  const pageIds=['findPanel','trainingPanel','accountPanel','createPanel'];
  const pages=$('portalPages');
+ // Malé označení značky patří až na konec vnitřních stránek; hlavní menu zůstává čisté.
+ function addPoweredFooter(host){
+   if(!host||host.querySelector(':scope > .powered-footer'))return;
+   const footer=document.createElement('div');footer.className='powered-footer';
+   const source=$('landingHome')?.querySelector('.logo');
+   if(source){const mark=source.cloneNode(false);mark.removeAttribute('id');mark.alt='';mark.setAttribute('aria-hidden','true');footer.appendChild(mark);}
+   const label=document.createElement('span');label.append('POWERED BY ');
+   const brand=document.createElement('strong');brand.textContent='501LIVE';label.appendChild(brand);footer.appendChild(label);
+   host.appendChild(footer);
+ }
+ addPoweredFooter(pages);
+ addPoweredFooter($('legacyApp'));
  pageIds.forEach(id=>{const panel=$(id);if(panel){panel.classList.add('portal-page');const back=document.createElement('button');back.type='button';back.className='portal-back';back.textContent='← ZPĚT NA HLAVNÍ STRÁNKU';back.addEventListener('click',showLanding);panel.insertBefore(back,panel.firstChild);pages.appendChild(panel);}});
  function showLegacy(){pages.hidden=true;$('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);}
  function showLanding(){ $('legacyApp').hidden=true;pages.hidden=true;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.remove('active'));$('landingHome').hidden=false;history.pushState({portal:'home'},'',location.pathname+location.search);window.scrollTo(0,0); }
