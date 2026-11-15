@@ -3090,4 +3090,69 @@ const shortcuts=document.createElement('div');shortcuts.className='admin-shortcu
 hero.after(shortcuts);
 })();
 </script>
+
+<style id="501live-admin-tournament-picker-style">
+#adminPanel .admin-tournament-picker{margin:17px 0 2px;padding:13px;background:#131418;border:1px solid #41424a;border-radius:11px}
+#adminPanel .admin-tournament-picker label{display:block;color:#ddd;font-size:12px;font-weight:750;margin-bottom:9px}
+#adminPanel #adminTournamentPicker{display:block;width:100%;min-height:46px;padding:10px 12px;background:#292a30;border:1px solid #555763;color:#fff;border-radius:9px;font-size:15px;font-weight:700}
+#adminPanel .admin-tournament-note{margin-top:7px;font-size:11px;color:#aaa}
+</style>
+<script id="501live-admin-tournament-picker-controller">
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const panel=$('adminPanel'),hero=panel?.querySelector('.admin-hero'),entry=$('entryTournament');
+if(!hero||!entry)return;
+const wrap=document.createElement('div');wrap.className='admin-tournament-picker';
+const label=document.createElement('label');label.htmlFor='adminTournamentPicker';label.textContent='AKTUÁLNĚ SPRAVOVANÝ TURNAJ';
+const picker=document.createElement('select');picker.id='adminTournamentPicker';picker.setAttribute('aria-label','Vyber turnaj pro administraci');
+const note=document.createElement('div');note.className='admin-tournament-note';note.textContent='Výběr ovládá terče, startovní listinu, losování a výsledky.';
+wrap.append(label,picker,note);hero.appendChild(wrap);
+let ownerId='',owned=new Set(),ready=false,busy=false;
+const client=()=>window.db||(typeof db!=='undefined'?db:null)||window.supabaseClient;
+async function refreshOwner(){
+ if(busy)return;busy=true;
+ try{
+  const c=client();if(!c)return;
+  const {data:{user}={},error:authError}=await c.auth.getUser();
+  if(authError||!user){ready=false;owned.clear();picker.replaceChildren();return}
+  if(user.id!==ownerId){ownerId=user.id;ready=false;owned.clear()}
+  const {data,error}=await c.from('tournaments').select('id').eq('organizer_id',user.id);
+  if(error)throw error;
+  owned=new Set((data||[]).map(x=>x.id));ready=true;
+  sync();
+ }catch(e){note.textContent='Turnaje se nepodařilo načíst: '+e.message}
+ finally{busy=false}
+}
+function sync(){
+ if(!ready)return;
+ const options=[...entry.options].filter(o=>owned.has(o.value));
+ const signature=options.map(o=>o.value+':'+o.textContent).join('|');
+ if(picker.dataset.signature!==signature){
+  picker.replaceChildren(...options.map(o=>new Option(o.textContent,o.value)));
+  picker.dataset.signature=signature;
+ }
+ if(!options.length){note.textContent='K tomuto účtu zatím není přiřazen žádný turnaj.';return}
+ note.textContent='Výběr ovládá terče, startovní listinu, losování a výsledky.';
+ const key='501live-admin-tournament-'+ownerId;
+ const stored=localStorage.getItem(key);
+ const preferred=owned.has(entry.value)?entry.value:(owned.has(stored)?stored:options[0].value);
+ if(entry.value!==preferred){entry.value=preferred;entry.dispatchEvent(new Event('change',{bubbles:true}));}
+ picker.value=preferred;
+}
+picker.addEventListener('change',()=>{
+ if(!owned.has(picker.value))return;
+ localStorage.setItem('501live-admin-tournament-'+ownerId,picker.value);
+ entry.value=picker.value;
+ entry.dispatchEvent(new Event('change',{bubbles:true}));
+ for(const id of ['bracketTournamentSelect','historicalPointsTournament']){
+  const s=$(id);if(s&&[...s.options].some(o=>o.value===picker.value)){
+   s.value=picker.value;s.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+ }
+});
+entry.addEventListener('change',()=>{if(ready&&owned.has(entry.value)){picker.value=entry.value;localStorage.setItem('501live-admin-tournament-'+ownerId,entry.value)}});
+const observer=new MutationObserver(()=>{if(ready)sync()});observer.observe(entry,{childList:true});
+refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!ready)refreshOwner();else sync()}},1800);
+})();
+</script>
 </body></html>
