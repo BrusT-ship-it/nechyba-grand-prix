@@ -647,6 +647,8 @@ let entries = [];
 let matches = [];
 let dartAverageRows = [];
 let dartMatchAverageRows = [];
+let detailedVisitRows = [];
+let detailedVisitError = null;
 let liveLegRows = [];
 let liveVisitRows = [];
 let selectedTournament = new URLSearchParams(window.location.search).get("turnaj") || "";
@@ -1379,14 +1381,60 @@ function playerDartSummary(playerId){
   const darts=rows.reduce((n,r)=>n+Number(r.darts_counted||0),0);
   return {points,darts,average:darts?Math.round(points/darts*300)/100:null,rows};
 }
+function playerDetailedSummary(playerId,tournamentId=null){
+  const rr=detailedVisitRows.filter(r=>r.player_id===playerId && (tournamentId===null || r.tournament_id===tournamentId));
+  const total=k=>rr.reduce((n,r)=>n+(Number(r[k])||0),0);
+  const attempts=total('double_attempts'),tracked=total('tracked_visits'),untracked=total('untracked_visits');
+  const successes=total('tracked_checkouts');
+  const checkouts=total('checkouts');
+  const doubles=attempts>0?(100*successes/attempts):null;
+  const ownEntries=new Set(entries.filter(e=>e.player_id===playerId).map(e=>e.id));
+  const finishedIds=new Set(allFinishedMatches().map(m=>m.id));
+  const avgs=dartMatchAverageRows.filter(r=>ownEntries.has(r.player_entry_id)&&finishedIds.has(r.match_id))
+   .map(r=>Number(r.average_3dart)).filter(n=>Number.isFinite(n)&&n>0);
+  const bestAverage=avgs.length?Math.max(...avgs):null;
+  const fmatches=playerStats(playerId).matches;
+  let legsWon=0,legsLost=0;
+  for(const m of fmatches){
+    const left=entryById.get(m.player1_entry_id)?.player_id===playerId;
+    legsWon+=Number(left?m.legs1:m.legs2)||0;
+    legsLost+=Number(left?m.legs2:m.legs1)||0;
+  }
+  return {recorded:rr.length>0,darts:total('darts_thrown'),visits:total('visits'),
+   visits100:total('visits_100'),visits140:total('visits_140'),visits180:total('visits_180'),
+   attempts,tracked,untracked,successes,checkouts,doubles,bestAverage,legsWon,legsLost,
+   maxCheckout:rr.length?Math.max(0,...rr.map(r=>Number(r.max_checkout)||0)):null,
+   maxVisit:rr.length?Math.max(0,...rr.map(r=>Number(r.max_visit)||0)):null};
+}
+function doubleStatDisplay(d){
+  return d.doubles===null?'Nesledováno':d.doubles.toFixed(1).replace('.',',')+' %'+(d.untracked>0?' *':'');
+}
+function numberOrDash(v){return v===null||v===undefined?'—':String(v)}
 function renderPlayerStats(){
-  const rows=players.map(p=>({player:p,...playerStats(p.id),dart:playerDartSummary(p.id),checkout:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),high:playerBest(p.id,["p1_highest_score","p2_highest_score"])}))
-    .sort((a,b)=>b.wins-a.wins||b.rate-a.rate||a.player.name.localeCompare(b.player.name,"cs"));
-  $("playerStatsContent").innerHTML=`<div class="table-wrap"><table><tr><th>Hráč</th><th>Zápasy</th><th>Výhry</th><th>Prohry</th><th>Úspěšnost</th><th>Celkový průměr</th><th>Nejvyšší zavření</th><th>Nejvyšší nához</th></tr>${rows.map(r=>`<tr><td><button class="secondary player-link" data-open-player="${esc(r.player.id)}">${esc(r.player.name)}</button></td><td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.rate} %</td><td>${r.dart.average==null?"—":r.dart.average.toFixed(2)}</td><td>${r.checkout?.value??"—"}</td><td>${r.high?.value??"—"}</td></tr>`).join("")}</table></div><p class="small">Průměr se počítá z celkového počtu započítaných bodů a šipek. Ručně zadané výsledky se do něj nezapočítávají.</p>`;
+  const rows=players.map(p=>({player:p,...playerStats(p.id),dart:playerDartSummary(p.id),
+     detail:playerDetailedSummary(p.id),checkout:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),
+     high:playerBest(p.id,["p1_highest_score","p2_highest_score"])}))
+     .sort((a,b)=>b.wins-a.wins||b.rate-a.rate||a.player.name.localeCompare(b.player.name,"cs"));
+  const detailAvailable=!detailedVisitError;
+  $("playerStatsContent").innerHTML=`<div class="table-wrap"><table><thead><tr>
+  <th>Hráč</th><th>Zápasy</th><th>Výhry</th><th>Prohry</th><th>Průměr Ø3</th><th>Nejlepší zápas Ø3</th><th>Šipky</th>
+  <th>100+</th><th>140+</th><th>180</th><th>Double %</th><th>Max. zavření</th><th>Max. nához</th>
+  </tr></thead><tbody>${rows.map(r=>`<tr>
+   <td><button class="secondary player-link" data-open-player="${esc(r.player.id)}">${esc(r.player.name)}</button></td>
+   <td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td>
+   <td>${r.dart.average===null?'—':r.dart.average.toFixed(2)}</td>
+   <td>${r.detail.bestAverage===null?'—':r.detail.bestAverage.toFixed(2)}</td>
+   <td>${r.dart.darts||'—'}</td><td>${detailAvailable&&r.detail.recorded?r.detail.visits100:'—'}</td>
+   <td>${detailAvailable&&r.detail.recorded?r.detail.visits140:'—'}</td><td>${detailAvailable&&r.detail.recorded?r.detail.visits180:'—'}</td>
+   <td>${detailAvailable?doubleStatDisplay(r.detail):'—'}</td>
+   <td>${r.checkout?.value??'—'}</td><td>${r.high?.value??'—'}</td></tr>`).join('')}</tbody></table></div>
+   <p class="small">Ø3 = průměr na 3 šipky; nejlepší zápas = nejvyšší průměr v jednom dokončeném zápase. 100+ a 140+ zahrnují také vyšší náhozy. Double % = úspěšná zavření / evidované pokusy na double. * Výsledek je pouze z náhozů se zapnutým sledováním double; starší náhozy se nezapočítávají. Ručně zadané výsledky nemají šipkový průměr.</p>
+   ${!detailAvailable?'<p class="warning">Podrobné statistiky ještě nejsou aktivní. Nejdříve spusť přiložený SQL kód v Supabase.</p>':''}`;
 }
 function renderPlayerProfile(playerId){
   const p=players.find(x=>x.id===playerId);if(!p)return;
   const stats=playerStats(playerId),checkout=playerBest(playerId,["p1_highest_checkout","p2_highest_checkout"]),high=playerBest(playerId,["p1_highest_score","p2_highest_score"]),dart=playerDartSummary(playerId);
+  const detail=playerDetailedSummary(playerId);
   const history=entries.filter(e=>e.player_id===playerId).map(e=>({entry:e,tournament:tournaments.find(t=>t.id===e.tournament_id)})).sort((a,b)=>(Number(a.tournament?.event_no)||0)-(Number(b.tournament?.event_no)||0));
   const matchRows=stats.matches.map(m=>{
     const ownEntry=entries.find(e=>e.player_id===playerId&&e.tournament_id===m.tournament_id);
@@ -1407,9 +1455,9 @@ function renderPlayerProfile(playerId){
       const matchAvg=dartMatchAverageRows.find(r=>r.match_id===m.id&&r.player_entry_id===ownEntry?.id);
       return `<tr><td>${esc(opp)}</td><td>${m.legs1}:${m.legs2}</td><td>${won?"Výhra":"Prohra"}</td><td>${matchAvg?Number(matchAvg.average_3dart).toFixed(2):"—"}</td></tr>`;
     }).join("");
-    return `<details class="panel"><summary>${esc(x.tournament?.name||"Turnaj")} · průměr ${avg?Number(avg.average_3dart).toFixed(2):"—"}</summary><p class="small">Body: ${Number(avg?.counted_points||0)} · šipky: ${Number(avg?.darts_counted||0)}</p><div class="table-wrap"><table><tr><th>Soupeř</th><th>Legy</th><th>Výsledek</th><th>Průměr</th></tr>${eveningMatches||"<tr><td colspan='4'>V tomto večeru nejsou dokončené zápasy.</td></tr>"}</table></div></details>`;
+    return `<details class="panel"><summary>${esc(x.tournament?.name||"Turnaj")} · průměr ${avg?Number(avg.average_3dart).toFixed(2):"—"}</summary><p class="small">Body: ${Number(avg?.counted_points||0)} · šipky: ${Number(avg?.darts_counted||0)}</p>${(()=>{const ev=playerDetailedSummary(playerId,x.entry.tournament_id);return `<p class="small">100+: ${ev.recorded?ev.visits100:'—'} · 140+: ${ev.recorded?ev.visits140:'—'} · 180: ${ev.recorded?ev.visits180:'—'} · Double: ${doubleStatDisplay(ev)}</p>`})()}<div class="table-wrap"><table><tr><th>Soupeř</th><th>Legy</th><th>Výsledek</th><th>Průměr</th></tr>${eveningMatches||"<tr><td colspan='4'>V tomto večeru nejsou dokončené zápasy.</td></tr>"}</table></div></details>`;
   }).join("");
-  $("playerProfileContent").innerHTML=`<div class="panel"><div class="profile-head"><h3>${esc(p.name)}</h3><button class="secondary" data-close-profile>Zavřít profil</button></div><div class="stat-grid"><div class="stat-card">Zápasy<strong>${stats.played}</strong></div><div class="stat-card">Výhry<strong>${stats.wins}</strong></div><div class="stat-card">Prohry<strong>${stats.losses}</strong></div><div class="stat-card">Úspěšnost<strong>${stats.rate} %</strong></div><div class="stat-card">Celkový průměr<strong>${dart.average==null?"—":dart.average.toFixed(2)}</strong></div><div class="stat-card">Nejvyšší zavření<strong>${checkout?.value??"—"}</strong></div><div class="stat-card">Nejvyšší nához<strong>${high?.value??"—"}</strong></div></div><h3>Průměry podle večerů</h3>${eveningRows||"<p class='muted'>Zatím nejsou zaznamenané večery.</p>"}<h3>Umístění v turnajích</h3><table><tr><th>Večer</th><th>Umístění</th><th>Body</th></tr>${history.map(x=>`<tr><td>${esc(x.tournament?.name||"Turnaj")}</td><td>${x.entry.final_place??"—"}</td><td>${x.entry.series_points??"—"}</td></tr>`).join("")}</table><h3>Historie zápasů</h3><div class="table-wrap"><table><tr><th>Večer</th><th>Soupeř</th><th>Výsledek</th><th>Výsledek hráče</th><th>Průměr</th></tr>${matchRows||"<tr><td colspan='5'>Zatím žádné dokončené zápasy.</td></tr>"}</table></div></div>`;
+  $("playerProfileContent").innerHTML=`<div class="panel"><div class="profile-head"><h3>${esc(p.name)}</h3><button class="secondary" data-close-profile>Zavřít profil</button></div><div class="stat-grid"><div class="stat-card">Zápasy<strong>${stats.played}</strong></div><div class="stat-card">Výhry<strong>${stats.wins}</strong></div><div class="stat-card">Prohry<strong>${stats.losses}</strong></div><div class="stat-card">Úspěšnost<strong>${stats.rate} %</strong></div><div class="stat-card">Celkový průměr<strong>${dart.average==null?"—":dart.average.toFixed(2)}</strong></div><div class="stat-card">Nejvyšší zavření<strong>${checkout?.value??"—"}</strong></div><div class="stat-card">Nejvyšší nához<strong>${high?.value??"—"}</strong></div><div class="stat-card">Nejlepší zápasový průměr<strong>${detail.bestAverage===null?'—':detail.bestAverage.toFixed(2)}</strong></div><div class="stat-card">Hozené šipky<strong>${dart.darts||'—'}</strong></div><div class="stat-card">Vyhrané / prohrané legy<strong>${detail.legsWon} / ${detail.legsLost}</strong></div><div class="stat-card">Náhozy 100+<strong>${detail.recorded?detail.visits100:'—'}</strong></div><div class="stat-card">Náhozy 140+<strong>${detail.recorded?detail.visits140:'—'}</strong></div><div class="stat-card">Náhozy 180<strong>${detail.recorded?detail.visits180:'—'}</strong></div><div class="stat-card">Zavření legů<strong>${detail.recorded?detail.checkouts:'—'}</strong></div><div class="stat-card">Pokusy na double<strong>${detail.tracked?detail.attempts:'Nesledováno'}</strong></div><div class="stat-card">Úspěšnost double<strong>${doubleStatDisplay(detail)}</strong></div></div><p class="small">Průměr je z odehraných šipek a bodů. Double % vychází jen z náhozů se zadaným počtem pokusů; chybějící údaje se nepočítají jako nula.${detail.untracked?' Část náhozů nemá sledování double.':''}</p><h3>Průměry podle večerů</h3>${eveningRows||"<p class='muted'>Zatím nejsou zaznamenané večery.</p>"}<h3>Umístění v turnajích</h3><table><tr><th>Večer</th><th>Umístění</th><th>Body</th></tr>${history.map(x=>`<tr><td>${esc(x.tournament?.name||"Turnaj")}</td><td>${x.entry.final_place??"—"}</td><td>${x.entry.series_points??"—"}</td></tr>`).join("")}</table><h3>Historie zápasů</h3><div class="table-wrap"><table><tr><th>Večer</th><th>Soupeř</th><th>Výsledek</th><th>Výsledek hráče</th><th>Průměr</th></tr>${matchRows||"<tr><td colspan='5'>Zatím žádné dokončené zápasy.</td></tr>"}</table></div></div>`;
 }
 function downloadCSV(filename,rows){
   const cell=v=>{let s=String(v??"");if(typeof v==="string"&&/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
@@ -1422,8 +1470,11 @@ function exportSeries(){
   downloadCSV("nechyba-grand-prix-celkove-vysledky.csv",[["Pořadí","Hráč",...qs.map(t=>t.name),"Celkem bodů"],...standings.map((r,i)=>[i+1,r.player?.name||"",...r.eventResults.map(x=>x.points??""),r.total])]);
 }
 function exportPlayers(){
-  const rows=players.map(p=>({p,...playerStats(p.id),dart:playerDartSummary(p.id),c:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),h:playerBest(p.id,["p1_highest_score","p2_highest_score"])}));
-  downloadCSV("nechyba-grand-prix-statistiky-hracu.csv",[["Hráč","Zápasy","Výhry","Prohry","Úspěšnost %","Celkový průměr","Nejvyšší zavření","Nejvyšší nához"],...rows.map(r=>[r.p.name,r.played,r.wins,r.losses,r.rate,r.dart.average??"",r.c?.value??"",r.h?.value??""]) ]);
+  const rows=players.map(p=>({p,...playerStats(p.id),dart:playerDartSummary(p.id),d:playerDetailedSummary(p.id),c:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),h:playerBest(p.id,["p1_highest_score","p2_highest_score"])}));
+  downloadCSV("501live-podrobne-statistiky-hracu.csv",[
+    ["Hráč","Zápasy","Výhry","Prohry","Úspěšnost zápasů %","Celkový průměr Ø3","Nejlepší zápasový průměr Ø3","Šipky","100+","140+","180","Vyhrané legy","Prohrané legy","Zavření","Pokusy na double","Úspěšnost double %","Náhozy bez sledování double","Nejvyšší zavření","Nejvyšší nához"],
+    ...rows.map(r=>[r.p.name,r.played,r.wins,r.losses,r.rate,r.dart.average??"",r.d.bestAverage??"",r.dart.darts||"",r.d.recorded?r.d.visits100:"",r.d.recorded?r.d.visits140:"",r.d.recorded?r.d.visits180:"",r.d.legsWon,r.d.legsLost,r.d.recorded?r.d.checkouts:"",r.d.tracked?r.d.attempts:"",r.d.doubles===null?"":Number(r.d.doubles.toFixed(2)),r.d.untracked,r.c?.value??"",r.h?.value??""])
+  ]);
 }
 function exportMatchResults(){
   const rows=matches.filter(m=>m.status==="finished").sort((a,b)=>String(a.tournament_id).localeCompare(String(b.tournament_id))||(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
@@ -1812,15 +1863,16 @@ async function loadData(){
   if(!db)return;
   const seq=++loadSeq;
   if(!lastLoadOk)setStatus("Načítám data…");
-  let t,p,e,m,avg,matchAvg;
+  let t,p,e,m,avg,matchAvg,visitDetails;
   try{
-    [t,p,e,m,avg,matchAvg]=await Promise.all([
+    [t,p,e,m,avg,matchAvg,visitDetails]=await Promise.all([
       fetchAll("tournaments",["event_no","id"]),
       fetchAll("players",["name","id"]),
       fetchAll("tournament_entries",["id"]),
       fetchAll("matches",["round_no","id"]),
       db.from("player_dart_averages").select("player_entry_id,tournament_id,counted_points,darts_counted,average_3dart,visits,highest_visit"),
-      db.from("match_player_dart_averages").select("match_id,player_entry_id,counted_points,darts_counted,average_3dart")
+      db.from("match_player_dart_averages").select("match_id,player_entry_id,counted_points,darts_counted,average_3dart"),
+       db.rpc("get_501live_player_visit_statistics",{p_player_id:null})
     ]);
   }catch(err){
     if(seq===loadSeq)setStatus("Chyba načítání: "+(err?.message||err));
@@ -1844,6 +1896,8 @@ async function loadData(){
   // Před spuštěním nové SQL migrace mohou pohledy chybět; zbytek aplikace zůstane funkční.
   dartAverageRows=avg&&!avg.error?(avg.data||[]):[];
   dartMatchAverageRows=matchAvg&&!matchAvg.error?(matchAvg.data||[]):[];
+  detailedVisitRows=visitDetails&&!visitDetails.error?(visitDetails.data||[]):[];
+  detailedVisitError=visitDetails?.error||null;
   entryById=new Map(entries.map(x=>[x.id,x]));
   playerById=new Map(players.map(x=>[x.id,x]));
   const options=sortTournaments(tournaments).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
@@ -2460,6 +2514,10 @@ async function renderTablet(){
     return {darts,average:darts?(3*points/darts).toFixed(2).replace(".",","):"—"};
   };
   const p1Stats=matchStats(match.player1_entry_id),p2Stats=matchStats(match.player2_entry_id);
+  // Po kazdem novem legu se pro zobrazeni pocitadlo sipek nuluje.
+  // Prumer za cely zapas zustava v matchStats a neztrati se.
+  p1Stats.legDarts=(visits||[]).filter(v=>v.player_entry_id===match.player1_entry_id).reduce((sum,v)=>sum+Number(v.darts_counted||0),0);
+  p2Stats.legDarts=(visits||[]).filter(v=>v.player_entry_id===match.player2_entry_id).reduce((sum,v)=>sum+Number(v.darts_counted||0),0);
   const dartsThrown=id=>(visits||[]).filter(v=>v.player_entry_id===id).reduce((sum,v)=>sum+Number(v.darts_counted||0),0);
   const currentVisitNo=(visits||[]).filter(v=>v.player_entry_id===current).length+1;
   const lastVisit=visits?.[visits.length-1];
@@ -2484,7 +2542,7 @@ async function renderTablet(){
     return `<div class="tablet-score-card ${active?"is-active":"is-inactive"}">
       <div class="tablet-player">${esc(playerName(id))}</div>
       <div class="tablet-card-score">${shownScore}</div>
-      <div class="tablet-player-stats"><span title="Odhozene sipky za tento zapas">ŠIPKY <strong>${stats.darts}</strong></span><span title="Prubezny prumer na 3 sipky za tento zapas">Ø <strong>${stats.average}</strong></span></div>
+      <div class="tablet-player-stats"><span title="Odhozené šipky v aktuálním legu">ŠIPKY <strong>${stats.legDarts}</strong></span><span title="Prubezny prumer na 3 sipky za tento zapas">Ø <strong>${stats.average}</strong></span></div>
     </div>`;
   };
   app.innerHTML=`<div class="panel tablet-counter-panel">
@@ -2775,9 +2833,62 @@ profile.querySelectorAll('[data-go]').forEach(button=>button.addEventListener('c
 $('profileMeStats').onclick=()=>{$('profileMe').hidden=true;$('profileDashboard').hidden=true;$('profileStatistics').hidden=false;renderStats('turnaje');};
 $('profileStatsBack').onclick=()=>{ $('profileStatistics').hidden=true;$('profileMe').hidden=false; };
 profile.querySelectorAll('[data-stats-tab]').forEach(b=>b.onclick=()=>renderStats(b.dataset.statsTab));
-const tournamentNames=['Odehrané turnaje','Vyhrané turnaje','Nejlepší průměr','Nejvyšší zavření','Nejvyšší nához','Odehrané zápasy'];
+const tournamentNames=['Odehrané turnaje','Vyhrané turnaje','Odehrané zápasy','Vyhrané zápasy','Celkový průměr Ø3','Nejlepší zápas Ø3','Hozené šipky','Náhozy 100+','Náhozy 140+','Náhozy 180','Nejvyšší zavření','Nejvyšší nához','Úspěšnost double'];
 const trainingNames=['Odehrané tréninky','Celkem hozených šipek','Nejlepší průměr','Nejvyšší zavření','Nejvyšší nához','Úspěšnost zavírání'];
-function renderStats(tab){currentTab=tab;profile.querySelectorAll('[data-stats-tab]').forEach(b=>b.classList.toggle('active',b.dataset.statsTab===tab));const names=tab==='turnaje'?tournamentNames:trainingNames;$('profileStatsGrid').innerHTML=names.map(n=>`<div><strong>—</strong><span>${n}</span></div>`).join('');$('profileStatsNote').textContent=tab==='turnaje'?'Turnajové statistiky se zobrazí po propojení hráčského účtu s turnajovými výsledky.':'Tréninkové statistiky se ukládají pro přihlášeného hráče po dokončení legu. Načítám údaje…';if(tab==='trenink')loadTrainingStats();}
+function renderStats(tab){currentTab=tab;profile.querySelectorAll('[data-stats-tab]').forEach(b=>b.classList.toggle('active',b.dataset.statsTab===tab));const names=tab==='turnaje'?tournamentNames:trainingNames;$('profileStatsGrid').innerHTML=names.map(n=>`<div><strong>—</strong><span>${n}</span></div>`).join('');$('profileStatsNote').textContent=tab==='turnaje'?'Turnajové statistiky se zobrazí po propojení hráčského účtu s turnajovými výsledky.':'Tréninkové statistiky se ukládají pro přihlášeného hráče po dokončení legu. Načítám údaje…';if(tab==='trenink')loadTrainingStats();else loadOwnTournamentStats();}
+let ownStatsReq=0;
+async function loadOwnTournamentStats(){
+ const seq=++ownStatsReq,user=currentUser,client=getClient();
+ if(!user||!client)return;
+ const note=$('profileStatsNote');
+ note.textContent='Načítám turnajové statistiky…';
+ try{
+   const {data:linked,error:linkError}=await client.from('players').select('id,name').eq('profile_id',user.id).limit(1);
+   if(linkError)throw linkError;
+   if(currentTab!=='turnaje'||currentUser?.id!==user.id||seq!==ownStatsReq)return;
+   if(!linked?.length){note.textContent='Zatím není propojený tvůj hráčský účet s výsledky turnajů. Propojení najdeš v Můj profil.';return;}
+   const playerId=linked[0].id;
+   const [{data:entryRows,error:entryErr},{data:details,error:detailsErr}]=await Promise.all([
+      client.from('tournament_entries').select('id,tournament_id,final_place').eq('player_id',playerId),
+      client.rpc('get_501live_player_visit_statistics',{p_player_id:playerId})
+   ]);
+   if(entryErr)throw entryErr;
+   const ownEntries=entryRows||[], ids=ownEntries.map(e=>e.id);
+   if(!ids.length){note.textContent='Zatím nemáš zapsané turnaje.';return;}
+   const matchColumns='id,player1_entry_id,player2_entry_id,winner_entry_id,status,legs1,legs2,p1_highest_checkout,p2_highest_checkout,p1_highest_score,p2_highest_score';
+   const [left,right,matchAverages,playerAverages]=await Promise.all([
+    client.from('matches').select(matchColumns).in('player1_entry_id',ids).eq('status','finished'),
+    client.from('matches').select(matchColumns).in('player2_entry_id',ids).eq('status','finished'),
+    client.from('match_player_dart_averages').select('match_id,player_entry_id,average_3dart').in('player_entry_id',ids),
+    client.from('player_dart_averages').select('counted_points,darts_counted').in('player_entry_id',ids)
+   ]);
+   if(left.error||right.error)throw left.error||right.error;
+   const games=[...new Map([...(left.data||[]),...(right.data||[])].map(m=>[m.id,m])).values()];
+   const myIds=new Set(ids),won=games.filter(m=>myIds.has(m.winner_entry_id)).length;
+   const rowList=detailsErr?[]:(details||[]);
+   const sum=k=>rowList.reduce((n,r)=>n+(Number(r[k])||0),0);
+   const best=(list,key)=>list.length?Math.max(0,...list.map(r=>Number(r[key])||0)):null;
+   const ppoints=(playerAverages.data||[]).reduce((n,r)=>n+(Number(r.counted_points)||0),0);
+   const pdarts=(playerAverages.data||[]).reduce((n,r)=>n+(Number(r.darts_counted)||0),0);
+   const finishedIds=new Set(games.map(m=>m.id));
+   const bestAvgs=(matchAverages.data||[]).filter(r=>finishedIds.has(r.match_id)).map(r=>Number(r.average_3dart)).filter(n=>Number.isFinite(n)&&n>0);
+   const bestAvg=bestAvgs.length?Math.max(...bestAvgs):null;
+   const maxCheckout=games.reduce((n,m)=>Math.max(n,Number(myIds.has(m.player1_entry_id)?m.p1_highest_checkout:m.p2_highest_checkout)||0),0);
+   const maxVisit=games.reduce((n,m)=>Math.max(n,Number(myIds.has(m.player1_entry_id)?m.p1_highest_score:m.p2_highest_score)||0),0);
+   const attempts=sum('double_attempts'),tracked=sum('tracked_visits'),untracked=sum('untracked_visits');
+   const rate=attempts>0?(100*sum('tracked_checkouts')/attempts).toFixed(1).replace('.',',')+' %'+(untracked?' *':''):'Nesledováno';
+   const playedTournaments=new Set(ownEntries.filter(e=>games.some(m=>m.player1_entry_id===e.id||m.player2_entry_id===e.id)).map(e=>e.tournament_id));
+   const values=[playedTournaments.size,ownEntries.filter(e=>Number(e.final_place)===1).length,games.length,won,
+     pdarts?(3*ppoints/pdarts).toFixed(2):'—',bestAvg===null?'—':bestAvg.toFixed(2),
+     pdarts||'—',detailsErr?'—':sum('visits_100'),detailsErr?'—':sum('visits_140'),detailsErr?'—':sum('visits_180'),
+     maxCheckout||'—',maxVisit||'—',detailsErr?'—':rate];
+   if(currentTab!=='turnaje'||currentUser?.id!==user.id||seq!==ownStatsReq)return;
+   $('profileStatsGrid').querySelectorAll('strong').forEach((el,i)=>el.textContent=values[i]??'—');
+   const avgEl=$('profileAverage');if(avgEl)avgEl.textContent='Turnajový průměr: '+(pdarts?(3*ppoints/pdarts).toFixed(2):'zatím nezjištěn');
+   note.textContent=detailsErr?'Základní statistiky fungují. Podrobné náhozy a double vyžadují spuštění SQL funkce.':
+     'Průměry pocházejí ze zaznamenaných náhozů. Úspěšnost double se počítá jen z evidovaných pokusů.'+(untracked?' * Některé náhozy double nesledovaly.':'');
+ }catch(err){if(seq===ownStatsReq&&currentTab==='turnaje')note.textContent='Statistiky se nepodařilo načíst: '+(err?.message||err);}
+}
 async function loadTrainingStats(){const user=currentUser,client=getClient();if(!user||!client)return;try{const {data,error}=await client.from('training_results').select('starting_score,darts_used,average,highest_checkout,highest_visit,finished_at').eq('user_id',user.id).order('finished_at',{ascending:false}).limit(1000);if(error)throw error;if(currentTab!=='trenink'||currentUser?.id!==user.id)return;const rows=data||[],max=(key)=>rows.length?Math.max(...rows.map(r=>Number(r[key])||0)):null,values=[rows.length||'—',rows.length?rows.reduce((n,r)=>n+(Number(r.darts_used)||0),0):'—',max('average')?.toFixed(2)??'—',max('highest_checkout')??'—',max('highest_visit')??'—',rows.length?'100 %':'—'];$('profileStatsGrid').querySelectorAll('strong').forEach((el,i)=>el.textContent=values[i]);$('profileStatsNote').textContent=rows.length?'Statistiky dokončených tréninkových legů.':'Zatím nemáš uložený dokončený trénink.';}catch(e){$('profileStatsNote').textContent='Statistiky zatím nelze načíst. Pro ukládání je nutné vytvořit tabulku training_results v Supabase.';}}
 window.addEventListener('501live-training-finished',async e=>{const client=getClient(),user=currentUser;if(!client||!user)return;const d=e.detail;const {error}=await client.from('training_results').insert({user_id:user.id,starting_score:d.starting_score,darts_used:d.darts_used,average:d.average,highest_checkout:d.highest_checkout,highest_visit:d.highest_visit});if(error)console.warn('Uložení tréninku se nezdařilo:',error.message);else if(currentTab==='trenink'&&!$('profileStatistics').hidden)loadTrainingStats();});
 $('profileLogout').addEventListener('click',async()=>{const client=getClient();if(!client)return;const {error}=await client.auth.signOut();if(error){$('profileMessage').textContent='Odhlášení se nezdařilo: '+error.message;return;}currentUser=null;$('landingHome').classList.remove('has-panel');$('landingHome').querySelectorAll(':scope > .panel').forEach(p=>p.classList.remove('active-panel'));window.scrollTo(0,0);});
@@ -3041,7 +3152,20 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
   if(window.QRCode){new window.QRCode(qr,{text:'501LIVE:PLAYER:'+u.id,width:200,height:200,colorDark:'#111111',colorLight:'#ffffff'});}
   else{qr.textContent='QR kód se nepodařilo načíst. Zkontroluj připojení.';}
   $('profileAverage').textContent='Turnajový průměr: zatím nezjištěn';
-  // Zatím neexistuje bezpečné propojení auth uživatele s turnajovými záznamy.
+  // Pouzij jen potvrzene propojeni s historickym hracem (players.profile_id).
+  try{
+    const {data:linked}=await client.from('players').select('id').eq('profile_id',u.id).limit(1);
+    if(linked?.length){
+      const {data:ownEntries}=await client.from('tournament_entries').select('id').eq('player_id',linked[0].id);
+      const ids=(ownEntries||[]).map(e=>e.id);
+      if(ids.length){
+        const {data:avgs}=await client.from('player_dart_averages').select('counted_points,darts_counted').in('player_entry_id',ids);
+        const darts=(avgs||[]).reduce((n,r)=>n+(Number(r.darts_counted)||0),0);
+        const pts=(avgs||[]).reduce((n,r)=>n+(Number(r.counted_points)||0),0);
+        if(darts)$('profileAverage').textContent='Turnajový průměr: '+(3*pts/darts).toFixed(2);
+      }
+    }
+  }catch(err){console.warn('Turnajovy prumer v profilu zatim nelze nacist:',err.message||err);} 
  }
  button.onclick=()=>{$('profileDashboard').hidden=true;$('profileStatistics').hidden=true;$('profileMe').hidden=false;$('profileNameEditor').hidden=true;$('profileEditName').hidden=false;load().catch(e=>{$('profileNameMessage').textContent=e.message})};
  $('profileMeBack').onclick=()=>window._501liveReturnDashboard?.();
@@ -3343,6 +3467,31 @@ picker.addEventListener('change',()=>{
 entry.addEventListener('change',()=>{if(ready&&owned.has(entry.value)){picker.value=entry.value;localStorage.setItem('501live-admin-tournament-'+ownerId,entry.value)}});
 const observer=new MutationObserver(()=>{if(ready)sync()});observer.observe(entry,{childList:true});
 refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!ready)refreshOwner();else sync()}},1800);
+})();
+</script>
+
+<style id="501live-global-brand-footer">
+  #appBrandFooter{position:fixed;inset:auto 0 calc(2px + env(safe-area-inset-bottom,0px)) 0;
+    z-index:4000;display:flex;align-items:center;justify-content:center;
+    height:38px;pointer-events:none;box-sizing:border-box;background:linear-gradient(180deg,transparent,rgba(8,8,8,.9) 30%);
+  }
+  #appBrandFooter img{width:112px;max-height:35px;height:auto;object-fit:contain;opacity:.9;filter:drop-shadow(0 1px 2px #000);}
+  body:not(.tablet-mode) #landingHome,body:not(.tablet-mode) #legacyApp{padding-bottom:50px!important;}
+  body.tablet-mode #appBrandFooter{height:30px;bottom:calc(1px + env(safe-area-inset-bottom,0px));}
+  body.tablet-mode #appBrandFooter img{width:91px;max-height:27px;opacity:.78;}
+  body.tablet-mode #legacyApp>#tabletRoot{padding-bottom:36px!important;}
+  @media(max-height:680px){body.tablet-mode #appBrandFooter{height:23px}
+   body.tablet-mode #appBrandFooter img{width:72px;max-height:22px}
+   body.tablet-mode #legacyApp>#tabletRoot{padding-bottom:25px!important}}
+  @media print{#appBrandFooter{display:none!important}}
+</style>
+<script id="501live-global-brand-footer">
+(()=>{
+ const source=document.querySelector('#landingHome .hero img.logo');
+ if(!source||document.getElementById('appBrandFooter'))return;
+ const footer=document.createElement('div');footer.id='appBrandFooter';footer.setAttribute('aria-label','501LIVE');
+ const img=document.createElement('img');img.src=source.src;img.alt='501LIVE';
+ footer.appendChild(img);document.body.appendChild(footer);
 })();
 </script>
 </body></html>
