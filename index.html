@@ -455,6 +455,17 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 <select aria-label="Hráč" id="entryPlayer"></select>
 <select aria-label="Turnaj" id="entryTournament"></select>
 <button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
+<button class="action" id="openPlayerQrScanner" type="button">📷 PŘIDAT HRÁČE PŘES QR</button>
+<div id="playerQrScanner" hidden class="player-qr-panel">
+  <strong>Načíst osobní QR kód hráče</strong>
+  <p class="small">Vybraný turnaj: <span id="playerQrTournamentName">–</span>. Fotoaparát vyžaduje HTTPS a povolení přístupu. Pokud prohlížeč skenování nepodporuje, můžeš vložit obsah QR kódu ručně.</p>
+  <video id="playerQrVideo" autoplay playsinline muted hidden></video>
+  <div class="row"><button class="action" id="playerQrStartCamera" type="button">SPUSTIT FOTOAPARÁT</button><button class="secondary" id="playerQrStopCamera" type="button">ZASTAVIT</button></div>
+  <label for="playerQrManual">Obsah QR kódu (501LIVE:PLAYER:...)</label>
+  <div class="row"><input id="playerQrManual" type="text" placeholder="501LIVE:PLAYER:xxxxxxxx-..." autocomplete="off" style="flex:1;min-width:190px"/><button class="action" id="playerQrAdd" type="button">PŘIDAT HRÁČE</button></div>
+  <p id="playerQrFeedback" role="status" aria-live="polite" class="small"></p>
+  <button class="secondary" id="playerQrClose" type="button">ZAVŘÍT</button>
+</div>
 <button class="danger" id="clearEntryListBtn" type="button">Smazat startovní listinu</button>
 <div id="adminEntries"></div>
 <div class="format-draw-buttons" id="formatDrawButtons">
@@ -2856,4 +2867,88 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
   $('profilePlayerName').textContent=updated[0].display_name;$('profileNickname').value=updated[0].display_name;$('profileNameEditor').hidden=true;$('profileEditName').hidden=false;msg.textContent='Jméno uloženo.';
  };
 })();
-</script><style id="profile-edit-toggle-style">#profileNameEditor[hidden],#profileEditName[hidden]{display:none!important}#profileEditName{margin:16px 0 4px}#profileNameEditor{margin-top:14px}#profileCancelName{margin-top:8px}</style></body></html>
+</script><style id="profile-edit-toggle-style">#profileNameEditor[hidden],#profileEditName[hidden]{display:none!important}#profileEditName{margin:16px 0 4px}#profileNameEditor{margin-top:14px}#profileCancelName{margin-top:8px}</style><style id="501live-player-qr-style">#playerQrScanner[hidden],#playerQrVideo[hidden]{display:none!important}#playerQrScanner{margin:14px 0;padding:16px;background:#151515;border:1px solid #555;border-left:4px solid #d71920;border-radius:9px}#playerQrScanner video{width:min(100%,440px);max-height:360px;object-fit:cover;display:block;margin:12px auto;border:1px solid #555;border-radius:8px}#playerQrFeedback{min-height:20px;white-space:pre-wrap}#playerQrScanner label{display:block;margin-top:12px;color:#ddd}</style><script id="501live-player-qr-controller">
+(()=>{
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const panel=$('playerQrScanner'),open=$('openPlayerQrScanner');
+ if(!panel||!open)return;
+ let stream=null,detector=null,running=false,scanBusy=false,scanToken=0;
+ const feedback=(message,ok=false)=>{const el=$('playerQrFeedback');el.textContent=message;el.style.color=ok?'#65d994':'#ffb3b3';};
+ const selectedTournamentId=()=>$('entryTournament')?.value||'';
+ const currentDb=()=>typeof db!=='undefined'?db:window.db;
+ function stopCamera(){
+   running=false;scanToken++;
+   if(stream){stream.getTracks().forEach(track=>track.stop());stream=null;}
+   const video=$('playerQrVideo');video.pause();video.srcObject=null;video.hidden=true;
+ }
+ function decodePlayer(raw){
+   const text=String(raw||'').trim();
+   const match=/^501LIVE:PLAYER:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(text);
+   if(!match)throw Error('Neplatný QR kód. Použij osobní QR kód z profilu 501LIVE.');
+   return match[1].toLowerCase();
+ }
+ async function addPlayer(raw){
+   if(scanBusy)return;
+   scanBusy=true;$('playerQrAdd').disabled=true;
+   try{
+     const id=decodePlayer(raw),tournamentId=selectedTournamentId();
+     if(!tournamentId)throw Error('Nejdřív vyber turnaj na startovní listině.');
+     const client=currentDb();if(!client)throw Error('Databáze není připravena.');
+     const {data:{user}={},error:authError}=await client.auth.getUser();
+     if(authError||!user)throw Error('Nejdřív se přihlas jako pořadatel turnaje.');
+     const {data,error}=await client.rpc('add_player_by_qr',{p_tournament_id:tournamentId,p_profile_id:id});
+     if(error)throw Error(error.message||'Hráče se nepodařilo přidat.');
+     feedback(String(data||'Hráč byl přidán.'),true);
+     $('playerQrManual').value='';
+     stopCamera();
+     if(typeof loadData==='function')await loadData();
+   }catch(e){feedback(e.message||'Načtení QR kódu se nezdařilo.');}
+   finally{scanBusy=false;$('playerQrAdd').disabled=false;}
+ }
+ async function scanLoop(token){
+   const video=$('playerQrVideo');
+   while(running&&token===scanToken){
+     if(!scanBusy&&video.readyState>=2){
+       try{
+         const found=await detector.detect(video);
+         if(!running||token!==scanToken)return;
+         if(found.length){
+           const raw=found[0].rawValue||'';
+           if(/^501LIVE:PLAYER:/i.test(raw)){await addPlayer(raw);return;}
+         }
+       }catch(e){feedback('Fotoaparát nem dokáže přečíst QR kód: '+e.message);stopCamera();return;}
+     }
+     await new Promise(resolve=>setTimeout(resolve,220));
+   }
+ }
+ async function startCamera(){
+   stopCamera();
+   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){feedback('Fotoaparát vyžaduje HTTPS a podporovaný prohlížeč. Obsah QR lze vložit ručně.');return;}
+   if(!('BarcodeDetector' in window)){feedback('Tento prohlížeč nepodporuje automatické skenování QR. Použij například Chrome na Androidu nebo vlož obsah QR ručně.');return;}
+   try{
+     const supported=await BarcodeDetector.getSupportedFormats();
+     if(!supported.includes('qr_code'))throw Error('Prohlížeč nepodporuje čtení QR kódů.');
+     detector=new BarcodeDetector({formats:['qr_code']});
+     stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
+     const video=$('playerQrVideo');video.srcObject=stream;video.hidden=false;
+     await video.play();running=true;feedback('Namiř fotoaparát na osobní QR kód hráče.',true);
+     scanLoop(++scanToken);
+   }catch(e){stopCamera();feedback('Fotoaparát se nepodařilo spustit: '+e.message);}
+ }
+ open.addEventListener('click',()=>{
+   const id=selectedTournamentId();
+   if(!id){feedback('Nejdřív vyber turnaj.');panel.hidden=false;return;}
+   const select=$('entryTournament');$('playerQrTournamentName').textContent=select.options[select.selectedIndex]?.textContent||'vybraný turnaj';
+   panel.hidden=false;feedback('Vyber možnost SPUSTIT FOTOAPARÁT nebo vlož obsah QR kódu.');
+ });
+ $('playerQrStartCamera').addEventListener('click',startCamera);
+ $('playerQrStopCamera').addEventListener('click',stopCamera);
+ $('playerQrClose').addEventListener('click',()=>{stopCamera();panel.hidden=true;});
+ $('playerQrAdd').addEventListener('click',()=>addPlayer($('playerQrManual').value));
+ $('playerQrManual').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addPlayer(e.target.value);}});
+ $('entryTournament').addEventListener('change',()=>{stopCamera();if(!panel.hidden){const s=$('entryTournament');$('playerQrTournamentName').textContent=s.options[s.selectedIndex]?.textContent||'–';feedback('Turnaj změněn.');}});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
+ window.addEventListener('pagehide',stopCamera);
+})();
+</script></body></html>
