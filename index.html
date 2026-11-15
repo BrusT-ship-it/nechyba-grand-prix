@@ -976,7 +976,7 @@ body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!importa
   <strong>Načíst osobní QR kód hráče</strong>
   <p class="small">Vybraný turnaj: <span id="playerQrTournamentName">–</span>. Fotoaparát vyžaduje HTTPS a povolení přístupu. Pokud prohlížeč skenování nepodporuje, můžeš vložit obsah QR kódu ručně.</p>
   <video id="playerQrVideo" autoplay playsinline muted hidden></video>
-  <div class="row"><button class="action" id="playerQrStartCamera" type="button">SPUSTIT FOTOAPARÁT</button><button class="secondary" id="playerQrStopCamera" type="button">ZASTAVIT</button></div>
+  <div class="row"><button class="action" id="playerQrStartCamera" type="button">ZNOVU SPUSTIT FOTOAPARÁT</button><button class="secondary" id="playerQrStopCamera" type="button">ZASTAVIT</button></div>
   <label for="playerQrManual">Obsah QR kódu (501LIVE:PLAYER:...)</label>
   <div class="row"><input id="playerQrManual" type="text" placeholder="501LIVE:PLAYER:xxxxxxxx-..." autocomplete="off" style="flex:1;min-width:190px"/><button class="action" id="playerQrAdd" type="button">PŘIDAT HRÁČE</button></div>
   <p id="playerQrFeedback" role="status" aria-live="polite" class="small"></p>
@@ -4329,26 +4329,31 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
      await new Promise(resolve=>setTimeout(resolve,220));
    }
  }
- async function startCamera(){
-   stopCamera();
-   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){feedback('Fotoaparát vyžaduje HTTPS a podporovaný prohlížeč. Obsah QR lze vložit ručně.');return;}
-   if(!('BarcodeDetector' in window)){feedback('Tento prohlížeč nepodporuje automatické skenování QR. Použij například Chrome na Androidu nebo vlož obsah QR ručně.');return;}
-   try{
-     const supported=await BarcodeDetector.getSupportedFormats();
-     if(!supported.includes('qr_code'))throw Error('Prohlížeč nepodporuje čtení QR kódů.');
-     detector=new BarcodeDetector({formats:['qr_code']});
-     stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
-     const video=$('playerQrVideo');video.srcObject=stream;video.hidden=false;
-     await video.play();running=true;feedback('Namiř fotoaparát na osobní QR kód hráče.',true);
-     scanLoop(++scanToken);
-   }catch(e){stopCamera();feedback('Fotoaparát se nepodařilo spustit: '+e.message);}
- }
- open.addEventListener('click',()=>{
-   const id=selectedTournamentId();
-   if(!id){feedback('Nejdřív vyber turnaj.');panel.hidden=false;return;}
-   const select=$('entryTournament');$('playerQrTournamentName').textContent=select.options[select.selectedIndex]?.textContent||'vybraný turnaj';
-   panel.hidden=false;feedback('Vyber možnost SPUSTIT FOTOAPARÁT nebo vlož obsah QR kódu.');
- });
+  async function startCamera(){
+    stopCamera();
+    if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){feedback('Fotoaparát vyžaduje HTTPS a podporovaný prohlížeč. Obsah QR lze vložit ručně.');return;}
+    if(!('BarcodeDetector' in window)){feedback('Prohlížeč nepodporuje skenování QR fotoaparátem. Použij Chrome na Androidu nebo vlož obsah QR ručně.');return;}
+    try{
+      // Vyžádat přístup ke kameře přímo z kliknutí; bez druhého potvrzovacího tlačítka.
+      const cameraPromise=navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
+      const formatsPromise=BarcodeDetector.getSupportedFormats();
+      const [cameraStream,supported]=await Promise.all([cameraPromise,formatsPromise]);
+      stream=cameraStream;
+      if(!supported.includes('qr_code'))throw Error('Prohlížeč nepodporuje čtení QR kódů.');
+      detector=new BarcodeDetector({formats:['qr_code']});
+      const video=$('playerQrVideo');video.srcObject=stream;video.hidden=false;
+      await video.play();running=true;feedback('Namiř fotoaparát na osobní QR kód hráče.',true);
+      panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+      scanLoop(++scanToken);
+    }catch(e){stopCamera();feedback('Fotoaparát se nepodařilo spustit: '+(e?.message||e));}
+  }
+  open.addEventListener('click',()=>{
+    const id=selectedTournamentId();
+    if(!id){feedback('Nejdřív vyber turnaj.');panel.hidden=false;return;}
+    const select=$('entryTournament');$('playerQrTournamentName').textContent=select.options[select.selectedIndex]?.textContent||'vybraný turnaj';
+    panel.hidden=false;feedback('Spouštím fotoaparát…',true);
+    startCamera();
+  });
  $('playerQrStartCamera').addEventListener('click',startCamera);
  $('playerQrStopCamera').addEventListener('click',stopCamera);
  $('playerQrClose').addEventListener('click',()=>{stopCamera();panel.hidden=true;});
