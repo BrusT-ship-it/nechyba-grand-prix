@@ -335,12 +335,23 @@ body.tablet-mode .tablet-number-pad .tablet-key-row.actions button{min-height:cl
 body.tablet-mode .tablet-special{margin-top:5px;gap:5px}
 body.tablet-mode .tablet-special h4{margin:1px 0 3px;font-size:12px}
 body.tablet-mode .tablet-special button{min-height:clamp(34px,4.8dvh,48px);font-size:16px}
-body.tablet-mode .tablet-double{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:6px 0 2px;padding:5px;border:1px solid #484848;border-radius:7px}
-body.tablet-mode .tablet-double>span{font-size:11px;font-weight:700}
+body.tablet-mode .tablet-double{display:block;margin:7px 0 4px;padding:5px 7px;border:1px solid #484848;border-radius:7px}
+body.tablet-mode .tablet-double-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+body.tablet-mode .tablet-double h4{font-size:12px;margin:0;font-weight:700}
 body.tablet-mode .tablet-double small{font-weight:normal;color:#aaa}
-body.tablet-mode .tablet-double-buttons{display:flex;gap:4px}
-body.tablet-mode .tablet-double button{background:#292929;color:#fff;border:1px solid #555;border-radius:6px;min-width:34px;min-height:34px;padding:4px 7px;font-weight:700}
+body.tablet-mode .tablet-double-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+body.tablet-mode .tablet-double button{background:#292929;color:#fff;border:1px solid #555;border-radius:6px;font-weight:700}
+body.tablet-mode .tablet-double-buttons button{min-height:clamp(40px,5.6dvh,53px);font-size:18px}
 body.tablet-mode .tablet-double button.selected{background:#d71920;border-color:#ff7777}
+body.tablet-mode .tablet-double .tablet-double-clear,body.tablet-mode .tablet-double .tablet-double-zero{font-size:11px;min-height:25px;padding:3px 9px}
+body.tablet-mode .tablet-double .tablet-double-zero{display:block;margin:4px 0 0 auto}
+/* Využít volné místo na výšku, stále přizpůsobovat malým displejům. */
+body.tablet-mode .tablet-aggregate-pad button{min-height:clamp(39px,6.1dvh,58px)}
+body.tablet-mode .tablet-aggregate-special button{min-height:clamp(39px,6.1dvh,58px)}
+body.tablet-mode .tablet-number-pad button{min-height:clamp(38px,5.6dvh,57px)}
+body.tablet-mode .tablet-special button{min-height:clamp(38px,5.5dvh,54px)}
+body.tablet-mode .tablet-counter-actions button,body.tablet-mode .tablet-counter-actions button[data-tablet-submit],body.tablet-mode .tablet-counter-actions button[data-tablet-undo-match]{min-height:clamp(48px,6.5dvh,65px)}
+@media(max-height:750px){body.tablet-mode .tablet-double-buttons button{min-height:36px}body.tablet-mode .tablet-double .tablet-double-zero{min-height:22px}body.tablet-mode .tablet-aggregate-pad button,body.tablet-mode .tablet-aggregate-special button{min-height:35px}}
 body.tablet-mode .tablet-special-note{margin:3px 0;font-size:11px}
 body.tablet-mode .tablet-counter-actions{margin-top:5px;gap:5px}
 body.tablet-mode .tablet-counter-actions button,body.tablet-mode .tablet-counter-actions button[data-tablet-submit],body.tablet-mode .tablet-counter-actions button[data-tablet-undo-match]{min-height:clamp(44px,6dvh,60px);font-size:clamp(12px,2.2dvh,17px)}
@@ -2381,7 +2392,7 @@ async function renderTablet(){
     <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
     ${tabletMode==="aggregate"?`<div class="tablet-aggregate-layout"><div class="tablet-aggregate-pad">${digitButtons}</div><div class="tablet-aggregate-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div></div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${perDartButtons}</div></div><div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`}
-    <div class="tablet-double"><span>POKUSY NA DOUBLE <small>(nepovinné)</small></span><div class="tablet-double-buttons">${[0,1,2,3].map(n=>`<button data-tablet-double="${n}" class="${tabletDoubleAttempts===n?"selected":""}">${n===0?"0":n}</button>`).join("")}<button data-tablet-double-clear class="${tabletDoubleAttempts===null?"selected":""}">Nevyplnit</button></div></div>
+    <div class="tablet-double"><div class="tablet-double-heading"><h4>POKUSY NA DOUBLE <small>(nepovinné)</small></h4><button type="button" data-tablet-double-clear class="tablet-double-clear ${tabletDoubleAttempts===null?"selected":""}">Nevyplnit</button></div><div class="tablet-double-buttons">${[1,2,3].map(n=>`<button type="button" data-tablet-double="${n}" class="${tabletDoubleAttempts===n?"selected":""}">${n}</button>`).join("")}</div><button type="button" data-tablet-double="0" class="tablet-double-zero ${tabletDoubleAttempts===0?"selected":""}">0 pokusů</button></div>
     <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
     <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy||tabletPendingGet()?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy||tabletPendingGet()?"disabled":""}>POTVRDIT NÁHOZ</button></div>
     ${tabletPendingGet()?'<div class="notice warning">⚠ ČEKÁ NA SYNCHRONIZACI – další zápis a ZPĚT jsou pozastaveny. Po obnovení internetu se nához bezpečně odešle.</div>':""}
