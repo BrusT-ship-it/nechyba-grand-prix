@@ -2302,7 +2302,7 @@ init();
  }
  window.show501LiveApp=showLegacy;
  document.querySelectorAll('#landingHome [data-panel]').forEach(b=>b.addEventListener('click',()=>openLandingPanel(b.dataset.panel)));
- const back=document.createElement('button');back.className='landing-back';back.type='button';back.textContent='← ZPĚT';back.onclick=showLanding;$('landingHome').insertBefore(back,$('landingHome').querySelector('.hero'));back.hidden=true;
+ const back=document.createElement('button');back.className='landing-back';back.type='button';back.textContent='← ZPĚT';back.onclick=()=>{if(window._501liveReturnDashboard){window._501liveReturnDashboard();}else showLanding();};$('landingHome').insertBefore(back,$('landingHome').querySelector('.hero'));back.hidden=true;
  const observer=new MutationObserver(()=>{back.hidden=!$('landingHome').classList.contains('has-panel');});observer.observe($('landingHome'),{attributes:true,attributeFilter:['class']});
  // Odkaz pro pořadatele otevře přihlášení až po výběru této možnosti.
  const createBtn=document.querySelector('#createPanel [data-open-account="login"]');
@@ -2359,60 +2359,34 @@ init();
 </script>
 
 <style id="501live-profile-style">
-#profilePanel .profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
-#profilePanel .profile-stat{background:#1b1b1b;border:1px solid #444;border-radius:12px;padding:18px;text-align:center}
-#profilePanel .profile-stat strong{display:block;font-size:28px;color:#f2384b}
-#profilePanel .profile-stat span{font-size:13px;color:#ddd}
-#profilePanel .profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-#profilePanel .profile-actions button{flex:1;min-width:160px}
-#profilePanel .profile-muted{color:#bbb}
+#profilePanel{max-width:760px}#profilePanel .dashboard-heading{text-align:center;margin:6px 0 24px}#profilePanel .dashboard-heading h2{font-size:clamp(42px,9vw,74px);font-weight:1000;font-style:italic;margin:0;color:#fff}#profilePanel .dashboard-heading h2 span{color:#e52a3d}#profilePanel .dashboard-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:22px 0}#profilePanel .dashboard-actions button{min-height:85px;background:#1c1c1c;color:#e62b40;border:1px solid #444;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer}#profilePanel .dashboard-actions button .dashboard-icon{display:block;color:#fff;font-size:23px;margin-bottom:7px}#profilePanel .dashboard-footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:20px}#profilePanel .dashboard-footer button,#profilePanel .stats-tabs button{background:#292929;color:#fff;border:1px solid #555;padding:11px;border-radius:7px;cursor:pointer}#profilePanel .stats-tabs{display:flex;gap:10px;margin:16px 0}#profilePanel .stats-tabs button{flex:1}#profilePanel .stats-tabs button.active{background:#ae1428;border-color:#e52a3d}#profilePanel .stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#profilePanel .stats-grid>div{background:#1c1c1c;border:1px solid #444;border-radius:9px;padding:18px 8px;text-align:center}#profilePanel .stats-grid strong{display:block;color:#e52a3d;font-size:27px}#profilePanel .stats-grid span{color:#ccc;font-size:12px}#profilePanel .stats-muted{color:#bbb;font-size:13px}#profilePanel [hidden]{display:none!important}@media(max-width:500px){#profilePanel .dashboard-actions button{font-size:12px;min-height:72px}}
 </style>
 <script id="501live-profile-controller">
 (()=>{
-const $=id=>document.getElementById(id);
-const account=$('accountPanel');if(!account)return;
+const $=id=>document.getElementById(id), account=$('accountPanel');if(!account)return;
 const profile=document.createElement('section');profile.id='profilePanel';profile.className='panel';
-profile.innerHTML=`<h3>MŮJ PROFIL</h3><p id="profileWelcome" class="profile-muted"></p><div class="profile-stats"><div class="profile-stat"><strong>—</strong><span>Odehrané turnaje</span></div><div class="profile-stat"><strong>—</strong><span>Vyhrané turnaje</span></div><div class="profile-stat"><strong>—</strong><span>Nejlepší průměr</span></div><div class="profile-stat"><strong>—</strong><span>Nejvyšší zavření</span></div></div><p class="profile-muted">Turnajové statistiky a hráčský QR kód doplníme po propojení hráčských účtů s výsledky. Zatím se nezobrazují neověřené hodnoty.</p><div class="profile-actions"><button type="button" class="primary" id="profileOrganizer">MOJE POŘÁDANÉ TURNAJE</button><button type="button" class="secondary" id="profileLogout">ODHLÁSIT SE</button></div><div class="notice" id="profileMessage"></div>`;
+profile.innerHTML=`<div id="profileDashboard"><div class="dashboard-heading"><h2>501<span>LIVE</span></h2><div class="stats-muted" id="profileWelcome"></div></div><div class="dashboard-actions"><button type="button" data-go="findPanel"><span class="dashboard-icon">⌕</span>NAJÍT TURNAJ</button><button type="button" data-go="trainingPanel"><span class="dashboard-icon">◎</span>TRÉNINK</button><button type="button" data-go="createPanel"><span class="dashboard-icon">🏆</span>VYTVOŘIT TURNAJ</button><button type="button" id="profileOpenStats"><span class="dashboard-icon">▥</span>MOJE STATISTIKY</button></div><div class="dashboard-footer"><button id="profileOrganizer" type="button">MOJE POŘÁDANÉ TURNAJE</button><button id="profileLogout" type="button">ODHLÁSIT SE</button></div></div><div id="profileStatistics" hidden><h3>MOJE STATISTIKY</h3><div class="stats-tabs"><button type="button" class="active" data-stats-tab="turnaje">TURNAJE</button><button type="button" data-stats-tab="trenink">TRÉNINK</button></div><div class="stats-grid" id="profileStatsGrid"></div><p class="stats-muted" id="profileStatsNote"></p><button type="button" id="profileStatsBack" class="secondary">← ZPĚT NA MŮJ ÚČET</button></div><div class="notice" id="profileMessage"></div>`;
 account.parentElement.insertBefore(profile,account.nextSibling);
 const getClient=()=>window.db||(typeof db!=='undefined'?db:null);
-function openProfile(user,details){
- if(!user||new URLSearchParams(location.search).has('turnaj')||new URLSearchParams(location.search).has('tablet'))return;
- const home=$('landingHome');home.hidden=false;$('legacyApp').hidden=true;home.classList.add('has-panel');
- home.querySelectorAll(':scope > .panel').forEach(p=>p.classList.toggle('active-panel',p.id==='profilePanel'));
- const name=details?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Hráč';
- $('profileWelcome').textContent=name+' · '+(user.email||'');
- window.scrollTo(0,0);
-}
+let currentUser=null, currentTab='turnaje';
+function activate(id){const home=$('landingHome');home.hidden=false;$('legacyApp').hidden=true;home.classList.add('has-panel');home.querySelectorAll(':scope > .panel').forEach(p=>p.classList.toggle('active-panel',p.id===id));window.scrollTo(0,0);}
+function dashboard(){ $('profileStatistics').hidden=true;$('profileDashboard').hidden=false;activate('profilePanel');}
+function openProfile(user,details){if(!user||new URLSearchParams(location.search).has('turnaj')||new URLSearchParams(location.search).has('tablet'))return;currentUser=user;const name=details?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Hráč';$('profileWelcome').textContent=name+' · '+(user.email||'');dashboard();}
+window._501liveReturnDashboard=()=>{if(currentUser)dashboard();else {$('landingHome').classList.remove('has-panel');}};
 window.addEventListener('501live-login-success',e=>openProfile(e.detail.user,e.detail.profile));
-// Přepínání přihlášení a registrace.
-account.querySelectorAll('[data-auth]').forEach(button=>button.addEventListener('click',()=>{
- account.querySelectorAll('[data-auth]').forEach(b=>b.classList.toggle('active',b===button));
- account.querySelectorAll('.auth-view').forEach(view=>view.classList.toggle('active',view.id===button.dataset.auth));
-}));
-$('profileLogout').addEventListener('click',async()=>{
- const client=getClient();if(!client)return;
- const {error}=await client.auth.signOut();
- if(error){$('profileMessage').textContent='Odhlášení se nezdařilo: '+error.message;return;}
- $('landingHome').classList.remove('has-panel');
- $('landingHome').querySelectorAll(':scope > .panel').forEach(p=>p.classList.remove('active-panel'));
- window.scrollTo(0,0);
-});
-$('profileOrganizer').addEventListener('click',()=>{
- // Přístup k administraci zůstává řízen existujícím ověřením oprávnění pořadatele.
- $('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);
-});
-let checked=false;
-const restore=async()=>{
- if(checked)return;
- const client=getClient();if(!client)return;
- checked=true;
- const {data,error}=await client.auth.getUser();if(error||!data?.user)return;
- const {data:details}=await client.from('profiles').select('display_name,role').eq('id',data.user.id).maybeSingle();
- openProfile(data.user,details);
-};
-// Supabase se inicializuje v původním turnajovém skriptu.
-const poll=setInterval(()=>{if(checked){clearInterval(poll);return;}restore()},300);
-setTimeout(()=>clearInterval(poll),12000);
+account.querySelectorAll('[data-auth]').forEach(button=>button.addEventListener('click',()=>{account.querySelectorAll('[data-auth]').forEach(b=>b.classList.toggle('active',b===button));account.querySelectorAll('.auth-view').forEach(view=>view.classList.toggle('active',view.id===button.dataset.auth));}));
+profile.querySelectorAll('[data-go]').forEach(button=>button.addEventListener('click',()=>activate(button.dataset.go)));
+$('profileOpenStats').onclick=()=>{$('profileDashboard').hidden=true;$('profileStatistics').hidden=false;renderStats('turnaje');};
+$('profileStatsBack').onclick=dashboard;
+profile.querySelectorAll('[data-stats-tab]').forEach(b=>b.onclick=()=>renderStats(b.dataset.statsTab));
+const tournamentNames=['Odehrané turnaje','Vyhrané turnaje','Nejlepší průměr','Nejvyšší zavření','Nejvyšší nához','Odehrané zápasy'];
+const trainingNames=['Odehrané tréninky','Celkem hozených šipek','Nejlepší průměr','Nejvyšší zavření','Nejvyšší nához','Úspěšnost zavírání'];
+function renderStats(tab){currentTab=tab;profile.querySelectorAll('[data-stats-tab]').forEach(b=>b.classList.toggle('active',b.dataset.statsTab===tab));const names=tab==='turnaje'?tournamentNames:trainingNames;$('profileStatsGrid').innerHTML=names.map(n=>`<div><strong>—</strong><span>${n}</span></div>`).join('');$('profileStatsNote').textContent=tab==='turnaje'?'Turnajové statistiky se zobrazí po propojení hráčského účtu s turnajovými výsledky.':'Tréninkové statistiky se ukládají pro přihlášeného hráče po dokončení legu. Načítám údaje…';if(tab==='trenink')loadTrainingStats();}
+async function loadTrainingStats(){const user=currentUser,client=getClient();if(!user||!client)return;try{const {data,error}=await client.from('training_results').select('starting_score,darts_used,average,highest_checkout,highest_visit,finished_at').eq('user_id',user.id).order('finished_at',{ascending:false}).limit(1000);if(error)throw error;if(currentTab!=='trenink'||currentUser?.id!==user.id)return;const rows=data||[],max=(key)=>rows.length?Math.max(...rows.map(r=>Number(r[key])||0)):null,values=[rows.length||'—',rows.length?rows.reduce((n,r)=>n+(Number(r.darts_used)||0),0):'—',max('average')?.toFixed(2)??'—',max('highest_checkout')??'—',max('highest_visit')??'—',rows.length?'100 %':'—'];$('profileStatsGrid').querySelectorAll('strong').forEach((el,i)=>el.textContent=values[i]);$('profileStatsNote').textContent=rows.length?'Statistiky dokončených tréninkových legů.':'Zatím nemáš uložený dokončený trénink.';}catch(e){$('profileStatsNote').textContent='Statistiky zatím nelze načíst. Pro ukládání je nutné vytvořit tabulku training_results v Supabase.';}}
+window.addEventListener('501live-training-finished',async e=>{const client=getClient(),user=currentUser;if(!client||!user)return;const d=e.detail;const {error}=await client.from('training_results').insert({user_id:user.id,starting_score:d.starting_score,darts_used:d.darts_used,average:d.average,highest_checkout:d.highest_checkout,highest_visit:d.highest_visit});if(error)console.warn('Uložení tréninku se nezdařilo:',error.message);else if(currentTab==='trenink'&&!$('profileStatistics').hidden)loadTrainingStats();});
+$('profileLogout').addEventListener('click',async()=>{const client=getClient();if(!client)return;const {error}=await client.auth.signOut();if(error){$('profileMessage').textContent='Odhlášení se nezdařilo: '+error.message;return;}currentUser=null;$('landingHome').classList.remove('has-panel');$('landingHome').querySelectorAll(':scope > .panel').forEach(p=>p.classList.remove('active-panel'));window.scrollTo(0,0);});
+$('profileOrganizer').onclick=()=>{$('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);};
+let checked=false;const restore=async()=>{if(checked)return;const client=getClient();if(!client)return;checked=true;const {data,error}=await client.auth.getUser();if(error||!data?.user)return;const {data:details}=await client.from('profiles').select('display_name,role').eq('id',data.user.id).maybeSingle();openProfile(data.user,details);};const poll=setInterval(()=>{if(checked){clearInterval(poll);return;}restore()},300);setTimeout(()=>clearInterval(poll),12000);
 })();
 </script>
 <script id="training-v2-tournament-counter">(()=>{
@@ -2439,7 +2413,7 @@ function save(){if(finished)return;const n=mode==='aggregate'?Number(aggregate):
  if(!special){if(mode==='aggregate'&&(aggregate===''||!Number.isInteger(n)||n<0||n>180)){feedback('Zadej součet 0 až 180.');return;}if(mode==='per_dart'&&draft.length!==3){feedback('Zadej 3 šipky.');return;}if(n>=score-1){feedback('Pro zavření nebo přehození použij odpovídající tlačítko.');return;}}
  if(special==='checkout'&&score>170){feedback('Zavření nad 170 bodů není možné.');return;}
  visits.push({score,used,label:special==='checkout'?`ZAVŘENO (${count}. šipkou)`:special==='bust'?`PŘEHOZENO (${count}. šipkou)`:`${n} bodů`});used+=count;
- if(special==='checkout'){score=0;finished=true;}else if(special!=='bust')score-=n;
+ if(special==='checkout'){score=0;finished=true;const maxVisit=Math.max(0,...visits.filter(v=>/^\d+ bodů$/.test(v.label)).map(v=>Number(v.label.split(' ')[0])));window.dispatchEvent(new CustomEvent('501live-training-finished',{detail:{starting_score:start,darts_used:used,average:Number((3*start/used).toFixed(2)),highest_checkout:visits.at(-1).score,highest_visit:maxVisit}}));}else if(special!=='bust')score-=n;
  draft=[];base=null;mult=1;aggregate='';special='';specialDart=0;render();}
  document.querySelectorAll('#trainingPanel [data-start-score]').forEach(b=>b.addEventListener('click',()=>reset(Number(b.dataset.startScore))));
  $('trainingBack').onclick=()=>{$('trainingCounter').hidden=true;$('trainingChoice').hidden=false;};$('trainingRestart').onclick=()=>reset(start);
