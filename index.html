@@ -224,6 +224,11 @@ body.tablet-mode>#tabletRoot{display:block!important}
 #landingHome:not(.has-panel)>.hero>.logo{display:block!important}
 #landingHome:not(.has-panel)>.hero>.actions{display:grid!important}
 #landingHome:not(.has-panel)>.hero>.panel{display:none!important}
+/* Panely jsou uvnitř .hero, proto při otevření neskrývat celý hero kontejner. */
+#landingHome.has-panel>.hero{display:block!important;width:min(100%,900px)!important}
+#landingHome.has-panel>.hero>.logo,#landingHome.has-panel>.hero>.actions{display:none!important}
+#landingHome>.hero>.panel{display:none!important;width:min(100%,760px)!important;box-sizing:border-box;margin:0 auto;padding:clamp(16px,3vw,26px)}
+#landingHome.has-panel>.hero>.panel.active-panel{display:block!important}
 </style>
 </head><body><div id="landingHome">
 <main class="hero">
