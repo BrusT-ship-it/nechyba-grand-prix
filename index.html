@@ -334,6 +334,7 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 </div>
 <label id="competitionFormatLabel">Herní systém<select id="competitionFormat"><option value="groups">Skupiny + play-off</option><option value="single_ko">Single KO</option><option value="double_ko" selected>Double KO</option><option value="round_robin">Každý s každým</option></select></label>
 <label>Počet vítězných legů<input id="competitionLegs" type="number" min="1" max="21" value="2" required></label>
+<div id="competitionDates"></div>
 
 <p id="competitionFeedback" role="status" class="hint" aria-live="polite"></p>
 <button type="submit" class="primary">ULOŽIT ROZPRACOVANÉ NASTAVENÍ</button>
@@ -2626,61 +2627,85 @@ body{max-width:100%;overflow-x:hidden}
 </style>
 <script id="501live-competition-controller">
 (()=>{
- const form=document.getElementById('newCompetitionForm');
- if(!form)return;
- const el=id=>document.getElementById(id);
- const formats=[['groups','Skupiny + play-off'],['single_ko','Single KO'],['double_ko','Double KO'],['round_robin','Každý s každým']];
- const makeSelect=(value)=>{const select=document.createElement('select');for(const [id,label] of formats){const o=document.createElement('option');o.value=id;o.textContent=label;select.append(o)}select.value=value;return select};
- function renderEvenings(saved){
-   const type=el('competitionType').value;
-   const isSeries=type!=='single';
-   el('competitionSeriesFields').hidden=!isSeries;
-   el('competitionFinalFields').hidden=type!=='final';
-   el('competitionFormatLabel').hidden=isSeries;
-   el('competitionSeriesInfo').hidden=!isSeries;
-   // Herní formát jednotlivých večerů se určuje až v administraci.
-
+ const $=id=>document.getElementById(id), form=$('newCompetitionForm');if(!form)return;
+ const formats=['groups','single_ko','double_ko','round_robin'];
+ const client=()=>window.db||(typeof db!=='undefined'?db:null);
+ const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+ function render(){
+   const type=$('competitionType').value,series=type!=='single',n=series?Math.max(2,Math.min(30,Number($('competitionRounds').value)||2)):1;
+   $('competitionSeriesFields').hidden=!series;$('competitionFinalFields').hidden=type!=='final';$('competitionFormatLabel').hidden=series;
+   if($('competitionSeriesInfo'))$('competitionSeriesInfo').hidden=!series;
+   const wrap=$('competitionDates');const old=[...wrap.querySelectorAll('input[type=date]')].map(x=>x.value);wrap.replaceChildren();
+   const count=n+(type==='final'?1:0);
+   for(let i=0;i<count;i++){
+     const label=document.createElement('label');label.textContent=series?(i===n?'Datum finále':`Datum ${i+1}. večera`):'Datum turnaje';
+     const input=document.createElement('input');input.type='date';input.required=true;input.value=old[i]||today();label.append(input);wrap.append(label);
+   }
  }
- function addPlace(value=''){
-   const box=el('competitionScoring');const n=box.children.length+1;
-   if(n>128)return;
-   const row=document.createElement('div');row.className='competition-score-row';
-   const label=document.createElement('label');label.textContent=n+'. místo';label.htmlFor='scorePlace'+n;
-   const input=document.createElement('input');input.id='scorePlace'+n;input.type='number';input.min='0';input.step='1';input.value=value;input.placeholder='Body';
-   row.append(label,input);box.append(row);
- }
- el('competitionType').addEventListener('change',()=>renderEvenings());
- el('competitionRounds').addEventListener('input',()=>renderEvenings());
-
- try{
-   const draft=JSON.parse(localStorage.getItem('501live_competition_draft')||'null');
-   if(draft){
-     el('competitionName').value=draft.name||'';
-     el('competitionType').value=draft.type||'single';
-     el('competitionRounds').value=draft.rounds||5;
-     el('competitionFinalists').value=draft.finalists||8;
-     el('competitionBoards').value=draft.boards||2;
-     el('competitionGame').value=draft.game||501;
-     el('competitionFormat').value=draft.format||'double_ko';
-     el('competitionLegs').value=draft.legs||2;
-     renderEvenings();
-   }else renderEvenings();
- }catch(e){renderEvenings()}
- form.addEventListener('submit',e=>{
-   e.preventDefault();
-   if(!form.reportValidity())return;
-   const type=el('competitionType').value;
-   const draft={
-     name:el('competitionName').value.trim(),type,
-     rounds:type==='single'?1:Number(el('competitionRounds').value),
-     finalists:type==='final'?Number(el('competitionFinalists').value):null,
-     boards:Number(el('competitionBoards').value),game:Number(el('competitionGame').value),
-     format:el('competitionFormat').value,legs:Number(el('competitionLegs').value),
-     evenings:[],points:[],scoring_method:type==='single'?null:'nechyba_60_30_10'
-   };
-   if(!draft.name){el('competitionFeedback').textContent='Vyplň název soutěže.';return}
-   try{localStorage.setItem('501live_competition_draft',JSON.stringify(draft));el('competitionFeedback').textContent='Nastavení bylo uloženo jako návrh v tomto prohlížeči. Turnaj zatím není zveřejněný.'}
-   catch(err){el('competitionFeedback').textContent='Návrh se nepodařilo uložit: '+err.message}
+ $('competitionType').addEventListener('change',render);$('competitionRounds').addEventListener('change',render);
+ render();
+ const button=form.querySelector('button[type=submit]');button.textContent='VYTVOŘIT TURNAJ';
+ form.addEventListener('submit',async e=>{
+   e.preventDefault();if(!form.reportValidity())return;
+   const db=client(),msg=$('competitionFeedback');msg.textContent='';
+   if(!db){msg.textContent='Databáze zatím není připojena.';return}
+   const {data:{user},error:authError}=await db.auth.getUser();
+   if(authError||!user){msg.textContent='Pro vytvoření turnaje se nejprve přihlas.';return}
+   const type=$('competitionType').value, name=$('competitionName').value.trim();
+   const rounds=type==='single'?1:Number($('competitionRounds').value);
+   const dates=[...$('competitionDates').querySelectorAll('input[type=date]')].map(x=>x.value);
+   const boards=Number($('competitionBoards').value),game=Number($('competitionGame').value),legs=Number($('competitionLegs').value);
+   if(!name||dates.some(x=>!x)||!Number.isInteger(rounds)||rounds<1||rounds>30){msg.textContent='Zkontroluj název, data a počet kol.';return}
+   button.disabled=true;button.textContent='UKLÁDÁM…';
+   try{
+     let seriesId=null,created=0;
+     if(type!=='single'){
+       const {data,error}=await db.from('tournament_series').insert({name,organizer_id:user.id,series_type:type==='final'?'final':'series',planned_rounds:rounds,finalists_count:type==='final'?Number($('competitionFinalists').value):null}).select('id').single();
+       if(error)throw error;seriesId=data.id;
+     }
+     for(let i=0;i<dates.length;i++){
+       const isFinal=type==='final'&&i===rounds;
+       const eventName=type==='single'?name:(isFinal?`${name} – finále`:`${name} – ${i+1}. večer`);
+       const {error}=await db.rpc('create_501live_tournament',{
+         p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
+         p_game_format:type==='single'?$('competitionFormat').value:null,p_target_legs:legs,
+         p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
+       });
+       if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
+       created++;
+     }
+     msg.textContent=type==='single'?'Turnaj byl vytvořen v Supabase.':'Série a všechna její kola byla vytvořena v Supabase.';
+     msg.style.color='#82e6a0';
+     form.reset();render();
+   }catch(err){msg.style.color='#ff9a9a';msg.textContent='Uložení se nezdařilo: '+err.message+' Pokud vznikla část série, před opakováním zkontroluj uložené turnaje.'}
+   finally{button.disabled=false;button.textContent='VYTVOŘIT TURNAJ'}
  });
+})();
+</script><style id="501live-owner-style">
+#competitionDates{display:grid;gap:12px}#competitionDates label{display:grid;gap:6px}
+#newCompetitionForm input:focus,#newCompetitionForm select:focus{outline:2px solid #e63946;outline-offset:1px}
+#ownedCompetitions{padding:20px;max-width:800px;margin:0 auto;color:#eee}#ownedCompetitions h3{color:#e53945}
+#ownedCompetitions .owned-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;margin:10px 0;border:1px solid #444;border-radius:8px;background:#181818}
+#ownedCompetitions .owned-row a{color:#ff5965;font-weight:700}
+</style>
+<script id="501live-owned-tournaments">
+(()=>{
+ const $=id=>document.getElementById(id),btn=$('profileOrganizer');if(!btn)return;
+ const panel=document.createElement('div');panel.id='ownedCompetitions';panel.hidden=true;
+ panel.innerHTML='<h3>MOJE POŘÁDANÉ TURNAJE</h3><div id="ownedCompetitionsList">Načítám…</div><button type="button" id="ownedCompetitionsBack" class="secondary">← ZPĚT NA DOMOVSKOU STRÁNKU</button>';
+ $('profilePanel').append(panel);
+ $('ownedCompetitionsBack').onclick=()=>{panel.hidden=true;$('profileDashboard').hidden=false};
+ btn.addEventListener('click',async()=>{
+   document.body.classList.remove('organizer-view');$('legacyApp').hidden=true;$('landingHome').hidden=false;
+   $('profileDashboard').hidden=true;panel.hidden=false;
+   const list=$('ownedCompetitionsList');list.textContent='Načítám…';
+   const db=window.db||(typeof db!=='undefined'?db:null);
+   if(!db){list.textContent='Databáze není připojena.';return}
+   const {data:{user},error:authError}=await db.auth.getUser();if(authError||!user){list.textContent='Nejprve se přihlas.';return}
+   const {data,error}=await db.from('tournaments').select('id,name,event_date,status,series_id,event_no').eq('organizer_id',user.id).order('event_date',{ascending:false});
+   if(error){list.textContent='Nepodařilo se načíst turnaje: '+error.message;return}
+   list.replaceChildren();if(!data?.length){list.textContent='Zatím nemáš založený žádný turnaj.';return}
+   for(const t of data){const row=document.createElement('div');row.className='owned-row';const info=document.createElement('span');info.textContent=t.name+' · '+t.event_date;const link=document.createElement('a');link.href='?turnaj='+encodeURIComponent(t.id);link.textContent='OTEVŘÍT';row.append(info,link);list.append(row)}
+ },true);
 })();
 </script></body></html>
