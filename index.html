@@ -440,7 +440,7 @@ let dartAverageRows = [];
 let dartMatchAverageRows = [];
 let liveLegRows = [];
 let liveVisitRows = [];
-let selectedTournament = "";
+let selectedTournament = new URLSearchParams(window.location.search).get("turnaj") || "";
 let isAdmin = false;
 let clockInterval = null;
 let startInProgress = false;
@@ -2280,6 +2280,12 @@ init();
  function showLegacy(){ $('landingHome').hidden=true; $('legacyApp').hidden=false; window.scrollTo(0,0); }
  function showLanding(){ $('legacyApp').hidden=true; $('landingHome').hidden=false; $('landingHome').classList.remove('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.remove('active-panel'));window.scrollTo(0,0); }
  function openLandingPanel(id){const home=$('landingHome');home.classList.add('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.toggle('active-panel',p.id===id));window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
+ const directTournamentId=new URLSearchParams(window.location.search).get('turnaj');
+ if(directTournamentId && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(directTournamentId)){
+   showLegacy();
+   const liveTab=document.querySelector('#legacyApp [data-tab="live"]');
+   if(liveTab)liveTab.click();
+ }
  window.show501LiveApp=showLegacy;
  document.querySelectorAll('#landingHome [data-panel]').forEach(b=>b.addEventListener('click',()=>openLandingPanel(b.dataset.panel)));
  const back=document.createElement('button');back.className='landing-back';back.type='button';back.textContent='← ZPĚT';back.onclick=showLanding;$('landingHome').insertBefore(back,$('landingHome').querySelector('.hero'));back.hidden=true;
@@ -2325,9 +2331,11 @@ init();
      box.innerHTML='<div class="tournament-results">'+found.map((t,i)=>`<button type="button" class="tournament-result" data-found-index="${i}"><b>${String(t.name||'Turnaj').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</b><span>${[t.event_date,t.location||t.event_location,t.status].filter(Boolean).join(' · ')}</span></button>`).join('')+'</div>';
      box.querySelectorAll('[data-found-index]').forEach(btn=>btn.addEventListener('click',()=>{
        const t=found[Number(btn.dataset.foundIndex)];
-       showLegacy();
-       const open=()=>{try{selectedTournament=t.id;const sel=document.getElementById('liveTournamentSelect');if(sel)sel.value=t.id;const other=document.getElementById('tournamentSelect');if(other)other.value=t.id;const liveTab=document.querySelector('#legacyApp [data-tab="live"]');if(liveTab)liveTab.click();if(typeof renderAll==='function')renderAll();}catch(err){console.error('Nepodařilo se otevřít veřejný turnaj',err);}};
-       let tries=0;const waitForData=()=>{if(typeof tournaments!=='undefined'&&tournaments.some(x=>x.id===t.id)){open();return;}if(++tries<40)setTimeout(waitForData,250);else open();};waitForData();
+       if(!t?.id)return;
+       const url=new URL(window.location.href);
+       url.searchParams.set('turnaj',t.id);
+       url.hash='';
+       window.location.assign(url.toString());
      }));
    }catch(err){box.textContent='Turnaje se nepodařilo načíst: '+(err.message||err);}
  });
