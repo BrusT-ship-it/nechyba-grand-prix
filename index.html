@@ -193,21 +193,30 @@ body.tablet-mode>header,body.tablet-mode>nav,body.tablet-mode>main,body.tablet-m
 body.tablet-mode>#tabletRoot{display:block!important}
 @media(max-width:520px){#tabletRoot{padding:10px}.tablet-keypad{gap:5px}.tablet-keypad button{min-height:54px;font-size:18px}}
 
-/* 501LIVE – kompaktní hlavní rozcestník */
-#landingHome{min-height:100svh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(14px,3vh,30px) 18px;overflow-x:hidden}
+/* 501LIVE – čistá hlavní obrazovka a samostatné podstránky */
+#landingHome{min-height:100svh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(12px,2.5vh,24px) 16px;overflow-x:hidden}
 #landingHome>.topbar{display:none!important}
-#landingHome>.hero{width:min(100%,980px);max-width:980px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(16px,3vh,28px)}
-#landingHome .logo{display:block;width:auto!important;height:auto!important;max-width:min( min(88vw,720px), 100%)!important;max-height:42svh!important;object-fit:contain;margin:0 auto!important}
+#landingHome>.hero{width:min(100%,900px);max-width:900px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(14px,2.5vh,24px)}
+#landingHome .logo{display:block;width:auto!important;height:auto!important;max-width:min(88vw,680px)!important;max-height:38svh!important;object-fit:contain;margin:0 auto!important}
 #landingHome .eyebrow,#landingHome .intro{display:none!important}
 #landingHome .actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(10px,2vw,18px);margin:0!important}
-#landingHome .action{min-width:0;min-height:clamp(66px,11vh,104px);margin:0!important;padding:16px 12px!important;border:1px solid #444!important;border-radius:12px!important;background:#191919!important;color:#fff!important;display:flex;align-items:center;justify-content:center;text-align:center;box-shadow:0 5px 18px #0005}
+#landingHome .action{min-width:0;min-height:clamp(64px,10vh,92px);margin:0!important;padding:14px 12px!important;border:1px solid #444!important;border-radius:12px!important;background:#191919!important;color:#fff!important;display:flex;align-items:center;justify-content:center;text-align:center;box-shadow:0 5px 18px #0005}
 #landingHome .action-head{justify-content:center!important;align-items:center;gap:10px}
 #landingHome .action h2{margin:0!important;font-size:clamp(15px,2.2vw,21px)!important;line-height:1.2}
-#landingHome .action .icon{font-size:clamp(20px,3vw,28px)}
+#landingHome .action .icon{font-size:clamp(20px,3vw,27px)}
 #landingHome .action>p{display:none!important}
-@media(max-width:520px){#landingHome{padding:14px 14px}#landingHome>.hero{gap:20px}#landingHome .logo{max-width:90vw!important;max-height:38svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#landingHome .action{min-height:68px;padding:12px!important}}
-@media(min-width:900px) and (min-height:650px){#landingHome .logo{max-height:44svh!important}#landingHome .actions{max-width:760px}}
-
+#landingHome>.panel{display:none!important;width:min(100%,760px);box-sizing:border-box;margin:0 auto;padding:clamp(16px,3vw,26px);}
+#landingHome.has-panel{justify-content:flex-start;padding-top:clamp(18px,4vh,38px)}
+#landingHome.has-panel>.hero{display:none!important}
+#landingHome.has-panel>.panel.active-panel{display:block!important}
+#landingHome .landing-back{display:block;margin:0 auto 14px;width:min(100%,760px);text-align:left;background:transparent;border:0;color:#ddd;font-size:15px;padding:8px 0;cursor:pointer}
+#landingHome #findNotice{margin-top:14px}
+#landingHome .tournament-results{display:grid;gap:10px;margin-top:12px}
+#landingHome .tournament-result{width:100%;text-align:left;cursor:pointer;border:1px solid #555;border-radius:10px;background:#202020;color:#fff;padding:14px}
+#landingHome .tournament-result b{display:block;font-size:17px;margin-bottom:5px}
+#landingHome .tournament-result span{display:block;color:#bbb;font-size:13px}
+@media(max-width:520px){#landingHome{padding:14px 14px}#landingHome>.hero{gap:18px}#landingHome .logo{max-width:90vw!important;max-height:34svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#landingHome .action{min-height:64px;padding:12px!important}}
+@media(min-width:900px) and (min-height:650px){#landingHome .logo{max-height:40svh!important}#landingHome .actions{max-width:760px}}
 </style>
 </head><body><div id="landingHome"><header class="topbar"><div class="brand">501<span>LIVE</span></div><div class="status">ŠIPKOVÁ PLATFORMa</div></header>
 <main class="hero">
@@ -222,7 +231,7 @@ body.tablet-mode>#tabletRoot{display:block!important}
 </section>
 
 <section class="panel" id="findPanel"><h3>Najít turnaj</h3><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
-<form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice">Vyhledávání turnajů bude napojeno na veřejný seznam soutěží 501LIVE.</div></form>
+<form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice"></div></form>
 </section>
 
 <section class="panel" id="createPanel"><h3>Vytvořit turnaj</h3><p class="hint">Pořadatel se přihlásí svým účtem. Hráčský účet lze rozšířit o oprávnění pořadatele – není potřeba zakládat druhý účet.</p><button class="primary" type="button" data-open-account="login">PŘIHLÁSIT SE JAKO POŘADATEL</button><p class="note">Po přihlášení bude dostupná administrace turnajů, startovní listina, losování, zápasy a výsledky.</p></section>
@@ -2276,13 +2285,15 @@ init();
  const $=id=>document.getElementById(id);
  const notice=(id,msg,good=false)=>{const el=$(id);if(!el)return;el.textContent=msg;el.classList.add('show');el.style.color=good?'#9be7b0':'#ffb2b2';};
  function showLegacy(){ $('landingHome').hidden=true; $('legacyApp').hidden=false; window.scrollTo(0,0); }
- function showLanding(){ $('legacyApp').hidden=true; $('landingHome').hidden=false; window.scrollTo(0,0); }
+ function showLanding(){ $('legacyApp').hidden=true; $('landingHome').hidden=false; $('landingHome').classList.remove('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.remove('active-panel'));window.scrollTo(0,0); }
+ function openLandingPanel(id){const home=$('landingHome');home.classList.add('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.toggle('active-panel',p.id===id));window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
  window.show501LiveApp=showLegacy;
- document.querySelectorAll('[data-panel="createPanel"]').forEach(b=>b.addEventListener('click',()=>{}));
- // Odkaz pro pořadatele otevře původní turnajovou aplikaci až po přihlášení.
- document.querySelectorAll('[data-open-account="login"]').forEach(b=>b.addEventListener('click',()=>{}));
+ document.querySelectorAll('#landingHome [data-panel]').forEach(b=>b.addEventListener('click',()=>openLandingPanel(b.dataset.panel)));
+ const back=document.createElement('button');back.className='landing-back';back.type='button';back.textContent='← ZPĚT';back.onclick=showLanding;$('landingHome').insertBefore(back,$('landingHome').querySelector('.hero'));back.hidden=true;
+ const observer=new MutationObserver(()=>{back.hidden=!$('landingHome').classList.contains('has-panel');});observer.observe($('landingHome'),{attributes:true,attributeFilter:['class']});
+ // Odkaz pro pořadatele otevře přihlášení až po výběru této možnosti.
  const createBtn=document.querySelector('#createPanel [data-open-account="login"]');
- if(createBtn)createBtn.addEventListener('click',()=>{const old=$('loginForm'); if(old){} });
+ if(createBtn)createBtn.addEventListener('click',()=>openLandingPanel('accountPanel'));
  // Přihlašování a registrace hráčů používají stejný Supabase projekt jako turnajová aplikace.
  const getDb=()=>window.db|| (typeof db!=='undefined'?db:null);
  const loginForm=$('loginForm');
@@ -2308,19 +2319,27 @@ init();
      notice('registerNotice',data.session?'Účet je vytvořen a jsi přihlášen.':'Účet je vytvořen. Zkontroluj e-mail a potvrď registraci.',true);
    }catch(err){notice('registerNotice','Registrace se nezdařila: '+(err.message||err));}finally{btn.disabled=false;}
  });}
- // Vyhledávání čte veřejně dostupné turnaje z existující tabulky tournaments.
+ // Veřejné vyhledávání turnajů podle názvu, místa nebo kódu.
  const findForm=$('findForm');
  if(findForm)findForm.addEventListener('submit',async e=>{
-   e.preventDefault();const q=$('findQuery').value.trim().toLowerCase(),client=getDb();
-   if(!client){notice('findNotice','Databáze se ještě připojuje. Zkus to prosím za chvíli.');return;}
-   try{const {data,error}=await client.from('tournaments').select('*').order('event_date',{ascending:true}).limit(200);if(error)throw error;
+   e.preventDefault();const q=$('findQuery').value.trim().toLowerCase(),client=getDb();if(!q)return;
+   const box=$('findNotice');box.classList.add('show');box.textContent='';
+   if(!client){box.textContent='Databáze se ještě připojuje.';return;}
+   try{
+     const {data,error}=await client.from('tournaments').select('*').order('event_date',{ascending:true}).limit(300);if(error)throw error;
      const found=(data||[]).filter(t=>[t.name,t.location,t.event_location,t.public_code].some(v=>String(v||'').toLowerCase().includes(q)));
-     const box=$('findNotice');box.innerHTML=found.length?'<div class="tournament-results">'+found.map(t=>`<div class="training-item"><b>${String(t.name||'Turnaj').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</b><span>${[t.event_date,t.location||t.event_location,t.status].filter(Boolean).join(' · ')}</span></div>`).join('')+'</div>':'Žádné odpovídající turnaje nebyly nalezeny.';
-     box.classList.add('show');
-   }catch(err){notice('findNotice','Turnaje se nepodařilo načíst: '+(err.message||err));}
+     if(!found.length){box.textContent='Žádný turnaj nenalezen.';return;}
+     box.innerHTML='<div class="tournament-results">'+found.map((t,i)=>`<button type="button" class="tournament-result" data-found-index="${i}"><b>${String(t.name||'Turnaj').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</b><span>${[t.event_date,t.location||t.event_location,t.status].filter(Boolean).join(' · ')}</span></button>`).join('')+'</div>';
+     box.querySelectorAll('[data-found-index]').forEach(btn=>btn.addEventListener('click',()=>{
+       const t=found[Number(btn.dataset.foundIndex)];
+       showLegacy();
+       const open=()=>{try{selectedTournament=t.id;const sel=document.getElementById('liveTournamentSelect');if(sel)sel.value=t.id;const other=document.getElementById('tournamentSelect');if(other)other.value=t.id;const liveTab=document.querySelector('#legacyApp [data-tab="live"]');if(liveTab)liveTab.click();if(typeof renderAll==='function')renderAll();}catch(err){console.error('Nepodařilo se otevřít veřejný turnaj',err);}};
+       let tries=0;const waitForData=()=>{if(typeof tournaments!=='undefined'&&tournaments.some(x=>x.id===t.id)){open();return;}if(++tries<40)setTimeout(waitForData,250);else open();};waitForData();
+     }));
+   }catch(err){box.textContent='Turnaje se nepodařilo načíst: '+(err.message||err);}
  });
  // Jednoduchá navigace zpět na hlavní stranu z původní turnajové aplikace.
- if($('legacyApp')){const back=document.createElement('button');back.className='secondary';back.textContent='← HLAVNÍ STRANA 501LIVE';back.style.margin='12px';back.onclick=showLanding;$('legacyApp').prepend(back);}
+ if($('legacyApp')){const legacyBack=document.createElement('button');legacyBack.className='secondary';legacyBack.textContent='← HLAVNÍ STRANA 501LIVE';legacyBack.style.margin='12px';legacyBack.onclick=showLanding;$('legacyApp').prepend(legacyBack);}
 })();
 </script>
 </body></html>
