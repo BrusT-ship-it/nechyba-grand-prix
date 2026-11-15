@@ -361,7 +361,7 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 <button aria-controls="live" aria-selected="true" class="active" data-tab="live" role="tab">Živě</button>
 <button aria-controls="group" aria-selected="false" data-tab="group" role="tab">Skupiny</button>
 <button aria-controls="bracket" aria-selected="false" data-tab="bracket" role="tab">Pavouk</button>
-<button aria-controls="start" aria-selected="false" data-tab="start" role="tab">Start list</button>
+<button aria-controls="start" aria-selected="false" data-tab="start" role="tab">KK tabulka</button>
 <button aria-controls="results" aria-selected="false" data-tab="results" role="tab">Celkové výsledky</button>
 <button aria-controls="players" aria-selected="false" data-tab="players" role="tab">Hráči a statistiky</button>
 <button aria-controls="admin" aria-selected="false" data-tab="admin" role="tab">Admin</button>
@@ -387,8 +387,8 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 <div class="panel" id="bracketContent">Vyřazovací pavouk zatím není vytvořen.</div>
 </section>
 <section class="hidden" id="start" role="tabpanel">
-<h2>Start list</h2>
-<div class="panel" id="startContent">Načítám hráče…</div>
+<h2>KK – Každý s každým</h2>
+<div class="panel" id="startContent">Načítám tabulku…</div>
 </section>
 <section class="hidden" id="results" role="tabpanel">
 <h2>Celkové výsledky série</h2>
@@ -1311,15 +1311,32 @@ function setFormHTML(container,html){
     if(el){el.focus();if(selection){try{el.setSelectionRange(selection[0],selection[1]);}catch(_){}}}
   }
 }
+function renderRoundRobinTable(es,ms){
+  const target=$("startContent");
+  const games=ms.filter(m=>m.stage==="round_robin");
+  if(!games.length){target.innerHTML='<p>Pro tento turnaj zatím není rozlosovaný systém každý s každým. Zápasy KK vytvoří pořadatel v administraci.</p>';return;}
+  const stats=new Map(es.map(e=>[e.id,{entry:e,played:0,wins:0,draws:0,losses:0,for:0,against:0}]));
+  for(const m of games){
+    if(m.status!=="finished")continue;
+    const a=stats.get(m.player1_entry_id),b=stats.get(m.player2_entry_id);
+    if(!a||!b)continue;
+    const x=Number(m.legs1)||0,y=Number(m.legs2)||0;
+    a.played++;b.played++;a.for+=x;a.against+=y;b.for+=y;b.against+=x;
+    if(x>y){a.wins++;b.losses++}else if(y>x){b.wins++;a.losses++}else{a.draws++;b.draws++}
+  }
+  const ordered=[...stats.values()].sort((a,b)=>b.wins-a.wins||(b.for-b.against)-(a.for-a.against)||b.for-a.for||playerName(a.entry.id).localeCompare(playerName(b.entry.id),'cs'));
+  const complete=games.every(m=>m.status==="finished");
+  const rounds=[...new Set(games.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
+  target.innerHTML=`<p class="small">${games.filter(m=>m.status==="finished").length} z ${games.length} zápasů odehráno. Průběžné pořadí: výhry, rozdíl legů, získané legy. Případné úplné shody je nutné rozhodnout před přidělením bodů.${complete?' Všechny zápasy jsou odehrány.':''}</p>
+  <div class="table-wrap"><table class="kk-standings"><thead><tr><th>Poř.</th><th>Hráč</th><th>Z</th><th>V</th><th>P</th><th>Legy</th><th>Rozdíl</th></tr></thead><tbody>${ordered.map((r,i)=>`<tr><td>${i+1}.</td><td>${esc(playerName(r.entry.id))}</td><td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.for}:${r.against}</td><td>${r.for-r.against>0?'+':''}${r.for-r.against}</td></tr>`).join('')}</tbody></table></div>
+  <h3>Rozpis zápasů a výsledky</h3>${rounds.map(round=>`<h4>${round}. kolo</h4><div class="table-wrap"><table><thead><tr><th>Hráč 1</th><th>Výsledek</th><th>Hráč 2</th><th>Stav</th></tr></thead><tbody>${games.filter(m=>(Number(m.round_no)||1)===round).sort((a,b)=>(Number(a.match_no)||0)-(Number(b.match_no)||0)).map(m=>`<tr><td>${esc(playerName(m.player1_entry_id))}</td><td><strong>${m.status==='finished'?`${m.legs1}:${m.legs2}`:'– : –'}</strong></td><td>${esc(playerName(m.player2_entry_id))}</td><td>${m.status==='finished'?'Odehráno':m.status==='live'?'Právě se hraje':'Čeká'}</td></tr>`).join('')}</tbody></table></div>`).join('')}
+  <p class="small">Výsledky se zapisují přes počítadlo na terči nebo ručně v administraci v sekci Terče. Tabulka se aktualizuje z uložených zápasů.</p>`;
+}
 function renderAll(){
   const es=tournamentEntries();
   const ms=tournamentMatches();
   renderGroups();
-  $("startContent").innerHTML=es.length?
-    `<div class="table-wrap"><table><tr><th>Hráč</th><th>Skupina</th></tr>${es.map(e=>{
-      const p=players.find(p=>p.id===e.player_id);
-      return `<tr><td>${esc(p?.name||"Neznámý hráč")}</td><td>${esc(e.group_name||"Zatím nerozlosován")}</td></tr>`;
-    }).join("")}</table></div>`:"Zatím nejsou přihlášení hráči.";
+  renderRoundRobinTable(es,ms);
   const knockout=ms.filter(m=>m.stage==="playoff").sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
   $("bracketContent").innerHTML=knockout.length?renderBracketMatches(knockout):(es.length>16?"Oboustranný pavouk bude vytvořen po spuštění turnaje v administraci.":"Pavouk bude vytvořen po dokončení skupin.");
   if(isAdmin)renderBracketSeedControl();
