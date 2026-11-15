@@ -2430,6 +2430,35 @@ function tabletPreview(score,darts){
   }
   return {stop:false,bust:false,left:score-sum};
 }
+// Offline snapshot: last server-confirmed leg and score, never a replacement for DB writes.
+const tabletSnapshotPrefix="501live-confirmed-leg-v1-board-";
+function tabletSnapshotKey(){return tabletSnapshotPrefix+String(tabletBoard||0);}
+function tabletSaveConfirmedSnapshot(match,leg,visits,html){
+  if(!match||!leg||leg.status!=="live")return;
+  try{
+    const snapshot={version:1,board:tabletBoard,tournamentId:selectedTournament,matchId:match.id,legId:leg.id,legNo:leg.leg_no,matchPlayers:[match.player1_entry_id,match.player2_entry_id],startingEntryId:leg.starting_entry_id,visits:visits||[],html,savedAt:new Date().toISOString()};
+    localStorage.setItem(tabletSnapshotKey(),JSON.stringify(snapshot));
+  }catch(err){console.warn("Offline snapshot could not be saved:",err);}
+}
+function tabletReadConfirmedSnapshot(){
+  try{const s=JSON.parse(localStorage.getItem(tabletSnapshotKey())||"null");return s&&s.version===1&&s.board===tabletBoard&&s.legId&&Array.isArray(s.visits)?s:null;}catch(_){return null;}
+}
+function tabletShowOfflineSnapshot(){
+  if(!tabletBoard)return false;
+  const root=$("tabletRoot"),app=$("tabletApp"),login=$("tabletLogin");
+  if(!root||!app)return false;
+  root.classList.remove("hidden");
+  if(login)login.classList.add("hidden");
+  app.classList.remove("hidden");
+  const snapshot=tabletReadConfirmedSnapshot();
+  const when=snapshot?new Date(snapshot.savedAt).toLocaleString("cs-CZ"):"";
+  const notice='<div class="notice warning" style="padding:12px;margin:8px 0;font-weight:700">⚠ OFFLINE – zobrazen poslední potvrzený stav'+(when?' ('+when+')':'')+'. Zápis náhozů a ZPĚT jsou dočasně uzamčeny. Po návratu internetu obnov stránku.</div>';
+  app.innerHTML=notice+(snapshot?snapshot.html:'<div class="panel">Na tomto tabletu zatím není uložený rozehraný leg. Připoj se k internetu a otevři počítadlo.</div>');
+  // A restored screen is read-only: no unconfirmed throw may be mistaken for a saved throw.
+  app.querySelectorAll('button,input,select').forEach(el=>{el.disabled=true;el.setAttribute('aria-disabled','true');});
+  app.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();},{capture:true,once:false});
+  return !!snapshot;
+}
 async function renderTablet(){
   if(!tabletBoard)return;
   $("tabletTitle").textContent=`NECHYBA – TERČ ${tabletBoard}`;
@@ -2558,6 +2587,7 @@ async function renderTablet(){
     ${tabletPendingGet()?'<div class="notice warning">⚠ ČEKÁ NA SYNCHRONIZACI – další zápis a ZPĚT jsou pozastaveny. Po obnovení internetu se nához bezpečně odešle.</div>':""}
     <div class="notice tablet-history">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
+  tabletSaveConfirmedSnapshot(match,leg,visits,app.innerHTML);
 
 }
 // 501LIVE: bezpečná fronta pro nejasně doručený nához.
@@ -2707,6 +2737,8 @@ function initTabletQrCodes(){
 async function init(){
   initTabletQrCodes();
   if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(error=>console.warn("PWA service worker:",error));}
+  // Offline reload: do not wait for Supabase/auth before restoring confirmed scores.
+  if(tabletBoard && !navigator.onLine){tabletShowOfflineSnapshot();return;}
   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   await syncClock();
   await loadData();

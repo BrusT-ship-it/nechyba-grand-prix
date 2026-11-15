@@ -1,5 +1,5 @@
 /* 501LIVE – offline application shell. Does NOT queue match results. */
-const CACHE = '501live-shell-2026-11-15-v1';
+const CACHE = '501live-shell-2026-11-15-v2';
 const SHELL = ['/', '/index.html',
  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'];
