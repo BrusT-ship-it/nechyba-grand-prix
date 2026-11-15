@@ -340,16 +340,16 @@ body.public-tournament-view #legacyApp>.secondary:first-child{display:none!impor
 <p class="small">Otevři počítadlo na zařízení, které bude u daného terče zapisovat šipky.</p>
 <div class="tablet-counter-grid">
 <div class="tablet-counter-item">
-<a class="action" href="/tablet/terc1" rel="noopener" target="_blank">Otevřít počítadlo – terč 1</a>
+<a class="action" href="/?tablet=1" rel="noopener" target="_blank">Otevřít počítadlo – terč 1</a>
 <div class="tablet-qr-wrap">
-<img alt="QR kód pro otevření počítadla – terč 1" class="tablet-qr" data-qr-path="/tablet/terc1" height="180" loading="lazy" width="180"/>
+<img alt="QR kód pro otevření počítadla – terč 1" class="tablet-qr" data-qr-path="/?tablet=1" height="180" loading="lazy" width="180"/>
 <span class="small">Naskenuj a otevři počítadlo terče 1</span>
 </div>
 </div>
 <div class="tablet-counter-item">
-<a class="action" href="/tablet/terc2" rel="noopener" target="_blank">Otevřít počítadlo – terč 2</a>
+<a class="action" href="/?tablet=2" rel="noopener" target="_blank">Otevřít počítadlo – terč 2</a>
 <div class="tablet-qr-wrap">
-<img alt="QR kód pro otevření počítadla – terč 2" class="tablet-qr" data-qr-path="/tablet/terc2" height="180" loading="lazy" width="180"/>
+<img alt="QR kód pro otevření počítadla – terč 2" class="tablet-qr" data-qr-path="/?tablet=2" height="180" loading="lazy" width="180"/>
 <span class="small">Naskenuj a otevři počítadlo terče 2</span>
 </div>
 </div>
@@ -448,7 +448,7 @@ let clockOffset = 0;            // rozdíl serverového a lokálního času (ms)
 let loadSeq = 0, loadTimer = null, lastLoadOk = 0, realtimeOk = false;
 let entryById = new Map(), playerById = new Map();
 let adminOpBusy = false;
-const tabletBoard = (()=>{const m=location.pathname.match(/^\/tablet\/terc([12])\/?$/i);return m?Number(m[1]):0;})();
+const tabletBoard = (()=>{const q=new URLSearchParams(location.search).get("tablet");if(q==="1"||q==="2")return Number(q);const m=location.pathname.match(/^\/tablet\/terc([12])\/?$/i);return m?Number(m[1]):0;})();
 let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;let tabletAggregateValue="";let tabletSpecialType="";let tabletSpecialDart=0;
 const DEFAULT_TARGET_LEGS = 2;
 
