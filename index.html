@@ -312,7 +312,28 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 
 
 
-</main><section class="panel" id="createPanel"><h3>Vytvořit turnaj</h3><p class="hint">Pořadatel se přihlásí svým účtem. Hráčský účet lze rozšířit o oprávnění pořadatele – není potřeba zakládat druhý účet.</p><button class="primary" data-open-account="login" type="button">PŘIHLÁSIT SE JAKO POŘADATEL</button><p class="note">Po přihlášení bude dostupná administrace turnajů, startovní listina, losování, zápasy a výsledky.</p></section><section class="panel" id="accountPanel"><h3>Můj účet 501LIVE</h3><p class="hint">Jeden účet pro hráče i pořadatele. Registrace je otevřená a nevyžaduje schválení pořadatelem.</p>
+</main><section class="panel" id="createPanel">
+<h3>VYTVOŘIT TURNAJ</h3>
+<p class="hint">Nastav soutěž. Počet hráčů se nezadává předem – vznikne podle skutečné startovní listiny.</p>
+<form id="newCompetitionForm" class="competition-form">
+<label>Název soutěže<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open"></label>
+<label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
+<div id="competitionSeriesFields" hidden>
+<label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5"></label>
+<div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
+</div>
+<div class="competition-pair">
+<label>Počet terčů<input id="competitionBoards" type="number" min="1" max="64" value="2" required></label>
+<label>Hra<select id="competitionGame"><option value="501">501 Double Out</option><option value="301">301 Double Out</option></select></label>
+</div>
+<label>Herní systém (pro samostatný turnaj nebo výchozí nastavení)<select id="competitionFormat"><option value="groups">Skupiny + play-off</option><option value="single_ko">Single KO</option><option value="double_ko" selected>Double KO</option><option value="round_robin">Každý s každým</option></select></label>
+<label>Počet vítězných legů<input id="competitionLegs" type="number" min="1" max="21" value="2" required></label>
+<div id="competitionEveningsWrap" hidden><h4>Herní systém jednotlivých večerů</h4><p class="hint">Každý večer může mít jiný formát. Počet hráčů doplní až startovní listina.</p><div id="competitionEvenings"></div></div>
+<div id="competitionScoringWrap" hidden><h4>Vlastní bodování série</h4><p class="hint">Zadej body za jednotlivá umístění. Pořadí bez zadaných bodů získá 0.</p><div id="competitionScoring"></div><button type="button" id="competitionAddPlace" class="primary">+ PŘIDAT UMÍSTĚNÍ</button></div>
+<p id="competitionFeedback" role="status" class="hint"></p>
+<button type="submit" class="primary">ULOŽIT ROZPRACOVANÉ NASTAVENÍ</button>
+<p class="hint">Nastavení se v této verzi ukládá jako návrh do tohoto prohlížeče. Založení soutěže v Supabase a spuštění registrace hráčů doplníme po přípravě databáze.</p>
+</form></section><section class="panel" id="accountPanel"><h3>Můj účet 501LIVE</h3><p class="hint">Jeden účet pro hráče i pořadatele. Registrace je otevřená a nevyžaduje schválení pořadatelem.</p>
 <div class="tabs"><button class="mini-tab active" data-auth="loginView">Přihlášení</button><button class="mini-tab" data-auth="registerView">Nová registrace</button></div>
 <div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input autocomplete="username" class="field wide" placeholder="E-mail" required="" type="email"/><input autocomplete="current-password" class="field wide" placeholder="Heslo" required="" type="password"/><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů 501LIVE.</div></form></div>
 <div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input autocomplete="nickname" class="field" placeholder="Jméno hráče" required="" type="text"/><input autocomplete="email" class="field" placeholder="E-mail" required="" type="email"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Heslo (min. 8 znaků)" required="" type="password"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Potvrzení hesla" required="" type="password"/><label class="choice wide"><input required="" type="checkbox"/> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
@@ -2552,4 +2573,96 @@ body{max-width:100%;overflow-x:hidden}
  #profilePanel .dashboard-actions button{font-size:14px;min-height:100px}
 }
 </style>
-</body></html>
+<style id="501live-competition-style">
+#competitionSeriesFields[hidden],#competitionFinalFields[hidden],#competitionEveningsWrap[hidden],#competitionScoringWrap[hidden]{display:none!important}
+#newCompetitionForm{display:grid;gap:16px;width:min(100%,760px);margin:auto}
+#newCompetitionForm label{display:grid;gap:7px;font-weight:600;font-size:15px}
+#newCompetitionForm input,#newCompetitionForm select{display:block;width:100%;min-width:0;min-height:46px;background:#171717;color:#fff;border:1px solid #555;border-radius:8px;padding:10px;font:inherit}
+#newCompetitionForm .competition-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#newCompetitionForm .competition-evening{display:grid;grid-template-columns:1fr minmax(140px,1fr);align-items:center;gap:10px;margin:8px 0}
+#newCompetitionForm .competition-evening label{font-size:14px}
+#newCompetitionForm .competition-score-row{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center;margin:8px 0}
+#newCompetitionForm h4{margin:12px 0}
+#newCompetitionForm .primary{min-height:48px}
+@media(max-width:460px){#newCompetitionForm .competition-evening{grid-template-columns:1fr}#newCompetitionForm .competition-pair{grid-template-columns:1fr}}
+</style>
+<script id="501live-competition-controller">
+(()=>{
+ const form=document.getElementById('newCompetitionForm');
+ if(!form)return;
+ const el=id=>document.getElementById(id);
+ const formats=[['groups','Skupiny + play-off'],['single_ko','Single KO'],['double_ko','Double KO'],['round_robin','Každý s každým']];
+ const makeSelect=(value)=>{const select=document.createElement('select');for(const [id,label] of formats){const o=document.createElement('option');o.value=id;o.textContent=label;select.append(o)}select.value=value;return select};
+ function renderEvenings(saved){
+   const type=el('competitionType').value;
+   const isSeries=type!=='single';
+   el('competitionSeriesFields').hidden=!isSeries;
+   el('competitionFinalFields').hidden=type!=='final';
+   el('competitionEveningsWrap').hidden=!isSeries;
+   el('competitionScoringWrap').hidden=!isSeries;
+   const box=el('competitionEvenings');
+   const existing=[...box.querySelectorAll('select')].map(x=>x.value);
+   box.replaceChildren();
+   if(!isSeries)return;
+   const count=Math.max(2,Math.min(30,Number(el('competitionRounds').value)||2));
+   for(let i=0;i<count;i++){
+     const row=document.createElement('div');row.className='competition-evening';
+     const label=document.createElement('label');label.textContent=`${i+1}. večer`;
+     const select=makeSelect(saved?.[i]||existing[i]||el('competitionFormat').value);
+     select.setAttribute('aria-label',`Herní systém ${i+1}. večera`);
+     row.append(label,select);box.append(row);
+   }
+   if(type==='final'){
+     const row=document.createElement('div');row.className='competition-evening';
+     const label=document.createElement('label');label.textContent='Závěrečné finále';
+     const select=makeSelect(saved?.[count]||existing[count]||'groups');
+     row.append(label,select);box.append(row);
+   }
+ }
+ function addPlace(value=''){
+   const box=el('competitionScoring');const n=box.children.length+1;
+   if(n>128)return;
+   const row=document.createElement('div');row.className='competition-score-row';
+   const label=document.createElement('label');label.textContent=n+'. místo';label.htmlFor='scorePlace'+n;
+   const input=document.createElement('input');input.id='scorePlace'+n;input.type='number';input.min='0';input.step='1';input.value=value;input.placeholder='Body';
+   row.append(label,input);box.append(row);
+ }
+ el('competitionType').addEventListener('change',()=>renderEvenings());
+ el('competitionRounds').addEventListener('input',()=>renderEvenings());
+ el('competitionAddPlace').onclick=()=>addPlace();
+ for(let i=0;i<8;i++)addPlace();
+ try{
+   const draft=JSON.parse(localStorage.getItem('501live_competition_draft')||'null');
+   if(draft){
+     el('competitionName').value=draft.name||'';
+     el('competitionType').value=draft.type||'single';
+     el('competitionRounds').value=draft.rounds||5;
+     el('competitionFinalists').value=draft.finalists||8;
+     el('competitionBoards').value=draft.boards||2;
+     el('competitionGame').value=draft.game||501;
+     el('competitionFormat').value=draft.format||'double_ko';
+     el('competitionLegs').value=draft.legs||2;
+     el('competitionScoring').replaceChildren();
+     for(const points of draft.points?.length?draft.points:Array(8).fill(''))addPlace(points);
+     renderEvenings(draft.evenings);
+   }else renderEvenings();
+ }catch(e){renderEvenings()}
+ form.addEventListener('submit',e=>{
+   e.preventDefault();
+   if(!form.reportValidity())return;
+   const type=el('competitionType').value;
+   const draft={
+     name:el('competitionName').value.trim(),type,
+     rounds:type==='single'?1:Number(el('competitionRounds').value),
+     finalists:type==='final'?Number(el('competitionFinalists').value):null,
+     boards:Number(el('competitionBoards').value),game:Number(el('competitionGame').value),
+     format:el('competitionFormat').value,legs:Number(el('competitionLegs').value),
+     evenings:type==='single'?[]:[...el('competitionEvenings').querySelectorAll('select')].map(x=>x.value),
+     points:type==='single'?[]:[...el('competitionScoring').querySelectorAll('input')].map(x=>x.value===''?0:Number(x.value))
+   };
+   if(!draft.name){el('competitionFeedback').textContent='Vyplň název soutěže.';return}
+   try{localStorage.setItem('501live_competition_draft',JSON.stringify(draft));el('competitionFeedback').textContent='Nastavení bylo uloženo jako návrh v tomto prohlížeči. Turnaj zatím není zveřejněný.'}
+   catch(err){el('competitionFeedback').textContent='Návrh se nepodařilo uložit: '+err.message}
+ });
+})();
+</script></body></html>
