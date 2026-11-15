@@ -3041,4 +3041,53 @@ $('profileOpenMe')?.addEventListener('click',()=>{setTimeout(renderPlayer,0)});
 $('openPlayerQrScanner')?.addEventListener('click',()=>{setTimeout(renderOrganizer,0)});
 })();
 </script>
+
+<style id="501live-admin-refresh">
+#adminPanel{--ad-bg:#111216;--ad-surface:#1a1b20;--ad-border:#303139;--ad-red:#d52339;--ad-text:#f6f6f8;color:var(--ad-text);max-width:1180px;margin:auto;padding:12px 10px 26px}
+#adminPanel .admin-hero{padding:20px 18px 17px;margin:0 0 14px;background:linear-gradient(115deg,#252127,#17181c 70%);border:1px solid #3c3035;border-radius:15px;position:relative;overflow:hidden}
+#adminPanel .admin-hero:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#e02a42}
+#adminPanel .admin-kicker{color:#ed6678;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px}
+#adminPanel .admin-hero h2{font-size:clamp(22px,5vw,32px);margin:0 0 7px;letter-spacing:-.6px;color:#fff}
+#adminPanel .admin-hero p{margin:0;color:#c3c3c9;font-size:13px;line-height:1.5}
+#adminPanel .admin-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0 18px}
+#adminPanel .admin-shortcut{min-width:0;min-height:88px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;text-align:left;gap:7px;border:1px solid #383941;border-radius:12px;background:#202126;color:#fff;padding:13px;cursor:pointer;font-size:13px;font-weight:750;line-height:1.25;transition:background .15s,border-color .15s}
+#adminPanel .admin-shortcut:hover,#adminPanel .admin-shortcut:focus-visible{border-color:#d52339;background:#2a2228}
+#adminPanel .admin-shortcut .shortcut-icon{font-size:22px;line-height:1}
+#adminPanel .admin-shortcut small{font-size:10px;color:#b4b4bd;font-weight:500}
+#adminPanel .admin-block-title{font-size:13px;text-transform:uppercase;letter-spacing:1.3px;color:#bcbcc3;font-weight:800;margin:21px 3px 10px}
+#adminPanel>.panel{background:#1b1c21;border:1px solid #34353d;border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:none}
+#adminPanel>.panel>strong{display:block;font-size:17px;color:#fff;margin-bottom:7px}
+#adminPanel>.panel>.small{color:#b7b7bf;line-height:1.55}
+#adminPanel #adminBoards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px;margin-top:12px}
+#adminPanel #adminBoards>div{border-radius:11px}
+#adminPanel details.admin-section{border:1px solid #34353d;background:#1c1d22;border-radius:12px;margin:0 0 9px;overflow:hidden;box-shadow:none}
+#adminPanel details.admin-section[open]{border-color:#6d3842;background:#1c1d22}
+#adminPanel details.admin-section>summary{display:flex;align-items:center;gap:12px;padding:17px 15px;min-height:62px;list-style:none;cursor:pointer;font-size:15px;font-weight:750;color:#fff;line-height:1.3}
+#adminPanel details.admin-section>summary::-webkit-details-marker{display:none}
+#adminPanel details.admin-section>summary:before{content:attr(data-icon);display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;background:#2c2d34;border-radius:10px;font-size:19px}
+#adminPanel details.admin-section>summary:after{content:"+";margin-left:auto;color:#f27786;font-size:24px;font-weight:400}
+#adminPanel details.admin-section[open]>summary:after{content:"−"}
+#adminPanel details.admin-section[open]>summary{border-bottom:1px solid #36363d;background:#252126}
+#adminPanel details.admin-section>.panel{border:0;border-radius:0;background:transparent;margin:0;padding:16px;box-shadow:none}
+#adminPanel details.admin-section .panel strong{color:#f5f5f7}
+#adminPanel details.admin-section .small{color:#b7b7c0;line-height:1.55}
+#adminPanel input,#adminPanel select,#adminPanel textarea{max-width:100%;border-radius:9px}
+#adminPanel button.action,#adminPanel button.secondary,#adminPanel button.danger,#adminPanel a.action{border-radius:9px;min-height:40px}
+#adminPanel #logoutBtn{margin-top:16px;opacity:.82}
+@media(max-width:600px){#adminPanel{padding:10px 9px 20px}#adminPanel .admin-shortcuts{gap:7px}#adminPanel .admin-shortcut{padding:10px;min-height:90px;font-size:12px}#adminPanel .admin-shortcut small{font-size:9px}#adminPanel>.panel{padding:13px}#adminPanel details.admin-section>summary{padding:13px 12px;font-size:14px}#adminPanel details.admin-section>.panel{padding:12px}}
+</style>
+<script id="501live-admin-refresh-controller">
+(()=>{const panel=document.getElementById('adminPanel');if(!panel)return;
+const details=[...panel.querySelectorAll('details.admin-section')];
+const info=[['🎯','Počítadla','QR a tablety'],['👤','Hráči','Správa hráčů'],['📋','Startovní listina','Registrace a losování'],['🏆','Pořadí a body','Bodování série'],['🥇','Finálová osmička','Postupující hráči'],['📝','Historie zápasů','Opravy výsledků']];
+details.forEach((d,i)=>{if(info[i])d.setAttribute('data-icon',info[i][0]);});
+const hero=document.createElement('div');hero.className='admin-hero';hero.innerHTML='<div class="admin-kicker">501LIVE · SPRÁVA TURNAJE</div><h2>Ovládací panel</h2><p>Terče, hráči, losování i výsledky přehledně na jednom místě.</p>';
+panel.prepend(hero);
+const title=document.createElement('div');title.className='admin-block-title';title.textContent='Průběh turnaje';hero.after(title);
+const board=panel.querySelector(':scope > .panel');if(board){const t=document.createElement('div');t.className='admin-block-title';t.textContent='Správa a nastavení';board.after(t);}
+const shortcuts=document.createElement('div');shortcuts.className='admin-shortcuts';
+[2,0,5].forEach(i=>{const d=details[i];if(!d)return;const b=document.createElement('button');b.type='button';b.className='admin-shortcut';const x=info[i];const ico=document.createElement('span');ico.className='shortcut-icon';ico.textContent=x[0];const label=document.createElement('span');label.textContent=x[1];const small=document.createElement('small');small.textContent=x[2];b.append(ico,label,small);b.addEventListener('click',()=>{d.open=true;d.scrollIntoView({behavior:'smooth',block:'start'});});shortcuts.appendChild(b)});
+hero.after(shortcuts);
+})();
+</script>
 </body></html>
