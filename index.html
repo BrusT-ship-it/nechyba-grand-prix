@@ -2951,4 +2951,94 @@ document.addEventListener('click',function(e){const btn=e.target.closest('[data-
  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
  window.addEventListener('pagehide',stopCamera);
 })();
-</script></body></html>
+</script>
+<style id="link-flow-style">
+#linkPlayerPanel,#linkOrganizerPanel{margin:16px 0;padding:15px;border:1px solid #555;border-left:4px solid #c7192c;border-radius:9px;background:#171717;color:#fff}
+#linkPlayerPanel button,#linkOrganizerPanel button{padding:10px 14px;margin:6px 6px 6px 0;border:0;border-radius:7px;background:#b7192b;color:#fff;cursor:pointer}
+#linkPlayerPanel button:disabled,#linkOrganizerPanel button:disabled{opacity:.5;cursor:wait}
+.link-entry{border-top:1px solid #555;margin-top:12px;padding-top:12px}
+.link-muted{color:#bbb;font-size:.9em}
+.link-error{color:#ffb4b4}.link-success{color:#83e6a1}
+</style>
+<script id="501live-history-link-controller">
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const dbClient=()=>window.db||(typeof db!=='undefined'?db:null)||window.supabaseClient;
+const el=(tag,txt,cls)=>{const n=document.createElement(tag);if(txt!==undefined)n.textContent=txt;if(cls)n.className=cls;return n};
+const playerPanel=el('section');playerPanel.id='linkPlayerPanel';
+const organizerPanel=el('section');organizerPanel.id='linkOrganizerPanel';
+const profile=$('profileMe'), qr=$('playerQrScanner');
+if(!profile||!qr)return;
+profile.appendChild(playerPanel);
+qr.parentNode.insertBefore(organizerPanel,qr.nextSibling);
+let activePlayer=false,activeOrganizer=false;
+const statusNames={pending:'Čeká na pořadatele',organizer_approved:'Schváleno pořadatelem – potvrď propojení',completed:'Propojeno',rejected:'Zamítnuto'};
+async function me(){const c=dbClient();if(!c)throw Error('Databáze není připravena.');const {data,error}=await c.auth.getUser();if(error||!data?.user)throw Error('Nejdříve se přihlas.');return {c,user:data.user}}
+async function rpc(c,name,args){const {data,error}=await c.rpc(name,args);if(error)throw Error(error.message);return data}
+function message(panel,txt,ok=false){let m=panel.querySelector('[data-message]');if(!m){m=el('div');m.dataset.message='1';panel.appendChild(m)}m.textContent=txt;m.className=ok?'link-success':'link-error'}
+async function renderPlayer(){
+ if(activePlayer)return;activePlayer=true;
+ try{
+  const {c,user}=await me();playerPanel.replaceChildren(el('h3','Propojení starších výsledků'));
+  const {data:profileData,error:pe}=await c.from('profiles').select('display_name').eq('id',user.id).single();if(pe)throw Error(pe.message);
+  const {data:linked,error:le}=await c.from('players').select('id,name').eq('profile_id',user.id).limit(1);if(le)throw Error(le.message);
+  if(linked?.length){playerPanel.appendChild(el('p','Tvůj profil je propojený s hráčem '+linked[0].name+'.','link-success'));return}
+  const {data:requests,error:re}=await c.from('player_link_requests').select('id,player_id,status,created_at').eq('profile_id',user.id).order('created_at',{ascending:false});if(re)throw Error(re.message);
+  const ids=[...new Set((requests||[]).map(r=>r.player_id))];
+  const names={};if(ids.length){const {data:players}=await c.from('players').select('id,name').in('id',ids);(players||[]).forEach(p=>names[p.id]=p.name)}
+  (requests||[]).forEach(r=>{
+   const item=el('div',undefined,'link-entry');
+   item.appendChild(el('div',(names[r.player_id]||'Historický hráč')+' — '+(statusNames[r.status]||r.status)));
+   if(r.status==='organizer_approved'){
+    const btn=el('button','POTVRDIT PROPOJENÍ');
+    btn.onclick=async()=>{if(!confirm('Potvrzuješ, že tento historický hráč jsi ty?'))return;btn.disabled=true;try{message(playerPanel,await rpc(c,'complete_player_link',{p_request_id:r.id}),true);await renderPlayerRefresh()}catch(e){message(playerPanel,e.message)}finally{btn.disabled=false}};
+    item.appendChild(btn);
+   }
+   playerPanel.appendChild(item);
+  });
+  if((requests||[]).some(r=>r.status==='pending'||r.status==='organizer_approved'))return;
+  const {data:candidates,error:ce}=await c.from('players').select('id,name').is('profile_id',null).ilike('name',profileData.display_name.trim());if(ce)throw Error(ce.message);
+  const exact=(candidates||[]).filter(p=>p.name.trim().toLocaleLowerCase()===profileData.display_name.trim().toLocaleLowerCase());
+  if(!exact.length){playerPanel.appendChild(el('p','Pro toto jméno nejsou nalezeny nepropojené historické výsledky.','link-muted'));return}
+  playerPanel.appendChild(el('p','Nalezen starší hráč se stejným jménem. Pokud jsi to ty, požádej o potvrzení původního pořadatele.','link-muted'));
+  exact.forEach(p=>{
+   const btn=el('button','POŽÁDAT O PROPOJENÍ: '+p.name);
+   btn.onclick=async()=>{btn.disabled=true;try{const result=await rpc(c,'request_player_link',{p_player_id:p.id});await renderPlayerRefresh();message(playerPanel,result,true)}catch(e){message(playerPanel,e.message)}finally{btn.disabled=false}};
+   playerPanel.appendChild(btn);
+  });
+ }catch(e){playerPanel.replaceChildren(el('h3','Propojení starších výsledků'));message(playerPanel,e.message)}
+ finally{activePlayer=false}
+}
+async function renderPlayerRefresh(){activePlayer=false;await renderPlayer()}
+async function renderOrganizer(){
+ if(activeOrganizer)return;activeOrganizer=true;
+ try{
+  const {c,user}=await me();organizerPanel.replaceChildren(el('h3','Žádosti o propojení historických hráčů'));
+  const {data:requests,error}=await c.from('player_link_requests').select('id,player_id,profile_id,status,created_at').eq('organizer_id',user.id).order('created_at',{ascending:false});if(error)throw Error(error.message);
+  if(!requests?.length){organizerPanel.appendChild(el('p','Zatím nemáš žádné žádosti.','link-muted'));return}
+  const ids=[...new Set(requests.map(r=>r.player_id))],names={};
+  const {data:players,error:ple}=await c.from('players').select('id,name').in('id',ids);if(ple)throw Error(ple.message);
+  (players||[]).forEach(p=>names[p.id]=p.name);
+  requests.forEach(r=>{
+   const item=el('div',undefined,'link-entry');
+   item.appendChild(el('div',(names[r.player_id]||'Hráč')+' — '+(statusNames[r.status]||r.status)));
+   item.appendChild(el('div','Účet: '+r.profile_id,'link-muted'));
+   if(r.status==='pending'){
+    for(const [approved,label] of [[true,'SCHVÁLIT'],[false,'ZAMÍTNOUT']]){
+     const btn=el('button',label);
+     btn.onclick=async()=>{if(!confirm(approved?'Ověřil jsi osobně, že jde o stejného hráče?':'Opravdu žádost zamítnout?'))return;btn.disabled=true;try{const result=await rpc(c,'review_player_link',{p_request_id:r.id,p_approve:approved});await renderOrganizerRefresh();message(organizerPanel,result,true)}catch(e){message(organizerPanel,e.message)}finally{btn.disabled=false}};
+     item.appendChild(btn);
+    }
+   }
+   organizerPanel.appendChild(item);
+  });
+ }catch(e){organizerPanel.replaceChildren(el('h3','Žádosti o propojení historických hráčů'));message(organizerPanel,e.message)}
+ finally{activeOrganizer=false}
+}
+async function renderOrganizerRefresh(){activeOrganizer=false;await renderOrganizer()}
+$('profileOpenMe')?.addEventListener('click',()=>{setTimeout(renderPlayer,0)});
+$('openPlayerQrScanner')?.addEventListener('click',()=>{setTimeout(renderOrganizer,0)});
+})();
+</script>
+</body></html>
