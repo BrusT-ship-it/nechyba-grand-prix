@@ -465,6 +465,104 @@ body.tablet-mode #legacyApp > .legacy-home-back {display:none!important}
 :root {--red:#E11D1D;accent-color:#E11D1D}
 #adminPanel {--ad-red:#E11D1D}
 </style>
+<style id="501live-local-games-unified-counter">
+/* Shared visual language with tablet match counter; no body.tablet-mode global changes. */
+#trainingPanel #trainingCounter[hidden],#trainingPanel #trainingChoice[hidden],
+#localDuelPanel #localDuelCounter[hidden],#localDuelPanel #localDuelSetup[hidden]{display:none!important}
+#trainingPanel,#localDuelPanel{width:min(100%,920px);max-width:920px}
+#trainingPanel .local-counter,#localDuelPanel .local-counter{max-width:760px;margin:6px auto;padding:8px;border:1px solid #414141;border-top:2px solid #E11D1D;border-radius:12px;background:#151516}
+#trainingPanel #trainingTabletRoot,#localDuelPanel #localDuelRoot{width:100%;max-width:760px;margin:0 auto}
+.local-game-panel .local-setup{padding:22px;border:1px solid #3b3b42;border-radius:16px;background:#1a1b21;margin-top:18px}
+.local-game-panel .local-setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.local-game-panel .local-setup-grid label{display:flex;flex-direction:column;gap:7px;font-size:14px;color:#e9e9ed;font-weight:700}
+.local-game-panel .local-setup-grid input,.local-game-panel .local-setup-grid select{width:100%;background:#101114;color:white;border:1px solid #484850;border-radius:9px;min-height:48px;font-size:16px;padding:11px}
+.local-game-panel .local-setup-grid input:focus,.local-game-panel .local-setup-grid select:focus{outline:2px solid #E11D1D;outline-offset:1px}
+.local-privacy-note{font-size:13px;color:#c9c9ce;line-height:1.5;margin:16px 0}
+#localDuelPanel .local-start{width:100%;min-height:50px;font-size:17px;border-radius:10px}
+.local-game-toolbar,.training-toolbar{max-width:760px;margin:3px auto 8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.local-game-toolbar span,.training-toolbar strong{font-size:13px;letter-spacing:.06em;color:#f2f2f2}
+.local-game-toolbar button,.training-toolbar button{background:#242428;color:#fff;border:1px solid #52525a;border-radius:8px;min-height:38px;padding:8px 12px;font-size:12px;font-weight:750}
+.local-match-heading{text-align:center;font-size:12px;font-weight:750;color:#cacacd;line-height:1.4;margin:2px 0 8px}
+#trainingPanel .tablet-live-top,#localDuelPanel .tablet-live-top{display:grid;gap:7px;align-items:stretch;margin:5px 0}
+#trainingPanel .tablet-live-top.player-one-active,#localDuelPanel .tablet-live-top.player-one-active{grid-template-columns:minmax(0,1.27fr) minmax(0,.93fr)}
+#trainingPanel .tablet-live-top.player-two-active,#localDuelPanel .tablet-live-top.player-two-active{grid-template-columns:minmax(0,.93fr) minmax(0,1.27fr)}
+#trainingPanel .tablet-live-top>.tablet-score-card,#localDuelPanel .tablet-live-top>.tablet-score-card{
+ display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-items:center;justify-items:stretch;min-width:0;
+ min-height:clamp(128px,18dvh,175px);padding:8px;background:#181818;border:1px solid #484848;border-radius:11px;box-sizing:border-box}
+#trainingPanel .tablet-score-card.is-active,#localDuelPanel .tablet-score-card.is-active{border:2px solid #E11D1D;padding:7px;background:linear-gradient(145deg,#202020,#141414)}
+#trainingPanel .tablet-score-card .tablet-player,#localDuelPanel .tablet-score-card .tablet-player{font-size:clamp(14px,2.3dvh,22px);font-weight:850;line-height:1.1;text-align:center;word-break:break-word}
+#trainingPanel .tablet-score-card .tablet-card-score,#localDuelPanel .tablet-score-card .tablet-card-score{font-size:clamp(45px,9dvh,90px);line-height:1;font-weight:900;color:#f6f6f6;text-align:center;font-variant-numeric:tabular-nums}
+#trainingPanel .tablet-score-card.is-active .tablet-card-score,#localDuelPanel .tablet-score-card.is-active .tablet-card-score{font-size:clamp(58px,12dvh,115px);color:#39d477}
+#trainingPanel .tablet-player-stats,#localDuelPanel .tablet-player-stats{display:flex;gap:4px;justify-content:space-between;width:100%;color:#b8bcbc;font-size:clamp(9px,1.4dvh,12px);font-weight:700}
+#trainingPanel .tablet-player-stats strong,#localDuelPanel .tablet-player-stats strong{color:#fff}
+.local-last-visit{text-align:center;font-size:11px;color:#aaa;min-height:17px}
+.local-counter .tablet-mode-switch{display:flex;gap:7px;margin:5px 0}
+.local-counter .tablet-mode-switch button{flex:1;min-width:0;min-height:36px;font-size:clamp(11px,1.8vw,14px);padding:6px}
+.local-counter .tablet-digit-entry{font-size:clamp(22px,3.5dvh,32px);min-height:32px;padding:3px;margin:4px 0}
+.local-counter .tablet-darts{display:flex;gap:6px;justify-content:center;margin:5px 0}
+.local-counter .tablet-dart{font-size:20px;min-width:45px;padding:4px 9px}
+.local-counter .tablet-aggregate-layout{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px}
+.local-counter .tablet-aggregate-pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.local-counter .tablet-aggregate-pad button,.local-counter .tablet-special-group button{min-width:0;min-height:clamp(39px,5.6dvh,56px);font-size:clamp(17px,2.4dvh,23px);padding:4px;border:1px solid #555;border-radius:7px;background:#292929;color:#fff;font-weight:850}
+.local-counter .tablet-aggregate-special{display:flex;flex-direction:column;gap:8px}
+.local-counter .tablet-aggregate-special>div{display:flex;flex-direction:column;flex:1;justify-content:center;gap:6px;padding:4px;border:1px solid #3d3d3d;border-radius:8px}
+.local-counter .tablet-aggregate-special h4,.local-counter .tablet-special h4{font-size:12px;text-align:center;margin:2px 0;color:#eee}
+.local-counter .tablet-special-group{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.local-counter .tablet-number-pad{display:grid;grid-template-columns:1fr;gap:4px}
+.local-counter .tablet-key-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.local-counter .tablet-key-row.actions{grid-template-columns:1fr 1fr 1fr 1.55fr}
+.local-counter .tablet-key-row button{min-width:0;min-height:clamp(38px,5.4dvh,54px);padding:3px 0;background:#292929;color:#fff;border:1px solid #555;border-radius:7px;font-size:clamp(13px,2.1dvh,20px);font-weight:850}
+.local-counter .tablet-key-row.actions button{font-size:clamp(10px,1.7dvh,16px)}
+.local-counter .tablet-special{margin:6px 0 0;display:block}
+.local-counter .tablet-special-compact{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.local-counter .tablet-special-compact>div{min-width:0}
+.local-counter button.selected{background:#E11D1D!important;border-color:#fa4a4a!important;color:white!important}
+.local-counter button:disabled{opacity:.35;cursor:not-allowed}
+.local-counter .tablet-double{border:1px solid #484848;margin:7px 0 4px;padding:6px 7px;border-radius:7px}
+.local-counter .tablet-double-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+.local-counter .tablet-double h4{font-size:12px;font-weight:800;margin:0}
+.local-counter .tablet-double h4 small{font-weight:400;color:#bbb}
+.local-counter .tablet-double-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.local-counter .tablet-double button{background:#292929;color:#fff;border:1px solid #555;border-radius:6px;font-weight:750}
+.local-counter .tablet-double-buttons button{min-height:clamp(39px,5.5dvh,52px);font-size:18px}
+.local-counter .tablet-double-clear,.local-counter .tablet-double-zero{padding:4px 9px!important;font-size:11px!important;min-height:26px}
+.local-counter .tablet-double-zero{display:block;margin:4px 0 0 auto}
+.local-counter .tablet-special-note{margin:2px 0;color:#aaa;text-align:center;font-size:11px;min-height:14px}
+.local-counter .tablet-counter-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
+.local-counter .tablet-counter-actions button{min-width:0;min-height:clamp(46px,6dvh,61px);font-size:clamp(11px,1.8dvh,16px);padding:5px}
+.local-counter .local-error{color:#ffc5c5;min-height:16px;font-size:12px;text-align:center;margin-top:5px}
+#trainingPanel .local-result,#localDuelPanel .local-result,#trainingPanel .local-leg-result,#localDuelPanel .local-leg-result{max-width:760px;margin:10px auto;padding:22px;border:1px solid #49494f;border-top:3px solid #E11D1D;border-radius:16px;background:#191a1e;text-align:center}
+.local-result h3,.local-leg-result h3{color:#fff;font-size:clamp(22px,5vw,32px);margin:12px 0}
+.local-result-brow{color:#ff5858;font-weight:850;font-size:12px;letter-spacing:.12em}
+.local-scoreline{font-weight:900;font-size:clamp(32px,7vw,55px);color:#39d477;margin:10px 0}
+.local-result-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;text-align:left;margin:18px 0}
+.local-result-player{min-width:0;background:#101114;padding:14px;border:1px solid #3a3a42;border-radius:12px}
+.local-result-player h4{font-size:18px;color:#fff;margin:0 0 12px;overflow-wrap:anywhere}
+.local-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.local-stat-grid>div{background:#202127;border-radius:8px;padding:8px 5px;display:flex;flex-direction:column;gap:4px;text-align:center}
+.local-stat-grid span{font-size:11px;color:#bbb;line-height:1.25}.local-stat-grid b{font-size:19px;color:#fff}
+.local-result-player small{display:block;margin-top:12px;font-size:11px;color:#bbb}
+.local-end-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
+.local-end-actions button,.local-leg-result>button{min-height:48px;padding:8px 12px;margin:4px;border-radius:9px;font-weight:800}
+@media(max-width:580px){.local-game-panel .local-setup-grid{grid-template-columns:1fr}.local-result-stats{grid-template-columns:1fr}
+ .local-counter .tablet-score-card{padding:5px 4px!important}.local-counter .tablet-card-score{font-size:clamp(42px,9dvh,75px)!important}
+ .local-counter .is-active .tablet-card-score{font-size:clamp(51px,11dvh,89px)!important}
+ .local-counter .tablet-player-stats{font-size:9px!important}.local-counter .tablet-aggregate-pad button,.local-counter .tablet-special-group button{min-height:36px!important}
+ .local-counter .tablet-aggregate-layout{gap:5px}.local-counter .tablet-aggregate-special h4{font-size:10px}
+ .local-counter .tablet-key-row button{min-height:33px!important;font-size:13px!important}.local-counter .tablet-double-buttons button{min-height:36px!important}
+}
+
+/* On local game screens, the small logo is below content instead of covering the keypad. */
+body:has(#localDuelCounter:not([hidden])) #appBrandFooter,
+body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!important;inset:auto!important;height:38px!important;margin-top:12px!important;background:transparent!important;pointer-events:none!important}
+/* Keep running local games compact; leave tournament tablets untouched. */
+#landingHome:has(#localDuelCounter:not([hidden])) #localDuelPanel>.ui-section-kicker,
+#landingHome:has(#localDuelCounter:not([hidden])) #localDuelPanel>h3,
+#landingHome:has(#localDuelCounter:not([hidden])) #localDuelPanel>.ui-section-subtitle,
+#landingHome:has(#trainingCounter:not([hidden])) #trainingPanel>.ui-section-kicker,
+#landingHome:has(#trainingCounter:not([hidden])) #trainingPanel>h3,
+#landingHome:has(#trainingCounter:not([hidden])) #trainingPanel>.ui-section-subtitle{display:none!important}
+</style>
 </head><body><div id="landingHome">
 <main class="hero" aria-label="501LIVE – úvodní stránka">
   <div class="portal-kicker"><span class="portal-kicker-line"></span> THE HOME OF DARTS TOURNAMENTS <span class="portal-kicker-line"></span></div>
@@ -481,6 +579,10 @@ body.tablet-mode #legacyApp > .legacy-home-back {display:none!important}
       <button type="button" class="portal-dashboard-tile" data-panel="trainingPanel">
         <span class="portal-dashboard-icon" aria-hidden="true">⚙</span>
         <span>TRÉNINK</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" data-panel="localDuelPanel">
+        <span class="portal-dashboard-icon" aria-hidden="true">🎯</span>
+        <span>HRA PRO DVA</span>
       </button>
       <button type="button" class="portal-dashboard-tile" data-panel="createPanel">
         <span class="portal-dashboard-icon" aria-hidden="true">🏆</span>
@@ -566,7 +668,26 @@ body.tablet-mode #legacyApp > .legacy-home-back {display:none!important}
 <div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input autocomplete="username" aria-label="Přihlašovací e-mail" class="field wide" placeholder="E-mail" required="" type="email"/><input autocomplete="current-password" aria-label="Přihlašovací heslo" class="field wide" placeholder="Heslo" required="" type="password"/><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů 501LIVE.</div></form></div>
 <div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input autocomplete="nickname" aria-label="Jméno hráče" class="field" placeholder="Jméno hráče" required="" type="text"/><input autocomplete="email" aria-label="Registrační e-mail" class="field" placeholder="E-mail" required="" type="email"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Heslo (min. 8 znaků)" required="" type="password"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Potvrzení hesla" required="" type="password"/><label class="choice wide"><input required="" type="checkbox"/> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
 </section><section class="panel" id="trainingPanel"><div class="ui-section-kicker">TRÉNINK</div><h3>TRÉNINK</h3><p class="ui-section-subtitle">Vyber si hru a trénuj zavírání. Počítadlo si pamatuje všechny náhozy během hry.</p><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button></div>
-<div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div></section><section class="panel" id="findPanel"><div class="ui-section-kicker">01 / TURNAJE</div><h3>Najít turnaj</h3><p class="ui-section-subtitle">Vyhledej turnaj a sleduj živé výsledky. Registrace není pro sledování nutná.</p><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
+<div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div></section>
+<section class="panel local-game-panel" id="localDuelPanel" aria-labelledby="localDuelHeading">
+  <div class="ui-section-kicker">501LIVE / HRA BEZ TURNAJE</div>
+  <h3 id="localDuelHeading">Hra pro dva hráče</h3>
+  <p class="ui-section-subtitle">Zahrajte si bez registrace. Výsledky a statistiky této hry se nikam neukládají.</p>
+  <form id="localDuelSetup" class="local-setup">
+    <div class="local-setup-grid">
+      <label>První hráč <input class="field" name="playerOne" type="text" required maxlength="36" placeholder="Jméno prvního hráče" autocomplete="off"></label>
+      <label>Druhý hráč <input class="field" name="playerTwo" type="text" required maxlength="36" placeholder="Jméno druhého hráče" autocomplete="off"></label>
+      <label>Vyber hru <select class="field" name="startScore"><option value="170">170 Double Out</option><option value="301">301 Double Out</option><option value="501" selected>501 Double Out</option></select></label>
+      <label>Na kolik vítězných legů? <select class="field" name="targetLegs"><option value="1">1 leg</option><option value="2" selected>2 legy</option><option value="3">3 legy</option><option value="4">4 legy</option><option value="5">5 legů</option><option value="6">6 legů</option><option value="7">7 legů</option><option value="8">8 legů</option><option value="9">9 legů</option></select></label>
+    </div>
+    <p class="local-privacy-note">🎯 První leg začíná první hráč, další legy se střídají. K vítězství je potřeba přesný double (včetně Bull 50).</p>
+    <button type="submit" class="primary local-start">SPUSTIT HRU</button>
+  </form>
+  <div id="localDuelCounter" hidden>
+    <div class="local-game-toolbar"><span id="localDuelTitle"></span><button type="button" class="secondary" id="localDuelExit">← NASTAVENÍ HRY</button></div>
+    <div id="localDuelRoot"></div>
+  </div>
+</section><section class="panel" id="findPanel"><div class="ui-section-kicker">01 / TURNAJE</div><h3>Najít turnaj</h3><p class="ui-section-subtitle">Vyhledej turnaj a sleduj živé výsledky. Registrace není pro sledování nutná.</p><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
 <form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required=""/><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice"></div></form>
 </section>
 </div>
@@ -3175,46 +3296,189 @@ if(!isDirectRoute())dashboard();
 let checked=false;const restore=async()=>{if(checked)return;const client=getClient();if(!client)return;checked=true;const {data,error}=await client.auth.getUser();if(error||!data?.user)return;const {data:details}=await client.from('profiles').select('display_name,role').eq('id',data.user.id).maybeSingle();openProfile(data.user,details);};const poll=setInterval(()=>{if(checked){clearInterval(poll);return;}restore()},300);setTimeout(()=>clearInterval(poll),12000);
 })();
 </script>
-<script id="training-v2-tournament-counter">(()=>{
-const $=id=>document.getElementById(id), root=$('trainingTabletRoot');
-let start=501,score=501,used=0,visits=[],mode='aggregate',draft=[],base=null,mult=1,aggregate='',special='',specialDart=0,finished=false;
-const escapeText=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const avg=()=>used?(3*(start-score)/used).toFixed(2).replace('.',','):'0,00';
-function reset(n){start=n;score=n;used=0;visits=[];mode='aggregate';draft=[];base=null;mult=1;aggregate='';special='';specialDart=0;finished=false;$('trainingChoice').hidden=true;$('trainingCounter').hidden=false;$('trainingTitle').textContent=n+' DOUBLE OUT';render();}
-function render(){
- const draftPoints=draft.reduce((n,d)=>n+d.points,0),entered=aggregate===''?null:Number(aggregate),remaining=special?score:mode==='aggregate'?(entered===null?score:score-entered):score-draftPoints;
- const keyRow=(nums,cls)=>`<div class="tablet-key-row ${cls}">${nums.map(n=>`<button data-tr-base="${n}" class="${base===n?'selected':''}" ${draft.length>=3||special||finished?'disabled':''}>${n}</button>`).join('')}</div>`;
- const perDart=keyRow([1,2,3,4,5,6,7],'seven')+keyRow([8,9,10,11,12,13,14],'seven')+keyRow([15,16,17,18,19,20,25],'seven')+`<div class="tablet-key-row actions"><button data-tr-base="0">0</button><button data-tr-mult="2" class="${mult===2?'selected':''}">DOUBLE</button><button data-tr-mult="3" class="${mult===3?'selected':''}">TRIPLE</button><button class="secondary" data-tr-undo-dart>1 ŠIPKA ZPĚT</button></div>`;
- const digits=[1,2,3,4,5,6,7,8,9,0].map(n=>`<button data-tr-digit="${n}" class="${aggregate.slice(-1)===String(n)?"selected":""}">${n}</button>`).join('')+'<button data-tr-delete style="grid-column:span 2">ZPĚT</button>';
- const specialButtons=kind=>[1,2,3].map(n=>`<button data-tr-special="${kind}" data-tr-dart="${n}" class="${special===kind&&specialDart===n?'selected':''}">${n}</button>`).join('');
- const ready=!finished&&(special||mode==='aggregate'?special||entered!==null:draft.length===3);
- root.innerHTML=`<div class="panel tablet-counter-panel"><div class="small" style="text-align:center">TRÉNINK · ${start} DOUBLE OUT</div><div class="tablet-live-top"><div><div class="tablet-player">HRÁČ</div><div class="tablet-current-score">${remaining}</div><div class="small">${used} šipek · průměr ${avg()}</div></div><div><div class="small">ZAČÁTEK</div><div class="tablet-opponent-score">${start}</div></div></div><div class="small" style="text-align:center">Poslední nához: ${escapeText(visits.at(-1)?.label||'—')}</div>
- <div class="tablet-mode-switch"><button class="${mode==='aggregate'?'action':'secondary'}" data-tr-mode="aggregate">Součet 3 šipek</button><button class="${mode==='per_dart'?'action':'secondary'}" data-tr-mode="per_dart">Po 1 šipce</button></div>
- ${mode==='aggregate'?`<div class="tablet-digit-entry">${aggregate||'Zadej body'}</div>`:`<div class="tablet-darts">${[0,1,2].map(i=>`<div class="tablet-dart ${draft[i]?'selected':''}">${draft[i]?draft[i].points:'—'}</div>`).join('')}</div>`}
- ${mode==='aggregate'?`<div class="tablet-aggregate-layout"><div class="tablet-aggregate-pad">${digits}</div><div class="tablet-aggregate-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons('checkout')}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons('bust')}</div></div></div></div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${perDart}</div></div><div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons('checkout')}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons('bust')}</div></div></div>`}
- <div class="tablet-special-note">${finished?'HOTOVO · průměr '+avg():special?(special==='checkout'?'ZAVŘENO':'PŘEHOZENO')+' '+specialDart+'. šipkou':`Po náhozu: ${remaining}`}</div><div class="tablet-counter-actions"><button class="secondary" data-tr-undo> ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tr-submit ${!ready?'disabled':''}>POTVRDIT NÁHOZ</button></div><div class="notice">Historie legu: ${visits.length} náhozů · ${used} šipek</div><div class="notice" id="trainingFeedback"></div></div>`;
+<script id="501live-local-shared-counter-v3">
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const html=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const fmt=v=>Number(v).toFixed(2).replace('.',',');
+const CHECKOUTS=new Map();
+const firstDarts=[0,25,50];
+for(let n=1;n<=20;n++)firstDarts.push(n,2*n,3*n);
+const finishingDarts=[50,...Array.from({length:20},(_,i)=>(i+1)*2)];
+for(let count=1;count<=3;count++){
+ const scores=new Set();
+ const recurse=(sum,left)=>{if(left===0){for(const last of finishingDarts)scores.add(sum+last);return;}
+   for(const val of firstDarts)recurse(sum+val,left-1);
+ };
+ recurse(0,count-1);CHECKOUTS.set(count,scores);
 }
-function feedback(t){const el=$('trainingFeedback');if(el)el.textContent=t;}
-function save(){if(finished)return;const n=mode==='aggregate'?Number(aggregate):draft.reduce((x,d)=>x+d.points,0);const count=special?specialDart:3;
- if(!special){if(mode==='aggregate'&&(aggregate===''||!Number.isInteger(n)||n<0||n>180)){feedback('Zadej součet 0 až 180.');return;}if(mode==='per_dart'&&draft.length!==3){feedback('Zadej 3 šipky.');return;}if(n>=score-1){feedback('Pro zavření nebo přehození použij odpovídající tlačítko.');return;}}
- if(special==='checkout'&&score>170){feedback('Zavření nad 170 bodů není možné.');return;}
- visits.push({score,used,label:special==='checkout'?`ZAVŘENO (${count}. šipkou)`:special==='bust'?`PŘEHOZENO (${count}. šipkou)`:`${n} bodů`});used+=count;
- if(special==='checkout'){score=0;finished=true;const maxVisit=Math.max(0,...visits.filter(v=>/^\d+ bodů$/.test(v.label)).map(v=>Number(v.label.split(' ')[0])));window.dispatchEvent(new CustomEvent('501live-training-finished',{detail:{starting_score:start,darts_used:used,average:Number((3*start/used).toFixed(2)),highest_checkout:visits.at(-1).score,highest_visit:maxVisit}}));}else if(special!=='bust')score-=n;
- draft=[];base=null;mult=1;aggregate='';special='';specialDart=0;render();}
- document.querySelectorAll('#trainingPanel [data-start-score]').forEach(b=>b.addEventListener('click',()=>reset(Number(b.dataset.startScore))));
- $('trainingBack').onclick=()=>{$('trainingCounter').hidden=true;$('trainingChoice').hidden=false;};$('trainingRestart').onclick=()=>reset(start);
- root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
- if(d.trUndo!==undefined){const prev=visits.pop();if(prev){score=prev.score;used=prev.used;finished=false;}draft=[];aggregate='';special='';specialDart=0;render();return;}
- if(d.trMode){mode=d.trMode;draft=[];aggregate='';special='';specialDart=0;render();return;}
- if(d.trDelete!==undefined){if(special){special='';specialDart=0;}else aggregate=aggregate.slice(0,-1);render();return;}
- if(d.trDigit!==undefined){if(!finished&&aggregate.length<3){aggregate+=d.trDigit;special='';render();}return;}
- if(d.trUndoDart!==undefined){draft.pop();special='';render();return;}
- if(d.trMult){mult=Number(d.trMult);render();return;}
- if(d.trBase!==undefined){const n=Number(d.trBase),points=n*mult;if(finished||draft.length>=3||mult===3&&n===25||points>60)return;draft.push({points,base:n,mult});mult=1;special='';render();return;}
- if(d.trSpecial){special=d.trSpecial;specialDart=Number(d.trDart);render();return;}
- if(d.trSubmit!==undefined)save();
+// Entire game is held in memory only. No localStorage or Supabase writes for two-player games.
+const sessions={solo:null,duel:null};
+let gameId=0;
+function createGame(kind,score,names,target){
+ return {kind,initial:score,names,target,events:[],mode:'aggregate',draft:[],mult:1,aggregate:'',special:null,specialDart:0,doubleAttempts:null,id:++gameId};
+}
+function model(g){
+ const scores=g.names.map(()=>g.initial),wins=g.names.map(()=>0),all=[],legVisits=[];
+ let leg=1,starter=0,current=0,legDone=false,gameDone=false;
+ for(const event of g.events){
+  if(event.type==='next'){
+   if(!legDone||gameDone)continue;
+   leg+=1;starter=g.names.length===2?1-starter:0;current=starter;
+   scores.fill(g.initial);legVisits.length=0;legDone=false;continue;
+  }
+  if(event.type!=='visit'||legDone||gameDone)continue;
+  const v={...event.visit,leg,player:current,scoreBefore:scores[current]};
+  v.scoreAfter=v.isCheckout?0:v.isBust?v.scoreBefore:v.scoreBefore-v.countedPoints;
+  scores[current]=v.scoreAfter;
+  all.push(v);legVisits.push(v);
+  if(v.isCheckout){wins[current]++;legDone=true;gameDone=wins[current]>=g.target;}
+  else current=g.names.length===2?1-current:0;
+ }
+ const stats=g.names.map((name,i)=>{
+  const mine=all.filter(v=>v.player===i),legMine=legVisits.filter(v=>v.player===i);
+  const darts=mine.reduce((n,v)=>n+v.dartsCount,0),points=mine.reduce((n,v)=>n+v.countedPoints,0);
+  const tracked=mine.filter(v=>v.doubleAttempts!==null),attempts=tracked.reduce((n,v)=>n+v.doubleAttempts,0);
+  const successful=tracked.filter(v=>v.isCheckout).length;
+  const visits=mine.filter(v=>v.countedPoints>=100);
+  return {name,legDarts:legMine.reduce((n,v)=>n+v.dartsCount,0),darts,points,avg:darts?3*points/darts:null,
+    maxVisit:mine.length?Math.max(...mine.map(v=>v.countedPoints)):0,
+    maxCheckout:mine.length?Math.max(0,...mine.filter(v=>v.isCheckout).map(v=>v.scoreBefore)):0,
+    high100:visits.length,high140:mine.filter(v=>v.countedPoints>=140).length,
+    high180:mine.filter(v=>v.countedPoints===180).length,checkout:mine.filter(v=>v.isCheckout).length,
+    attempts,successful,trackedVisits:tracked.length,untracked:mine.length-tracked.length,
+    rate:attempts?100*successful/attempts:null};
  });
-})();</script>
+ return {scores,wins,all,legVisits,leg,starter,current,legDone,gameDone,stats};
+}
+function clearEntry(g){g.draft=[];g.mult=1;g.aggregate='';g.special=null;g.specialDart=0;g.doubleAttempts=null;}
+function rootFor(kind){return kind==='solo'?$('trainingTabletRoot'):$('localDuelRoot');}
+function showFeedback(kind,msg){const box=rootFor(kind)?.querySelector('[data-local-feedback]');if(box)box.textContent=msg;}
+function render(kind){
+ const g=sessions[kind],root=rootFor(kind);if(!root||!g)return;
+ const m=model(g);
+ if(kind==='solo')$('trainingTitle').textContent=g.initial+' DOUBLE OUT';
+ else $('localDuelTitle').textContent=g.initial+' DOUBLE OUT · první na '+g.target+' leg'+(g.target===1?'':g.target<=4?'y':'ů');
+ const last=m.all.at(-1);
+ const playerCard=(i)=>{
+  const active=i===m.current&&!m.legDone;
+  const st=m.stats[i],shown=m.scores[i],selected=g.mode==='aggregate'?(g.aggregate===''?0:Number(g.aggregate)):g.draft.reduce((n,d)=>n+d.points,0);
+  const preview=active&&!g.special&&Number.isFinite(selected)?shown-selected:shown;
+  return `<div class="tablet-score-card ${active?'is-active':'is-inactive'}"><div class="tablet-player">${html(g.names[i])}</div><div class="tablet-card-score">${Number.isFinite(preview)?preview:shown}</div><div class="tablet-player-stats"><span>ŠIPKY <strong>${st.legDarts}</strong></span><span>Ø <strong>${st.avg===null?'—':fmt(st.avg)}</strong></span></div></div>`;
+ };
+ const legLine=g.names.length===2?`${html(g.names[0])} ${m.wins[0]} : ${m.wins[1]} ${html(g.names[1])}`:`${html(g.names[0])} · ${m.leg}. leg`;
+ const header=`<div class="local-match-heading">${legLine} · ${m.leg}. leg</div>`;
+ if(m.gameDone){
+  const winner=m.wins.indexOf(Math.max(...m.wins));
+  root.innerHTML=`<div class="local-result"><div class="local-result-brow">KONEC HRY · ${g.initial} DOUBLE OUT</div><h3>${g.names.length===2?'Vítěz: '+html(g.names[winner]):'Trénink dokončen'}</h3><div class="local-scoreline">${m.wins.join(' : ')}</div><p>${kind==='duel'?'Statistiky z této hry se nikam neukládají.':'Tréninkové statistiky se ukládají pouze do profilu přihlášeného hráče.'}</p>${statsMarkup(g,m)}<div class="local-end-actions"><button class="action" data-local-reset>HRÁT ZNOVU</button><button class="secondary" data-local-exit>KONEC HRY</button><button class="secondary" data-local-undo>ZPĚT – OPRAVIT NÁHOZ</button></div></div>`;
+  return;
+ }
+ if(m.legDone){
+  const winner=m.wins.indexOf(Math.max(...m.wins));
+  root.innerHTML=`<div class="local-leg-result">${header}<h3>${html(g.names[winner])} vyhrál${g.names[winner].endsWith('a')?'a':''} ${m.leg}. leg</h3><div class="local-scoreline">${m.wins.join(' : ')}</div><p>V dalším legu začne ${html(g.names.length===2?g.names[1-m.starter]:g.names[0])}.</p><button class="action" data-local-next>ZAČÍT DALŠÍ LEG</button><button class="secondary" data-local-undo>ZPĚT – OPRAVIT ZAVŘENÍ</button></div>`;
+  return;
+ }
+ const curScore=m.scores[m.current];
+ const numeric=g.aggregate===''?null:Number(g.aggregate),chosen=g.mode==='aggregate'?numeric:g.draft.reduce((n,d)=>n+d.points,0);
+ const draftScore=g.special?curScore:chosen===null?curScore:curScore-chosen;
+ const specialButtons=kind=>[1,2,3].map(n=>`<button type="button" data-local-special="${kind}" data-local-dart="${n}" class="${g.special===kind&&g.specialDart===n?'selected':''}">${n}</button>`).join('');
+ const keyRow=(nums)=>`<div class="tablet-key-row seven">${nums.map(n=>`<button type="button" data-local-base="${n}" ${g.special||g.draft.length>=3?'disabled':''}>${n}</button>`).join('')}</div>`;
+ const darts=keyRow([1,2,3,4,5,6,7])+keyRow([8,9,10,11,12,13,14])+keyRow([15,16,17,18,19,20,25])+
+   `<div class="tablet-key-row actions"><button type="button" data-local-base="0" ${g.special||g.draft.length>=3?'disabled':''}>0</button><button type="button" data-local-mult="2" class="${g.mult===2?'selected':''}">DOUBLE</button><button type="button" data-local-mult="3" class="${g.mult===3?'selected':''}">TRIPLE</button><button type="button" data-local-undo-dart>1 ŠIPKA ZPĚT</button></div>`;
+ const digits=[1,2,3,4,5,6,7,8,9,0].map(n=>`<button type="button" data-local-digit="${n}" class="${g.aggregate.slice(-1)===String(n)?'selected':''}">${n}</button>`).join('')+'<button type="button" data-local-delete style="grid-column:span 2">ZPĚT</button>';
+ const ready=!!g.special||(g.mode==='aggregate'?numeric!==null:g.draft.length===3);
+ const specialSection=`<div class="tablet-aggregate-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons('checkout')}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons('bust')}</div></div></div>`;
+ const attempts=`<div class="tablet-double"><div class="tablet-double-heading"><h4>POKUSY NA DOUBLE <small>(nepovinné)</small></h4><button type="button" class="tablet-double-clear ${g.doubleAttempts===null?'selected':''}" data-local-double-clear>Nevyplnit</button></div><div class="tablet-double-buttons">${[1,2,3].map(n=>`<button type="button" data-local-double="${n}" class="${g.doubleAttempts===n?'selected':''}">${n}</button>`).join('')}</div><button type="button" class="tablet-double-zero ${g.doubleAttempts===0?'selected':''}" data-local-double="0">0 pokusů</button></div>`;
+ root.innerHTML=`<div class="panel tablet-counter-panel local-counter">${header}
+ <div class="tablet-live-top ${m.current===0?'player-one-active':'player-two-active'}">${playerCard(0)}${g.names.length===2?playerCard(1):`<div class="tablet-score-card is-inactive"><div class="tablet-player">CÍL HRY</div><div class="tablet-card-score">${g.initial}</div><div class="tablet-player-stats"><span>DOUBLE OUT</span><span>${m.leg}. LEG</span></div></div>`}</div>
+ <div class="local-last-visit">Poslední nához: ${last?html(g.names[last.player])+' · '+(last.isCheckout?'ZAVŘENO '+last.dartsCount+'. šipkou':last.isBust?'PŘEHOZENO '+last.dartsCount+'. šipkou':last.countedPoints+' bodů'):'—'}</div>
+ <div class="tablet-mode-switch"><button type="button" class="${g.mode==='aggregate'?'action':'secondary'}" data-local-mode="aggregate">Součet 3 šipek</button><button type="button" class="${g.mode==='per_dart'?'action':'secondary'}" data-local-mode="per_dart">Po 1 šipce</button></div>
+ ${g.mode==='aggregate'?`<div class="tablet-digit-entry">${g.aggregate||'Zadej body'}</div>`:`<div class="tablet-darts">${[0,1,2].map(i=>`<div class="tablet-dart ${g.draft[i]?'selected':''}">${g.draft[i]?g.draft[i].points:'—'}</div>`).join('')}</div>`}
+ ${g.mode==='aggregate'?`<div class="tablet-aggregate-layout"><div class="tablet-aggregate-pad">${digits}</div>${specialSection}</div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${darts}</div></div><div class="tablet-special">${specialSection.replace('tablet-aggregate-special','tablet-special-compact')}</div>`}
+ ${attempts}<div class="tablet-special-note">${g.special?g.special==='checkout'?`ZAVŘENO ${g.specialDart}. šipkou`:`PŘEHOZENO ${g.specialDart}. šipkou`:`Po náhozu: ${Number.isFinite(draftScore)?draftScore:curScore}`}</div>
+ <div class="tablet-counter-actions"><button type="button" class="secondary" data-local-undo>ZPĚT – VRÁTIT NÁHOZ</button><button type="button" class="action" data-local-submit ${!ready?'disabled':''}>POTVRDIT NÁHOZ</button></div><div data-local-feedback class="local-error" role="status" aria-live="polite"></div></div>`;
+}
+function statsMarkup(g,m){
+ return `<div class="local-result-stats">${g.names.map((name,i)=>{const s=m.stats[i];return `<div class="local-result-player"><h4>${html(name)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${m.wins[i]}</b></div><div><span>Průměr Ø3</span><b>${s.avg===null?'—':fmt(s.avg)}</b></div><div><span>Hozené šipky</span><b>${s.darts}</b></div><div><span>Nejvyšší nához</span><b>${s.maxVisit}</b></div><div><span>Nejvyšší zavření</span><b>${s.maxCheckout||'—'}</b></div><div><span>Náhozy 100+ / 140+ / 180</span><b>${s.high100} / ${s.high140} / ${s.high180}</b></div><div><span>Úspěšná zavření</span><b>${s.checkout}</b></div><div><span>Pokusy na double</span><b>${s.trackedVisits?s.attempts:'Nesledováno'}</b></div><div><span>Úspěšnost double</span><b>${s.rate===null?'Nesledováno':fmt(s.rate)+' %'+(s.untracked?' *':'')}</b></div></div>${s.untracked&&s.trackedVisits?'<small>* Úspěšnost jen ze sledovaných náhozů.</small>':''}</div>`}).join('')}</div>`;
+}
+function submit(kind){
+ const g=sessions[kind];if(!g)return;
+ const m=model(g);if(m.legDone||m.gameDone)return;
+ const before=m.scores[m.current],dartsCount=g.special?g.specialDart:3;
+ const input=g.mode==='aggregate'?(g.aggregate===''?null:Number(g.aggregate)):g.draft.reduce((n,d)=>n+d.points,0);
+ const fail=msg=>showFeedback(kind,msg);
+ if(g.special==='checkout'){
+  if(!CHECKOUTS.get(dartsCount).has(before))return fail(`${before} bodů nelze zavřít ${dartsCount}. šipkou na double.`);
+  if(g.mode==='per_dart'&&g.draft.length>=dartsCount){
+    const chosen=g.draft.slice(0,dartsCount);
+    if(chosen.reduce((n,d)=>n+d.points,0)!==before || chosen.at(-1).mult!==2)
+      return fail('Zadané šipky neodpovídají zavření. Oprav je nebo použij ZAVŘENO bez předchozího zadávání šipek.');
+  }
+ }else if(g.special==='bust'){
+  // Bust is explicitly entered by the scorekeeper; its points are always zero.
+ }else{
+  if(input===null||!Number.isInteger(input)||input<0||input>180)return fail('Zadej platný nához od 0 do 180.');
+  if(g.mode==='per_dart'&&g.draft.length!==3)return fail('Zadej všechny tři šipky.');
+  if(input>=before-1)return fail('Zavření nebo přehození zadej tlačítky ZAVŘENO / PŘEHOZENO.');
+ }
+ if(g.doubleAttempts!==null){
+  if(g.doubleAttempts>dartsCount)return fail('Pokusů na double nemůže být více než hozených šipek.');
+  if(g.special==='checkout'&&g.doubleAttempts<1)return fail('Úspěšné zavření obsahuje alespoň jeden pokus na double.');
+ }
+ const v={dartsCount,countedPoints:g.special?(g.special==='checkout'?before:0):input,
+  isCheckout:g.special==='checkout',isBust:g.special==='bust',doubleAttempts:g.doubleAttempts,
+  enteredPoints:input??0};
+ g.events.push({type:'visit',visit:v});clearEntry(g);render(kind);
+ // Solo training keeps its existing profile statistics workflow; two-player play NEVER dispatches this event.
+ if(kind==='solo'&&model(g).gameDone){const after=model(g);const st=after.stats[0];window.dispatchEvent(new CustomEvent('501live-training-finished',{
+   detail:{starting_score:g.initial,darts_used:st.darts,average:Number((st.avg||0).toFixed(2)),highest_checkout:st.maxCheckout,highest_visit:st.maxVisit}
+ }));}
+}
+function reset(kind,options){sessions[kind]=createGame(kind,options.score,options.names,options.legs);render(kind);}
+function confirmExit(kind){const g=sessions[kind];if(g?.events.length&&!model(g).gameDone&&!window.confirm('Opravdu ukončit rozehranou hru? Neuložené výsledky zmizí.'))return false;return true;}
+function exit(kind){if(!confirmExit(kind))return;
+ sessions[kind]=null;
+ if(kind==='solo'){$('trainingChoice').hidden=false;$('trainingCounter').hidden=true;}
+ else {$('localDuelSetup').hidden=false;$('localDuelCounter').hidden=true;}
+}
+$('trainingPanel')?.querySelectorAll('[data-start-score]').forEach(b=>b.addEventListener('click',()=>{
+  const start=Number(b.dataset.startScore);reset('solo',{score:start,names:['HRÁČ'],legs:1});
+  $('trainingChoice').hidden=true;$('trainingCounter').hidden=false;
+}));
+$('trainingBack').addEventListener('click',()=>exit('solo'));
+$('trainingRestart').addEventListener('click',()=>{if(!confirmExit('solo'))return;const g=sessions.solo;if(g)reset('solo',{score:g.initial,names:g.names,legs:1});});
+$('localDuelSetup').addEventListener('submit',e=>{
+  e.preventDefault();const fd=new FormData(e.currentTarget);
+  const names=[String(fd.get('playerOne')||'').trim(),String(fd.get('playerTwo')||'').trim()];
+  const score=Number(fd.get('startScore')),legs=Number(fd.get('targetLegs'));
+  if(names.some(n=>!n)){e.currentTarget.reportValidity();return;}
+  if(![170,301,501].includes(score)||!Number.isInteger(legs)||legs<1||legs>9)return;
+  reset('duel',{score,names,legs});$('localDuelSetup').hidden=true;$('localDuelCounter').hidden=false;
+});
+$('localDuelExit').addEventListener('click',()=>exit('duel'));
+for(const kind of ['solo','duel'])rootFor(kind)?.addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b||b.disabled)return;
+ const g=sessions[kind];if(!g)return;const d=b.dataset;
+ if('localUndo' in d){if(!g.events.length)return;g.events.pop();clearEntry(g);render(kind);return;}
+ if('localNext' in d){const m=model(g);if(m.legDone&&!m.gameDone){g.events.push({type:'next'});clearEntry(g);render(kind);}return;}
+ if('localExit' in d){exit(kind);return;}
+ if('localReset' in d){reset(kind,{score:g.initial,names:g.names,legs:g.target});return;}
+ if(d.localMode){g.mode=d.localMode;clearEntry(g);render(kind);return;}
+ if('localDelete' in d){g.aggregate=g.aggregate.slice(0,-1);g.special=null;g.specialDart=0;render(kind);return;}
+ if('localDigit' in d){if(g.aggregate.length<3){g.aggregate+=d.localDigit;g.special=null;g.specialDart=0;render(kind);}return;}
+ if('localUndoDart' in d){g.draft.pop();g.special=null;g.specialDart=0;render(kind);return;}
+ if('localMult' in d){g.mult=Number(d.localMult);render(kind);return;}
+ if('localBase' in d){const n=Number(d.localBase),points=n*g.mult;
+  if(g.draft.length>=3||g.special||n===25&&g.mult===3||points>60)return;
+  g.draft.push({base:n,mult:g.mult,points});g.mult=1;render(kind);return;}
+ if('localSpecial' in d){g.special=d.localSpecial;g.specialDart=Number(d.localDart);render(kind);return;}
+ if('localDouble' in d){g.doubleAttempts=Number(d.localDouble);render(kind);return;}
+ if('localDoubleClear' in d){g.doubleAttempts=null;render(kind);return;}
+ if('localSubmit' in d)submit(kind);
+});
+})();
+</script>
 <style id="501live-responsive-all-pages">
 /* Shared layout only: preserve scoring grids, keypad geometry and game logic. */
 html{max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
