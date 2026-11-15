@@ -196,7 +196,6 @@ body.tablet-mode>#tabletRoot{display:block!important}
 /* 501LIVE – čistá hlavní obrazovka a samostatné podstránky */
 #landingHome{min-height:100svh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(12px,2.5vh,24px) 16px;overflow-x:hidden}
 #landingHome>.topbar{display:none!important}
-#landingHome>footer{display:none!important}
 #landingHome>.hero{width:min(100%,900px);max-width:900px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(14px,2.5vh,24px)}
 #landingHome .logo{display:block;width:auto!important;height:auto!important;max-width:min(88vw,680px)!important;max-height:38svh!important;object-fit:contain;margin:0 auto!important}
 #landingHome .eyebrow,#landingHome .intro{display:none!important}
@@ -218,51 +217,6 @@ body.tablet-mode>#tabletRoot{display:block!important}
 #landingHome .tournament-result span{display:block;color:#bbb;font-size:13px}
 @media(max-width:520px){#landingHome{padding:14px 14px}#landingHome>.hero{gap:18px}#landingHome .logo{max-width:90vw!important;max-height:34svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#landingHome .action{min-height:64px;padding:12px!important}}
 @media(min-width:900px) and (min-height:650px){#landingHome .logo{max-height:40svh!important}#landingHome .actions{max-width:760px}}
-
-/* Samostatné obrazovky hlavní nabídky */
-#landingHome .hero .eyebrow,#landingHome .hero .intro{display:none!important}
-#landingHome .actions .action{gap:0}
-#landingHome .actions .action h2{font-weight:800;letter-spacing:.03em}
-#landingHome .panel h2{margin:0 0 18px;font-size:clamp(22px,3vw,30px)}
-#landingHome .training-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-#landingHome .training-item{min-height:76px;display:flex;align-items:center;justify-content:center;text-align:center;background:#202020;border:1px solid #555;border-radius:10px;color:#fff;padding:14px;cursor:pointer}
-#landingHome .training-item b{font-size:16px}
-#landingHome .create-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}
-#landingHome .create-form label{display:flex;flex-direction:column;gap:7px;color:#ddd;font-size:14px}
-#landingHome .create-form .wide{grid-column:1/-1}
-#landingHome .create-form .field{width:100%;box-sizing:border-box}
-#landingHome .panel .note{color:#aaa}
-@media(max-width:560px){#landingHome .training-grid,#landingHome .create-form{grid-template-columns:1fr}#landingHome .create-form .wide{grid-column:auto}}
-
-/* Opravdové skrytí obrazovek: display pravidla nesmí přebít atribut hidden */
-#landingHome[hidden],#portalPages[hidden],#legacyApp[hidden]{display:none!important}
-
-/* Jemné označení značky na spodní hraně vnitřních stránek */
-.powered-footer{display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px 18px;margin:10px auto 0;color:#888;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;text-align:center}
-.powered-footer img{display:block;width:24px;height:24px;max-width:24px;max-height:24px;object-fit:contain;opacity:.8}
-.powered-footer strong{color:#aaa;font-size:11px;letter-spacing:1.2px}
-#portalPages>.powered-footer{width:min(100%,760px)}
-#legacyApp>.powered-footer{width:100%}
-
-/* 501LIVE – hlavní nabídka a skutečně oddělené obrazovky */
-#landingHome{min-height:100svh;display:flex;align-items:center;justify-content:center;padding:clamp(12px,2.5vh,24px) 16px}
-#landingHome .hero{width:min(100%,900px)}
-#landingHome .hero>.panel,#landingHome .topbar,#landingHome>footer{display:none!important}
-#landingHome .hero .eyebrow,#landingHome .hero .intro{display:none!important}
-#landingHome .hero .logo{max-width:min(88vw,680px)!important;max-height:38svh!important;object-fit:contain}
-#landingHome .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;max-width:760px;margin:0 auto;gap:clamp(10px,2vw,18px)}
-#landingHome .actions .action{min-height:clamp(64px,10vh,92px);margin:0!important;border-radius:12px!important;background:#191919!important;border:1px solid #444!important}
-#portalPages{min-height:100svh;padding:clamp(18px,4vh,38px) 16px;box-sizing:border-box}
-#portalPages>.portal-page{display:none;width:min(100%,760px);margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:clamp(16px,3vw,26px);box-sizing:border-box}
-#portalPages>.portal-page.active{display:block}
-#portalPages .portal-back{display:block;margin:0 0 16px;background:transparent;border:0;color:#ddd;font-size:15px;padding:8px 0;cursor:pointer}
-#portalPages .training-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-#portalPages .training-item{min-height:76px;display:flex;align-items:center;justify-content:center;background:#202020;border:1px solid #555;border-radius:10px;color:#fff;padding:14px;cursor:pointer}
-#portalPages .create-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}
-#portalPages .create-form label{display:flex;flex-direction:column;gap:7px;color:#ddd;font-size:14px}
-#portalPages .create-form .wide{grid-column:1/-1}
-#portalPages .create-form .field{width:100%;box-sizing:border-box}
-@media(max-width:560px){#landingHome{padding:14px}#landingHome .hero{gap:18px}#landingHome .hero .logo{max-width:90vw!important;max-height:34svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#portalPages .training-grid,#portalPages .create-form{grid-template-columns:1fr}#portalPages .create-form .wide{grid-column:auto}}
 </style>
 </head><body><div id="landingHome"><header class="topbar"><div class="brand">501<span>LIVE</span></div><div class="status">ŠIPKOVÁ PLATFORMa</div></header>
 <main class="hero">
@@ -270,54 +224,35 @@ body.tablet-mode>#tabletRoot{display:block!important}
 <div class="eyebrow">ŠIPKOVÉ TURNAJE • ŽIVÉ SKÓRE • TRÉNINK</div>
 <p class="intro">Jedno místo pro šipkové turnaje, živé výsledky, trénink a osobní statistiky.<br>Sleduj turnaje, zahraj si, nebo uspořádej vlastní soutěž.</p>
 <section class="actions" aria-label="Hlavní nabídka">
-<button class="action" data-panel="findPanel"><h2>NAJÍT TURNAJ</h2></button>
-<button class="action" data-panel="trainingPanel"><h2>TRÉNINK</h2></button>
-<button class="action" data-panel="accountPanel"><h2>PŘIHLÁSIT / REGISTROVAT</h2></button>
-<button class="action" data-panel="createPanel"><h2>VYTVOŘIT TURNAJ</h2></button>
+<button class="action" data-panel="findPanel" aria-expanded="false"><div class="action-head"><span class="icon">⌕</span><h2>NAJÍT TURNAJ</h2></div><p>Prohlížej veřejné turnaje, sleduj živé zápasy a přihlas se do soutěže.</p></button>
+<button class="action" data-panel="trainingPanel" aria-expanded="false"><div class="action-head"><span class="icon">◎</span><h2>TRÉNINK</h2></div><p>Trénuj 501, zavírání a přesnost. Sleduj svůj tréninkový pokrok.</p></button>
+<button class="action" data-panel="accountPanel" aria-expanded="false"><div class="action-head"><span class="icon">♙</span><h2>PŘIHLÁŠENÍ / REGISTRACE</h2></div><p>Vytvoř si hráčský účet a měj své turnajové i tréninkové statistiky stále u sebe.</p></button>
+<button class="action" data-panel="createPanel" aria-expanded="false"><div class="action-head"><span class="icon">🏆</span><h2>VYTVOŘIT TURNAJ</h2></div><p>Uspořádej vlastní turnaj, sérii turnajů nebo ligovou soutěž.</p></button>
 </section>
 
-<section class="panel" id="findPanel">
-<h2>Najít turnaj</h2>
+<section class="panel" id="findPanel"><h3>Najít turnaj</h3><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
 <form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice"></div></form>
 </section>
 
-<section class="panel" id="trainingPanel">
-<h2>Trénink</h2>
+<section class="panel" id="createPanel"><h3>Vytvořit turnaj</h3><p class="hint">Pořadatel se přihlásí svým účtem. Hráčský účet lze rozšířit o oprávnění pořadatele – není potřeba zakládat druhý účet.</p><button class="primary" type="button" data-open-account="login">PŘIHLÁSIT SE JAKO POŘADATEL</button><p class="note">Po přihlášení bude dostupná administrace turnajů, startovní listina, losování, zápasy a výsledky.</p></section>
+
+<section class="panel" id="trainingPanel"><h3>Trénink</h3><p class="hint">Tréninkové hry budou zdarma pro každého registrovaného hráče. Výsledky tréninku se budou ukládat odděleně od oficiálních turnajových statistik.</p>
 <div class="training-grid">
-<button class="training-item" type="button"><b>501 Double Out</b></button>
-<button class="training-item" type="button"><b>301 Double Out</b></button>
-<button class="training-item" type="button"><b>Trénink zavírání</b></button>
-<button class="training-item" type="button"><b>Around the Clock</b></button>
-<button class="training-item" type="button"><b>Trénink přesnosti</b></button>
-<button class="training-item" type="button"><b>Vysoké náhozy</b></button>
-</div>
-</section>
+<div class="training-item"><b>501 Double Out</b><span>Klasická hra na zavírání od 501.</span></div>
+<div class="training-item"><b>301 Double Out</b><span>Rychlá tréninková hra od 301.</span></div>
+<div class="training-item"><b>Trénink zavírání</b><spanProcvičování checkoutů a posledních šipek.</span></div>
+<div class="training-item"><b>Around the Clock</b><span>Procvičování jednotlivých čísel terče.</span></div>
+<div class="training-item"><b>Trénink přesnosti</b><span>Zaměření na vybrané segmenty a terče.</span></div>
+<div class="training-item"><b>Vysoké náhozy</b><span>Sledování maximálních náhozů a konzistence.</span></div>
+</div><p class="note">Pro ukládání osobních výsledků se hráč přihlásí ke svému účtu.</p></section>
 
-<section class="panel" id="createPanel">
-<h2>Vytvořit turnaj</h2>
-<div class="create-form">
-<label>Název turnaje<input class="field" id="newTournamentName" placeholder="Název turnaje"></label>
-<label>Datum konání<input class="field" id="newTournamentDate" type="date"></label>
-<label>Místo konání<input class="field" id="newTournamentLocation" placeholder="Město / podnik"></label>
-<label>Typ soutěže<select class="field" id="newTournamentType"><option value="single">Samostatný turnaj</option><option value="series">Série turnajů s průběžným pořadím</option><option value="qualifier">Série kvalifikací se závěrečným finále</option></select></label>
-<label>Počet terčů<input class="field" id="newTournamentBoards" type="number" min="1" max="64" value="2"></label>
-<label>Herní formát<select class="field" id="newTournamentGame"><option>501 Double Out</option><option>501 Straight Out</option><option>301 Double Out</option></select></label>
-<label>Počet hráčů<input class="field" id="newTournamentPlayers" type="number" min="2" placeholder="Např. 32"></label>
-<label>Startovné<input class="field" id="newTournamentFee" type="number" min="0" placeholder="Kč"></label>
-<label class="wide">Pravidla / poznámka<textarea class="field" id="newTournamentNotes" rows="3" placeholder="Doplňující informace k turnaji"></textarea></label>
-</div>
-<p class="note">Po vyplnění údajů pokračuj přihlášením pořadatele.</p>
-<button class="primary" type="button" data-open-account="login">PŘIHLÁSIT SE A POKRAČOVAT</button>
-</section>
-
-<section class="panel" id="accountPanel"><h2>Přihlášení / Registrace</h2>
+<section class="panel" id="accountPanel"><h3>Můj účet 501LIVE</h3><p class="hint">Jeden účet pro hráče i pořadatele. Registrace je otevřená a nevyžaduje schválení pořadatelem.</p>
 <div class="tabs"><button class="mini-tab active" data-auth="loginView">Přihlášení</button><button class="mini-tab" data-auth="registerView">Nová registrace</button></div>
-<div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input class="field wide" type="email" placeholder="E-mail" autocomplete="username" required><input class="field wide" type="password" placeholder="Heslo" autocomplete="current-password" required><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice"></div></form></div>
-<div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input class="field" type="text" placeholder="Jméno hráče" autocomplete="nickname" required><input class="field" type="email" placeholder="E-mail" autocomplete="email" required><input class="field" type="password" placeholder="Heslo (min. 8 znaků)" minlength="8" autocomplete="new-password" required><input class="field" type="password" placeholder="Potvrzení hesla" minlength="8" autocomplete="new-password" required><label class="choice wide"><input type="checkbox" required> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice"></div></form></div>
+<div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input class="field wide" type="email" placeholder="E-mail" autocomplete="username" required><input class="field wide" type="password" placeholder="Heslo" autocomplete="current-password" required><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů 501LIVE.</div></form></div>
+<div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input class="field" type="text" placeholder="Jméno hráče" autocomplete="nickname" required><input class="field" type="email" placeholder="E-mail" autocomplete="email" required><input class="field" type="password" placeholder="Heslo (min. 8 znaků)" minlength="8" autocomplete="new-password" required><input class="field" type="password" placeholder="Potvrzení hesla" minlength="8" autocomplete="new-password" required><label class="choice wide"><input type="checkbox" required> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
 </section>
 </main>
-</div>
-<div id="portalPages" hidden></div>
+<footer class="footer"><b>501LIVE</b> &nbsp;·&nbsp; ŠIPKOVÉ TURNAJE • ŽIVÉ SKÓRE • TRÉNINK</footer></div>
 <div id="legacyApp" hidden><header>
 <h1>NECHYBA GRAND PRIX</h1>
 <p>STEEL DARTS SERIES</p>
@@ -2349,28 +2284,13 @@ init();
 (function(){
  const $=id=>document.getElementById(id);
  const notice=(id,msg,good=false)=>{const el=$(id);if(!el)return;el.textContent=msg;el.classList.add('show');el.style.color=good?'#9be7b0':'#ffb2b2';};
- const pageIds=['findPanel','trainingPanel','accountPanel','createPanel'];
- const pages=$('portalPages');
- // Malé označení značky patří až na konec vnitřních stránek; hlavní menu zůstává čisté.
- function addPoweredFooter(host){
-   if(!host||host.querySelector(':scope > .powered-footer'))return;
-   const footer=document.createElement('div');footer.className='powered-footer';
-   const source=$('landingHome')?.querySelector('.logo');
-   if(source){const mark=source.cloneNode(false);mark.removeAttribute('id');mark.alt='';mark.setAttribute('aria-hidden','true');footer.appendChild(mark);}
-   const label=document.createElement('span');label.append('POWERED BY ');
-   const brand=document.createElement('strong');brand.textContent='501LIVE';label.appendChild(brand);footer.appendChild(label);
-   host.appendChild(footer);
- }
- addPoweredFooter(pages);
- addPoweredFooter($('legacyApp'));
- pageIds.forEach(id=>{const panel=$(id);if(panel){panel.classList.add('portal-page');const back=document.createElement('button');back.type='button';back.className='portal-back';back.textContent='← ZPĚT NA HLAVNÍ STRÁNKU';back.addEventListener('click',showLanding);panel.insertBefore(back,panel.firstChild);pages.appendChild(panel);}});
- function showLegacy(){pages.hidden=true;$('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);}
- function showLanding(){ const home=$('landingHome');$('legacyApp').hidden=true;pages.hidden=true;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.remove('active'));home.classList.remove('has-panel');home.querySelectorAll('.panel').forEach(p=>p.classList.remove('active-panel'));const hero=home.querySelector('.hero');if(hero){hero.style.removeProperty('display');const actions=hero.querySelector('.actions');if(actions)actions.style.removeProperty('display');}home.hidden=false;history.pushState({portal:'home'},'',location.pathname+location.search);window.scrollTo(0,0); }
- function openLandingPanel(id,addHistory=true){const panel=$(id);if(!panel)return;$('landingHome').hidden=true;$('legacyApp').hidden=true;pages.hidden=false;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.toggle('active',p.id===id));if(addHistory)history.pushState({portal:id},'',location.pathname+location.search+'#'+id);window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
+ function showLegacy(){ $('landingHome').hidden=true; $('legacyApp').hidden=false; window.scrollTo(0,0); }
+ function showLanding(){ $('legacyApp').hidden=true; $('landingHome').hidden=false; $('landingHome').classList.remove('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.remove('active-panel'));window.scrollTo(0,0); }
+ function openLandingPanel(id){const home=$('landingHome');home.classList.add('has-panel');document.querySelectorAll('#landingHome>.panel').forEach(p=>p.classList.toggle('active-panel',p.id===id));window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
  window.show501LiveApp=showLegacy;
  document.querySelectorAll('#landingHome [data-panel]').forEach(b=>b.addEventListener('click',()=>openLandingPanel(b.dataset.panel)));
- window.addEventListener('popstate',()=>{const id=location.hash.slice(1);if(pageIds.includes(id))openLandingPanel(id,false);else showLanding();});
- const initial=location.hash.slice(1);if(pageIds.includes(initial))openLandingPanel(initial,false);
+ const back=document.createElement('button');back.className='landing-back';back.type='button';back.textContent='← ZPĚT';back.onclick=showLanding;$('landingHome').insertBefore(back,$('landingHome').querySelector('.hero'));back.hidden=true;
+ const observer=new MutationObserver(()=>{back.hidden=!$('landingHome').classList.contains('has-panel');});observer.observe($('landingHome'),{attributes:true,attributeFilter:['class']});
  // Odkaz pro pořadatele otevře přihlášení až po výběru této možnosti.
  const createBtn=document.querySelector('#createPanel [data-open-account="login"]');
  if(createBtn)createBtn.addEventListener('click',()=>openLandingPanel('accountPanel'));
@@ -2419,7 +2339,7 @@ init();
    }catch(err){box.textContent='Turnaje se nepodařilo načíst: '+(err.message||err);}
  });
  // Jednoduchá navigace zpět na hlavní stranu z původní turnajové aplikace.
- if($('legacyApp')){const legacyBack=document.createElement('button');legacyBack.className='secondary';legacyBack.textContent='← HLAVNÍ STRANA 501LIVE';legacyBack.style.margin='12px';legacyBack.onclick=showLanding;$('legacyApp').prepend(legacyBack);}
+ if($('legacyApp')){const legacyBack=document.createElement('a');legacyBack.className='secondary';legacyBack.href=window.location.origin+window.location.pathname;legacyBack.textContent='← HLAVNÍ STRÁNKA';legacyBack.style.margin='12px';legacyBack.style.display='inline-block';legacyBack.style.textDecoration='none';$('legacyApp').prepend(legacyBack);}
 })();
 </script>
 </body></html>
