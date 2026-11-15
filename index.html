@@ -2341,15 +2341,35 @@ async function renderTablet(){
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
     ${tabletMode==="aggregate"?`<div class="tablet-aggregate-layout"><div class="tablet-aggregate-pad">${digitButtons}</div><div class="tablet-aggregate-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div></div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${perDartButtons}</div></div><div class="tablet-special"><div><h4>ZAVŘENO – šipka</h4><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div><h4>PŘEHOZENO – šipka</h4><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>`}
     <div class="tablet-special-note">${specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:tabletMode==="aggregate"?`Součet náhozu: ${aggregateNumber??"—"} · po náhozu: ${liveRemaining}`:`Zapsáno šipek: ${tabletDraft.length}/3 · po náhozu: ${liveRemaining}`}</div>
-    <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy?"disabled":""}>POTVRDIT NÁHOZ</button></div>
+    <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy||tabletPendingGet()?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy||tabletPendingGet()?"disabled":""}>POTVRDIT NÁHOZ</button></div>
+    ${tabletPendingGet()?'<div class="notice warning">⚠ ČEKÁ NA SYNCHRONIZACI – další zápis a ZPĚT jsou pozastaveny. Po obnovení internetu se nához bezpečně odešle.</div>':""}
     <div class="notice">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
 
 }
+// 501LIVE: bezpečná fronta pro nejasně doručený nához.
+// Dokud není potvrzen, další nához záměrně nepovolujeme.
+const tabletPendingKey="501live-pending-visit-v1";
+function tabletPendingGet(){try{return JSON.parse(localStorage.getItem(tabletPendingKey)||"null");}catch(_){return null;}}
+function tabletPendingPut(item){localStorage.setItem(tabletPendingKey,JSON.stringify(item));}
+function tabletPendingClear(){localStorage.removeItem(tabletPendingKey);}
+async function tabletPendingRetry(){
+  const item=tabletPendingGet();if(!item)return true;
+  if(!navigator.onLine){notify("OFFLINE: poslední nához je bezpečně uložen v tomto zařízení. Další zápis je dočasně pozastaven.");return false;}
+  const {error}=await db.rpc("record_dart_visit_safe",item.args);
+  if(error){notify("Čekající nához nebylo možné potvrdit: "+error.message+". Nepokračuj v zápisu, dokud stav neověříš.");return false;}
+  tabletPendingClear();return true;
+}
+window.addEventListener("online",async()=>{
+  if(!tabletPendingGet())return;
+  try{if(await tabletPendingRetry()){notify("Čekající nához byl potvrzen.");await loadData();await renderTablet();}}catch(err){notify("Synchronizace čekajícího náhozu selhala: "+err.message);}
+});
 async function submitTabletVisit(mode){
   if(!isAdmin||tabletBusy)return;
   tabletBusy=true;
   try{
+    if(!(await tabletPendingRetry()))return;
+    if(!navigator.onLine)throw new Error("Bez internetu nelze bezpečně načíst stav zápasu. Zápis zatím pozastaven.");
     const active=await db.from("matches").select("*").eq("tournament_id",selectedTournament).eq("board_no",tabletBoard).eq("status","live").maybeSingle();
     if(active.error||!active.data)throw new Error(active.error?.message||"Na tomto terči není aktivní zápas.");
     const {data:legs,error}=await db.from("match_legs").select("*").eq("match_id",active.data.id).eq("status","live").maybeSingle();
@@ -2374,8 +2394,12 @@ async function submitTabletVisit(mode){
       if(!Number.isInteger(total)||total<0||total>180)throw new Error("Zadej součet 0 až 180.");
       args.p_darts=[total];
     }
-    const {error:saveError}=await db.rpc("record_dart_visit",args);
+    args.p_request_id=crypto.randomUUID();
+    // Ulož před odesláním: odpověď serveru se může ztratit i po úspěšném zápisu.
+    tabletPendingPut({args,created_at:new Date().toISOString()});
+    const {error:saveError}=await db.rpc("record_dart_visit_safe",args);
     if(saveError)throw new Error(saveError.message);
+    tabletPendingClear();
     const refreshedMatch=await db.from("matches").select("*").eq("id",active.data.id).maybeSingle();
     if(refreshedMatch.data?.status==="finished"){
       try{await createNextKnockoutRound(refreshedMatch.data.tournament_id);}
@@ -2415,6 +2439,7 @@ if(tabletBoard && !new URLSearchParams(location.search).has("turnaj")){
     const digitBack=event.target.closest("[data-tablet-delete-digit]");if(digitBack){if(tabletMode==="aggregate"){if(tabletSpecialType){tabletSpecialType="";tabletSpecialDart=0;}else{tabletAggregateValue=tabletAggregateValue.slice(0,-1);}await renderTablet();}return;}
     const undoMatch=event.target.closest("[data-tablet-undo-match]");
     if(undoMatch){
+      if(tabletPendingGet()){notify("Nejdříve je nutné potvrdit čekající nához. ZPĚT je zatím zablokováno.");return;}
       if(tabletBusy)return;
       // Spodní tlačítko ZPĚT vždy vrací poslední potvrzený nához v legu.
       // Rozpracovaný vstup se při tom zahodí; mazání číslice má vlastní klávesu.
