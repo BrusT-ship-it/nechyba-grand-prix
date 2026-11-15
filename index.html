@@ -192,6 +192,22 @@ footer{text-align:center;color:#999;padding:25px}
 body.tablet-mode>header,body.tablet-mode>nav,body.tablet-mode>main,body.tablet-mode>.moje-med-ale-banner,body.tablet-mode>footer{display:none!important}
 body.tablet-mode>#tabletRoot{display:block!important}
 @media(max-width:520px){#tabletRoot{padding:10px}.tablet-keypad{gap:5px}.tablet-keypad button{min-height:54px;font-size:18px}}
+
+/* 501LIVE – kompaktní hlavní rozcestník */
+#landingHome{min-height:100svh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(14px,3vh,30px) 18px;overflow-x:hidden}
+#landingHome>.topbar{display:none!important}
+#landingHome>.hero{width:min(100%,980px);max-width:980px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(16px,3vh,28px)}
+#landingHome .logo{display:block;width:auto!important;height:auto!important;max-width:min( min(88vw,720px), 100%)!important;max-height:42svh!important;object-fit:contain;margin:0 auto!important}
+#landingHome .eyebrow,#landingHome .intro{display:none!important}
+#landingHome .actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(10px,2vw,18px);margin:0!important}
+#landingHome .action{min-width:0;min-height:clamp(66px,11vh,104px);margin:0!important;padding:16px 12px!important;border:1px solid #444!important;border-radius:12px!important;background:#191919!important;color:#fff!important;display:flex;align-items:center;justify-content:center;text-align:center;box-shadow:0 5px 18px #0005}
+#landingHome .action-head{justify-content:center!important;align-items:center;gap:10px}
+#landingHome .action h2{margin:0!important;font-size:clamp(15px,2.2vw,21px)!important;line-height:1.2}
+#landingHome .action .icon{font-size:clamp(20px,3vw,28px)}
+#landingHome .action>p{display:none!important}
+@media(max-width:520px){#landingHome{padding:14px 14px}#landingHome>.hero{gap:20px}#landingHome .logo{max-width:90vw!important;max-height:38svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#landingHome .action{min-height:68px;padding:12px!important}}
+@media(min-width:900px) and (min-height:650px){#landingHome .logo{max-height:44svh!important}#landingHome .actions{max-width:760px}}
+
 </style>
 </head><body><div id="landingHome"><header class="topbar"><div class="brand">501<span>LIVE</span></div><div class="status">ŠIPKOVÁ PLATFORMa</div></header>
 <main class="hero">
@@ -200,9 +216,9 @@ body.tablet-mode>#tabletRoot{display:block!important}
 <p class="intro">Jedno místo pro šipkové turnaje, živé výsledky, trénink a osobní statistiky.<br>Sleduj turnaje, zahraj si, nebo uspořádej vlastní soutěž.</p>
 <section class="actions" aria-label="Hlavní nabídka">
 <button class="action" data-panel="findPanel" aria-expanded="false"><div class="action-head"><span class="icon">⌕</span><h2>NAJÍT TURNAJ</h2></div><p>Prohlížej veřejné turnaje, sleduj živé zápasy a přihlas se do soutěže.</p></button>
-<button class="action" data-panel="createPanel" aria-expanded="false"><div class="action-head"><span class="icon">🏆</span><h2>VYTVOŘIT TURNAJ</h2></div><p>Uspořádej vlastní turnaj, sérii turnajů nebo ligovou soutěž.</p></button>
 <button class="action" data-panel="trainingPanel" aria-expanded="false"><div class="action-head"><span class="icon">◎</span><h2>TRÉNINK</h2></div><p>Trénuj 501, zavírání a přesnost. Sleduj svůj tréninkový pokrok.</p></button>
 <button class="action" data-panel="accountPanel" aria-expanded="false"><div class="action-head"><span class="icon">♙</span><h2>PŘIHLÁŠENÍ / REGISTRACE</h2></div><p>Vytvoř si hráčský účet a měj své turnajové i tréninkové statistiky stále u sebe.</p></button>
+<button class="action" data-panel="createPanel" aria-expanded="false"><div class="action-head"><span class="icon">🏆</span><h2>VYTVOŘIT TURNAJ</h2></div><p>Uspořádej vlastní turnaj, sérii turnajů nebo ligovou soutěž.</p></button>
 </section>
 
 <section class="panel" id="findPanel"><h3>Najít turnaj</h3><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
