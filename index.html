@@ -3339,23 +3339,119 @@ body{max-width:100%;overflow-x:hidden}
 </style>
 <script id="501live-owned-tournaments">
 (()=>{
- const $=id=>document.getElementById(id),btn=$('profileOrganizer');if(!btn)return;
- const panel=document.createElement('div');panel.id='ownedCompetitions';panel.hidden=true;
- panel.innerHTML='<h3>MOJE POŘÁDANÉ TURNAJE</h3><div id="ownedCompetitionsList">Načítám…</div><button type="button" id="ownedCompetitionsBack" class="secondary">← ZPĚT NA DOMOVSKOU STRÁNKU</button>';
- $('profilePanel').append(panel);
- $('ownedCompetitionsBack').onclick=()=>{panel.hidden=true;window._501liveReturnDashboard?.();};
- btn.addEventListener('click',async()=>{
-   document.body.classList.remove('organizer-view');$('legacyApp').hidden=true;$('landingHome').hidden=false;
-   $('profileDashboard').hidden=true;panel.hidden=false;
-   const list=$('ownedCompetitionsList');list.textContent='Načítám…';
-   const db=window.db||(typeof db!=='undefined'?db:null);
-   if(!db){list.textContent='Databáze není připojena.';return}
-   const {data:{user},error:authError}=await db.auth.getUser();if(authError||!user){list.textContent='Nejprve se přihlas.';return}
-   const {data,error}=await db.from('tournaments').select('id,name,event_date,status,series_id,event_no').eq('organizer_id',user.id).order('event_date',{ascending:false});
-   if(error){list.textContent='Nepodařilo se načíst turnaje: '+error.message;return}
-   list.replaceChildren();if(!data?.length){list.textContent='Zatím nemáš založený žádný turnaj.';return}
-   for(const t of data){const row=document.createElement('div');row.className='owned-row';const info=document.createElement('span');info.textContent=t.name+' · '+t.event_date;const link=document.createElement('a');link.href='?turnaj='+encodeURIComponent(t.id);link.textContent='OTEVŘÍT';row.append(info,link);list.append(row)}
- },true);
+  const $ = id => document.getElementById(id);
+  const button = $('profileOrganizer');
+  const parent = $('profilePanel');
+  if (!button || !parent) return;
+
+  const panel = document.createElement('section');
+  panel.id = 'ownedCompetitions';
+  panel.hidden = true;
+  panel.innerHTML = '<h3>MOJE POŘÁDANÉ TURNAJE</h3>' +
+    '<div id="ownedCompetitionsList" aria-live="polite">Načítám…</div>' +
+    '<button type="button" id="ownedCompetitionsBack" class="secondary">← ZPĚT NA DOMOVSKOU STRÁNKU</button>';
+  parent.append(panel);
+
+  const returnHome = () => {
+    panel.hidden = true;
+    window._501liveReturnDashboard?.();
+  };
+  $('ownedCompetitionsBack').addEventListener('click', returnHome);
+
+  const getClient = () => window.db || (typeof db !== 'undefined' ? db : null);
+  let loadSerial = 0;
+
+  async function showOwned(event) {
+    // The old button previously opened the legacy organizer page.
+    // Do not let that handler replace the owned-tournament list.
+    if (event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+    const serial = ++loadSerial;
+    document.body.classList.remove('organizer-view');
+    const legacy = $('legacyApp');
+    if (legacy) legacy.hidden = true;
+    const back = $('organizerDashboardBack');
+    if (back) back.hidden = true;
+    const home = $('landingHome');
+    if (home) {
+      home.hidden = false;
+      home.classList.add('has-panel');
+      home.querySelectorAll(':scope > .panel').forEach(section => {
+        section.classList.toggle('active-panel', section.id === 'profilePanel');
+      });
+    }
+    for (const id of ['profileDashboard', 'profileMe', 'profileStatistics', 'owner501Panel']) {
+      const section = $(id);
+      if (section) section.hidden = true;
+    }
+    panel.hidden = false;
+    const list = $('ownedCompetitionsList');
+    list.textContent = 'Načítám tvoje turnaje…';
+    window.scrollTo(0, 0);
+
+    // Use the existing Supabase instance, not a shadowed local 'db'.
+    const client = getClient();
+    if (!client) {
+      list.textContent = 'Databáze se zatím nepřipojila. Zkus stránku obnovit.';
+      return;
+    }
+    try {
+      const {data: auth, error: authError} = await client.auth.getUser();
+      if (serial !== loadSerial || panel.hidden) return;
+      if (authError) throw authError;
+      const user = auth?.user;
+      if (!user) {
+        list.textContent = 'Pro zobrazení svých turnajů se nejdřív přihlas.';
+        return;
+      }
+      // Only request columns required for the listing: optional series
+      // fields might not exist in older database schemas.
+      const {data, error} = await client.from('tournaments')
+        .select('id,name,event_date,status')
+        .eq('organizer_id', user.id)
+        .order('event_date', {ascending:false});
+      if (serial !== loadSerial || panel.hidden) return;
+      if (error) throw error;
+      list.replaceChildren();
+      if (!data?.length) {
+        list.textContent = 'Zatím nemáš založený žádný turnaj.';
+        return;
+      }
+      for (const tournament of data) {
+        const row = document.createElement('div');
+        row.className = 'owned-row';
+        const info = document.createElement('span');
+        const name = document.createElement('strong');
+        name.textContent = tournament.name || 'Turnaj';
+        const meta = document.createElement('small');
+        meta.style.display = 'block';
+        meta.style.marginTop = '4px';
+        meta.style.color = '#b6b6be';
+        meta.textContent = [tournament.event_date, tournament.status].filter(Boolean).join(' · ');
+        info.append(name, meta);
+        const link = document.createElement('a');
+        const url = new URL(window.location.href);
+        url.search = '';
+        url.hash = '';
+        url.searchParams.set('turnaj', tournament.id);
+        link.href = url.toString();
+        link.textContent = 'OTEVŘÍT';
+        row.append(info, link);
+        list.append(row);
+      }
+    } catch (error) {
+      if (serial === loadSerial && !panel.hidden) {
+        list.textContent = 'Nepodařilo se načíst turnaje: ' + (error?.message || String(error));
+      }
+    }
+  }
+
+  // Preserve the button ID used by the main navigation, but prevent
+  // the obsolete organizer-view action from firing afterwards.
+  button.onclick = null;
+  button.addEventListener('click', showOwned, true);
 })();
 </script><style id="501live-format-draw-css">.format-draw-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}.format-draw-buttons button{min-height:46px;white-space:normal;background:#a91520;color:white;border:1px solid #d12a34;border-radius:7px;font-weight:700}@media(max-width:540px){.format-draw-buttons{grid-template-columns:1fr}}</style><style id="501live-bracket-visual-css">
 .bracket-visual-section{margin:18px 0 32px;max-width:100%;min-width:0}
