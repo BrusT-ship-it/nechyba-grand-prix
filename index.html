@@ -693,7 +693,17 @@ body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!importa
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
-        <div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
+        <div id="competitionFinalFields" hidden>
+          <label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label>
+          <label>Formát finálového večera
+            <select id="competitionFinalFormat">
+              <option value="groups" selected>Skupiny + KO pavouk</option>
+              <option value="single_ko">Přímo KO pavouk</option>
+              <option value="double_ko">Double KO (dvě prohry)</option>
+            </select>
+          </label>
+          <p class="hint">Formát platí pouze pro finálový večer. Nasazení dle průběžné tabulky série je samostatná funkce losování.</p>
+        </div>
       </div>
       <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span>Jeden turnaj můžeš vytvořit a odehrát samostatně. U série se jednotlivé večery založí společně.</span></div>
     </section>
@@ -4054,7 +4064,7 @@ body{max-width:100%;overflow-x:hidden}
    try{
      let seriesId=null,created=0;
      if(type!=='single'){
-       const {data,error}=await db.from('tournament_series').insert({name,organizer_id:user.id,series_type:type==='final'?'final':'series',planned_rounds:rounds,finalists_count:type==='final'?Number($('competitionFinalists').value):null}).select('id').single();
+       const {data,error}=await db.from('tournament_series').insert({name,organizer_id:user.id,series_type:type==='final'?'final':'series',planned_rounds:rounds,finalists_count:type==='final'?Number($('competitionFinalists').value):null,final_format:type==='final'?$('competitionFinalFormat').value:null}).select('id').single();
        if(error)throw error;seriesId=data.id;
      }
      for(let i=0;i<dates.length;i++){
@@ -4062,7 +4072,7 @@ body{max-width:100%;overflow-x:hidden}
        const eventName=type==='single'?name:(isFinal?`${name} – finále`:`${name} – ${i+1}. večer`);
        const {error}=await db.rpc('create_501live_tournament',{
          p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
-         p_game_format:type==='single'?$('competitionFormat').value:null,p_target_legs:legs,
+         p_game_format:type==='single'?$('competitionFormat').value:(isFinal?$('competitionFinalFormat').value:null),p_target_legs:legs,
          p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
        });
        if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
@@ -4699,7 +4709,7 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
   frag.append(row('Název',byId('competitionName').value.trim()||'—'));
   frag.append(row('Typ',typeLabel));
   if(type!=='single')frag.append(row('Počet večerů',byId('competitionRounds').value+(type==='final'?' + finále':'')));
-  if(type==='final')frag.append(row('Postupujících',byId('competitionFinalists').value));
+  if(type==='final'){frag.append(row('Postupujících',byId('competitionFinalists').value));frag.append(row('Formát finále',byId('competitionFinalFormat').selectedOptions[0]?.textContent||'—'));}
   frag.append(row('Hra',game));
   if(type==='single')frag.append(row('Herní systém',fmt));
   frag.append(row('Terče',byId('competitionBoards').value));
