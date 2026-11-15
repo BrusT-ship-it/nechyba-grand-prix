@@ -463,30 +463,41 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
   <h1 class="portal-title">Turnaje bez papírování.<br><span>Šipky na prvním místě.</span></h1>
   <p class="portal-intro">Založ turnaj, počítej zápasy na terčích a sdílej výsledky živě. Všechno přehledně na jednom místě.</p>
   <div class="portal-account-hint" id="portalAccountHint" data-member-only hidden>Jsi přihlášený</div>
-  <section aria-label="Vyberte, jak chcete pokračovat" class="actions portal-roles">
-    <button type="button" aria-expanded="false" class="action portal-role portal-role-organizer" data-panel="createPanel">
-      <span class="portal-role-top"><span class="portal-role-icon" aria-hidden="true">🏆</span><span class="portal-role-arrow" aria-hidden="true">↗</span></span>
-      <span class="portal-role-name">Pořádám turnaj</span>
-      <span class="portal-role-description">Vytvořit turnaj a spravovat zápasy i terče</span>
-    </button>
-    <button type="button" aria-expanded="false" class="action portal-role portal-role-player" data-panel="findPanel">
-      <span class="portal-role-top"><span class="portal-role-icon" aria-hidden="true">🎯</span><span class="portal-role-arrow" aria-hidden="true">↗</span></span>
-      <span class="portal-role-name">Jsem hráč</span>
-      <span class="portal-role-description">Najít turnaj a sledovat živé výsledky</span>
-    </button>
+  <section class="portal-dashboard-menu" aria-label="Hlavní nabídka 501LIVE">
+    <div class="portal-dashboard-grid">
+      <button type="button" class="portal-dashboard-tile" data-panel="findPanel">
+        <span class="portal-dashboard-icon" aria-hidden="true">⌕</span>
+        <span>NAJÍT TURNAJ</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" data-panel="trainingPanel">
+        <span class="portal-dashboard-icon" aria-hidden="true">⚙</span>
+        <span>TRÉNINK</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" data-panel="createPanel">
+        <span class="portal-dashboard-icon" aria-hidden="true">🏆</span>
+        <span>VYTVOŘIT TURNAJ</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" id="portalOwned" data-member-only hidden>
+        <span class="portal-dashboard-icon" aria-hidden="true">🏆</span>
+        <span>MOJE POŘÁDANÉ TURNAJE</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" id="portalMyProfile" data-member-only hidden>
+        <span class="portal-dashboard-icon" aria-hidden="true">👤</span>
+        <span>MŮJ PROFIL</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile portal-dashboard-owner" id="portalOwner" hidden>
+        <span class="portal-dashboard-icon" aria-hidden="true">📊</span>
+        <span>SPRÁVA 501LIVE</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile portal-dashboard-login" data-panel="accountPanel" data-guest-only>
+        <span class="portal-dashboard-icon" aria-hidden="true">🔐</span>
+        <span>PŘIHLÁŠENÍ / REGISTRACE</span>
+      </button>
+    </div>
+    <div class="portal-dashboard-footer" data-member-only hidden>
+      <button type="button" id="portalLogout">ODHLÁSIT SE</button>
+    </div>
   </section>
-  <nav class="portal-member-actions" aria-label="Možnosti přihlášeného uživatele" data-member-only hidden>
-    <button type="button" id="portalOwned">Moje pořádané turnaje</button>
-    <button type="button" id="portalMyProfile">Můj profil</button>
-    <button type="button" id="portalOwner" hidden>Správa 501LIVE</button>
-  </nav>
-  <nav class="portal-shortcuts" aria-label="Další možnosti">
-    <button type="button" data-panel="accountPanel" data-guest-only>Přihlásit se / registrovat</button>
-    <span aria-hidden="true" data-guest-only>·</span>
-    <button type="button" data-panel="trainingPanel">Trénink šipek</button>
-    <span aria-hidden="true" data-member-only hidden>·</span>
-    <button type="button" id="portalLogout" data-member-only hidden>Odhlásit se</button>
-  </nav>
 </main><section class="panel" id="createPanel" aria-labelledby="competitionWizardTitle">
   <div class="competition-panel-heading">
     <span class="competition-eyebrow">501LIVE / POŘADATEL</span>
@@ -4065,6 +4076,109 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
  #landingHome .portal-title{font-size:clamp(24px,6.5vw,34px)!important}
  #landingHome .portal-intro{font-size:12px!important;margin:12px auto 22px!important}
  #landingHome .portal-kicker{font-size:9px;letter-spacing:.13em;margin-bottom:15px}
+}
+</style>
+
+<style id="501live-photo-inspired-tile-menu-v3">
+/* Only replace the home menu. Keep the original logo, slogan, hero and application logic. */
+#landingHome>.hero [hidden],
+#landingHome .portal-dashboard-menu [hidden]{display:none!important}
+#landingHome:not(.has-panel)>.hero>.portal-dashboard-menu{
+  display:block!important;
+  width:min(100%,570px)!important;
+  max-width:570px;
+  margin:0 auto;
+  box-sizing:border-box;
+  padding:clamp(12px,2.2vw,20px);
+  border:1px solid #333339;
+  border-radius:12px;
+  background:linear-gradient(160deg,#202023,#1a1a1d);
+  box-shadow:0 18px 45px rgba(0,0,0,.18);
+}
+#landingHome .portal-dashboard-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+  width:100%;
+}
+#landingHome .portal-dashboard-tile{
+  appearance:none!important;
+  display:flex!important;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  background:#1c1c1e!important;
+  border:1px solid #3f3f45!important;
+  border-radius:9px!important;
+  min-width:0;
+  min-height:85px;
+  margin:0!important;
+  padding:12px 10px!important;
+  color:#f04a5a!important;
+  font-family:inherit;
+  font-size:clamp(11px,1.35vw,13px)!important;
+  font-weight:850!important;
+  letter-spacing:.02em;
+  line-height:1.3;
+  text-align:center;
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+  white-space:normal!important;
+  overflow-wrap:anywhere;
+}
+#landingHome .portal-dashboard-tile[hidden]{display:none!important}
+#landingHome .portal-dashboard-tile:hover,
+#landingHome .portal-dashboard-tile:focus-visible{
+  border-color:#eb5364!important;
+  background:#302226!important;
+  outline:2px solid transparent;
+}
+#landingHome .portal-dashboard-tile:focus-visible{outline:2px solid #f45b6a;outline-offset:2px}
+#landingHome .portal-dashboard-tile:active{transform:scale(.985)}
+#landingHome .portal-dashboard-icon{
+  display:block;
+  height:23px;
+  line-height:23px;
+  font-size:20px;
+  font-weight:600;
+  color:#ededf0;
+}
+#landingHome .portal-dashboard-owner{border-color:#90414d!important}
+#landingHome .portal-dashboard-owner .portal-dashboard-icon{color:#f16a7b}
+#landingHome .portal-dashboard-footer{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  margin-top:13px;
+  min-height:28px;
+}
+#landingHome .portal-dashboard-footer[hidden]{display:none!important}
+#landingHome .portal-dashboard-footer button{
+  background:#303034!important;
+  border:1px solid #46464d!important;
+  border-radius:6px!important;
+  color:#ededee!important;
+  min-height:32px;
+  padding:6px 10px!important;
+  font-size:11px!important;
+  font-weight:600;
+  cursor:pointer;
+}
+@media(max-width:670px){
+  #landingHome:not(.has-panel)>.hero>.portal-dashboard-menu{width:min(100%,570px)!important;padding:12px!important}
+  #landingHome .portal-dashboard-grid{gap:10px!important}
+  #landingHome .portal-dashboard-tile{min-height:84px;padding:10px 7px!important;font-size:11px!important;gap:8px}
+  #landingHome .portal-dashboard-icon{font-size:19px;height:22px;line-height:22px}
+  #landingHome .portal-account-hint{margin:-8px auto 12px!important}
+  #landingHome .portal-intro{margin-bottom:18px!important}
+}
+@media(max-width:360px){
+  #landingHome .portal-dashboard-grid{gap:8px!important}
+  #landingHome .portal-dashboard-tile{min-height:80px;font-size:10px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  #landingHome .portal-dashboard-tile{transition:none!important}
 }
 </style>
 </body></html>
