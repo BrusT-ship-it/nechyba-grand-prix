@@ -1057,25 +1057,39 @@ async function seedKnockoutBracket(){
 }
 
 function renderBracketMatches(rows){
-  const rounds=[...new Set(rows.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
+  const isDouble=rows.some(m=>String(m.group_name||'').startsWith('DE:'));
   const active=activeMatches();
   const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
-  return rounds.map(round=>{
-    const roundRows=rows.filter(m=>(Number(m.round_no)||1)===round);
-    const phase=String(roundRows[0]?.group_name||"");
-    let title;
-    if(phase.startsWith("DE:WB:"))title=`Oboustranný pavouk – horní část, ${phase.split(":")[2]}. kolo`;
-    else if(phase.startsWith("DE:LB:"))title=phase.split(":")[2]?.startsWith("FINAL")?"Oboustranný pavouk – rozhodující kolo spodní části":`Oboustranný pavouk – spodní část, ${phase.split(":")[2]||"další"}. kolo`;
-    else if(phase.startsWith("DE:GF:2"))title="Rozhodující finále";
-    else if(phase.startsWith("DE:GF:"))title="Velké finále";
-    else title=roundRows.length===1?"Finále":roundRows.length===2?"Semifinále":round===1?"1. kolo":`${round}. kolo`;
-    return `<h3>${esc(title)}</h3>${roundRows.map(m=>{
-      const bye=m.player1_entry_id===m.player2_entry_id&&m.status==="finished";
-      const board=Number(m.board_no);
-      const scorekeeper=m.status==="live"&&board?chooseBoardScorekeeper(m,scheduled.get(board),active,scheduled,board):null;
-      return `<div class="panel"><div class="match"><span>${esc(playerName(m.player1_entry_id))} <strong>${bye?"VOLNÝ LOS":m.status==="finished"?`${m.legs1}:${m.legs2}`:"vs."}</strong> ${bye?"—":esc(playerName(m.player2_entry_id))}</span><span class="muted">${bye?"Postup bez zápasu":m.status==="finished"?"Odehráno":m.status==="live"?`Právě se hraje · terč ${board||"—"}`:"Čeká na zápas"}</span></div>${m.status==="live"?`<p class="small">Zapisovatel: <strong>${scorekeeper?esc(playerName(scorekeeper)):"zatím není určen"}</strong></p>`:""}</div>`;
-    }).join("")}`;
-  }).join("");
+  const phases=new Map();
+  rows.forEach(m=>{
+    const phase=isDouble?String(m.group_name||''):(Number(m.round_no)||1);
+    if(!phases.has(phase))phases.set(phase,[]);
+    phases.get(phase).push(m);
+  });
+  const keys=[...phases.keys()];
+  function title(key,ms){
+    if(typeof key==='string'&&key.startsWith('DE:WB:'))return 'Pravá strana · '+key.split(':')[2]+'. kolo';
+    if(typeof key==='string'&&key.startsWith('DE:LB:'))return 'Levá strana · '+(key.includes('FINAL')?'závěrečné kolo':key.split(':')[2]+'. kolo');
+    if(typeof key==='string'&&key.startsWith('DE:GF:2'))return 'Rozhodující finále';
+    if(typeof key==='string'&&key.startsWith('DE:GF:'))return 'Velké finále';
+    return ms.length===1?'Finále':ms.length===2?'Semifinále':ms.length===4?'Čtvrtfinále':String(key)+'. kolo';
+  }
+  const cards=(ms)=>ms.map((m,i)=>{
+    const bye=m.player1_entry_id===m.player2_entry_id&&m.status==='finished';
+    const board=Number(m.board_no);
+    const scorekeeper=m.status==='live'&&board?chooseBoardScorekeeper(m,scheduled.get(board),active,scheduled,board):null;
+    const status=bye?'Volný los':m.status==='finished'?'Odehráno':m.status==='live'?'Právě se hraje':'Čeká';
+    const a=m.player1_entry_id?playerName(m.player1_entry_id):'Čeká na postup';
+    const b=m.player2_entry_id?playerName(m.player2_entry_id):'Čeká na postup';
+    return `<div class="bracket-match-card"><div class="bracket-match-top"><span>Zápas ${i+1}</span><span class="bracket-match-status ${m.status==='live'?'live':''}">${status}</span></div><div class="bracket-player ${m.status==='finished'&&m.winner_entry_id===m.player1_entry_id?'winner':''}"><span>${esc(a)}</span><strong>${m.status==='finished'&&!bye?Number(m.legs1)||0:'–'}</strong></div><div class="bracket-player ${m.status==='finished'&&m.winner_entry_id===m.player2_entry_id&&!bye?'winner':''}"><span>${esc(bye?'VOLNÝ LOS':b)}</span><strong>${m.status==='finished'&&!bye?Number(m.legs2)||0:'–'}</strong></div>${scorekeeper?`<div class="bracket-match-note">Zapisuje: ${esc(playerName(scorekeeper))}</div>`:''}</div>`;
+  }).join('');
+  const sections=isDouble?[['Pravá strana',keys.filter(k=>String(k).startsWith('DE:WB:'))],['Levá strana',keys.filter(k=>String(k).startsWith('DE:LB:'))],['Finále',keys.filter(k=>String(k).startsWith('DE:GF:'))]]:[['Vyřazovací pavouk',keys]];
+  return sections.filter(([_,ks])=>ks.length).map(([heading,ks],si)=>{
+    const id='bracket-section-'+si;
+    const nav=ks.map((key,i)=>`<button type="button" class="bracket-round-tab ${i===0?'selected':''}" data-bracket-target="${id}" data-bracket-round="${i}">${esc(title(key,phases.get(key)))}</button>`).join('');
+    const columns=ks.map((key,i)=>`<div class="bracket-column" data-bracket-column="${i}"><h4>${esc(title(key,phases.get(key)))}</h4><div class="bracket-column-matches">${cards(phases.get(key))}</div></div>`).join('');
+    return `<section class="bracket-visual-section" id="${id}"><h3>${heading}</h3><div class="bracket-round-tabs">${nav}</div><div class="bracket-scroll"><div class="bracket-columns">${columns}</div></div></section>`;
+  }).join('');
 }
 function makeDoubleEliminationPhaseRows(tournamentId,entryIds,roundNo,phaseName,existingRows=[]){
   const ids=[...entryIds];
@@ -2763,4 +2777,29 @@ body{max-width:100%;overflow-x:hidden}
    for(const t of data){const row=document.createElement('div');row.className='owned-row';const info=document.createElement('span');info.textContent=t.name+' · '+t.event_date;const link=document.createElement('a');link.href='?turnaj='+encodeURIComponent(t.id);link.textContent='OTEVŘÍT';row.append(info,link);list.append(row)}
  },true);
 })();
-</script><style id="501live-format-draw-css">.format-draw-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}.format-draw-buttons button{min-height:46px;white-space:normal;background:#a91520;color:white;border:1px solid #d12a34;border-radius:7px;font-weight:700}@media(max-width:540px){.format-draw-buttons{grid-template-columns:1fr}}</style></body></html>
+</script><style id="501live-format-draw-css">.format-draw-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}.format-draw-buttons button{min-height:46px;white-space:normal;background:#a91520;color:white;border:1px solid #d12a34;border-radius:7px;font-weight:700}@media(max-width:540px){.format-draw-buttons{grid-template-columns:1fr}}</style><style id="501live-bracket-visual-css">
+.bracket-visual-section{margin:18px 0 32px;max-width:100%;min-width:0}
+.bracket-visual-section>h3{color:#e43b46;margin:0 0 14px}
+.bracket-round-tabs{display:flex;gap:8px;overflow-x:auto;padding:0 0 14px;scrollbar-width:thin}
+.bracket-round-tab{white-space:nowrap;flex:none;border:1px solid #353535!important;background:#1d1d1d!important;color:#ddd!important;border-radius:30px!important;padding:10px 16px!important;min-height:42px;cursor:pointer}
+.bracket-round-tab.selected{background:#ae1925!important;color:white!important;border-color:#ae1925!important}
+.bracket-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding-bottom:16px}
+.bracket-columns{display:flex;align-items:stretch;gap:58px;width:max-content;min-width:100%;padding:10px 12px 20px}
+.bracket-column{width:245px;flex:none;display:flex;flex-direction:column}
+.bracket-column>h4{text-align:center;color:#aaa;margin:0 0 22px;font-size:14px}
+.bracket-column-matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:24px}
+.bracket-match-card{position:relative;border:1px solid #373737;border-radius:12px;background:#1c1c1c;padding:12px;min-height:114px}
+.bracket-column:not(:last-child) .bracket-match-card:after{content:'';position:absolute;left:100%;top:50%;width:59px;border-top:2px solid #555;pointer-events:none}
+.bracket-match-top{display:flex;justify-content:space-between;gap:6px;font-size:11px;color:#aaa;margin-bottom:8px}
+.bracket-match-status{border-radius:8px;background:#292929;padding:2px 6px;white-space:nowrap}
+.bracket-match-status.live{background:#a31925;color:white}
+.bracket-player{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:5px 3px;font-size:14px}
+.bracket-player span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bracket-player strong{font-variant-numeric:tabular-nums}
+.bracket-player.winner{color:#ff5862;font-weight:700}
+.bracket-match-note{font-size:10px;color:#999;margin-top:5px}
+@media(max-width:600px){.bracket-column{width:220px}.bracket-columns{gap:40px}.bracket-column:not(:last-child) .bracket-match-card:after{width:41px}}
+</style>
+<script id="501live-bracket-navigation">
+document.addEventListener('click',function(e){const btn=e.target.closest('[data-bracket-target][data-bracket-round]');if(!btn)return;const section=document.getElementById(btn.dataset.bracketTarget);if(!section)return;const columns=[...section.querySelectorAll('.bracket-column')];const target=columns[Number(btn.dataset.bracketRound)];if(!target)return;section.querySelectorAll('.bracket-round-tab').forEach(b=>b.classList.toggle('selected',b===btn));const scroll=section.querySelector('.bracket-scroll');scroll.scrollTo({left:target.offsetLeft-columns[0].offsetLeft,behavior:'smooth'});});
+</script></body></html>
