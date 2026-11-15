@@ -671,7 +671,7 @@ body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!importa
 <div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div><div id="segmentTrainingArea" hidden>
   <div id="segmentSetup" class="segment-setup">
     <div class="segment-toolbar"><button type="button" id="segmentSetupBack" class="secondary">← VÝBĚR TRÉNINKU</button><strong>SEGMENT</strong></div>
-    <div class="segment-intro"><span class="ui-section-kicker">TRÉNINK PŘESNOSTI</span><h4>Vyber číslo na terči</h4><p>Počítají se pouze zásahy do vybraného čísla. Single = 1 bod, double = 2 body, triple = 3 body, mimo = 0 bodů.</p></div>
+    <div class="segment-intro"><span class="ui-section-kicker">TRÉNINK PŘESNOSTI</span><h4>Vyber číslo nebo střed</h4><p>Čísla 1–20: single = 1 bod, double = 2 body, triple = 3 body. STŘED (BULL): vnější střed = 1 bod, vnitřní střed = 2 body. Mimo vybraný segment = 0 bodů.</p></div>
     <div class="segment-number-grid" id="segmentNumberGrid" role="group" aria-label="Číslo na terči"></div>
     <h4 class="segment-darts-heading">Kolik šipek chceš hodit?</h4>
     <div id="segmentDartOptions" class="segment-option-row" role="group" aria-label="Počet šipek">
@@ -3326,7 +3326,7 @@ async function loadTrainingStats(){
    const hits=single+double+triple,points=single+2*double+3*triple;
    const best=rows.length?Math.max(...rows.map(r=>(Number(r.singles)||0)+2*(Number(r.doubles)||0)+3*(Number(r.triples)||0))):null;
    fill([rows.length||'—',darts||'—',hits||'—',darts?(100*hits/darts).toFixed(1).replace('.',',')+' %':'—',points||'—',best??'—',`${single} / ${double} / ${triple}`,miss||'—']);
-   note.textContent=rows.length?'Statistiky tréninku SEGMENT. Úspěšnost znamená podíl šipek, které zasáhly vybrané číslo. Zobrazeno nejvýše 1 000 posledních her.':'Zatím nemáš uložený trénink SEGMENT. Dokonči hru přihlášený ke svému účtu.';
+   note.textContent=rows.length?'Statistiky tréninku SEGMENT. Úspěšnost znamená podíl šipek, které zasáhly vybrané číslo nebo střed. Zobrazeno nejvýše 1 000 posledních her.':'Zatím nemáš uložený trénink SEGMENT. Dokonči hru přihlášený ke svému účtu.';
    if(rows.length){
     const recent=rows.slice(0,12);
     detail.hidden=false;
@@ -3334,7 +3334,7 @@ async function loadTrainingStats(){
     detail.innerHTML='<h4>Poslední tréninky SEGMENT</h4><div class="segment-history-scroll"><table><thead><tr><th>Datum</th><th>Segment</th><th>Šipky</th><th>Zásahy</th><th>Úspěšnost</th><th>Body</th></tr></thead><tbody>'+recent.map(r=>{
       const n=Number(r.darts_target)||0,s=Number(r.singles)||0,d=Number(r.doubles)||0,t=Number(r.triples)||0;
       const h=s+d+t,pt=s+2*d+3*t,date=r.created_at?new Date(r.created_at).toLocaleDateString('cs-CZ'):'—';
-      return `<tr><td>${esc(date)}</td><td>${Number(r.target_segment)||'—'}</td><td>${n}</td><td>${h}</td><td>${n?(100*h/n).toFixed(1).replace('.',',')+' %':'—'}</td><td>${pt}</td></tr>`;
+      return `<tr><td>${esc(date)}</td><td>${Number(r.target_segment)===21?'STŘED':(Number(r.target_segment)||'—')}</td><td>${n}</td><td>${h}</td><td>${n?(100*h/n).toFixed(1).replace('.',',')+' %':'—'}</td><td>${pt}</td></tr>`;
     }).join('')+'</tbody></table></div>';
    }
    return;
@@ -4856,6 +4856,7 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
 #segmentTrainingArea .segment-number-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 #segmentTrainingArea .segment-number-grid button,#segmentTrainingArea .segment-option-row button{background:#242429;border:1px solid #474750;color:#f9f9f9;border-radius:9px;font-weight:850;cursor:pointer}
 #segmentTrainingArea .segment-number-grid button{font-size:22px;min-height:51px}
+#segmentTrainingArea .segment-number-grid button[data-segment-number="21"]{grid-column:1/-1;font-size:17px;min-height:49px;letter-spacing:.045em}
 #segmentTrainingArea .segment-option-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 #segmentTrainingArea .segment-option-row button{min-height:50px;font-size:15px}
 #segmentTrainingArea .segment-number-grid button.is-selected,#segmentTrainingArea .segment-option-row button.is-selected{background:#E11D1D;color:#fff;border-color:#fb4646;box-shadow:0 0 0 1px #e11d1d50}
@@ -4918,9 +4919,10 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
  const html=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
  const pick=$('segmentTrainingOpen'),area=$('segmentTrainingArea'),choose=$('trainingChoice');
  if(!pick||!area||!choose)return;
- const grid=$('segmentNumberGrid'),numberOptions=Array.from({length:20},(_,i)=>i+1);
+ const grid=$('segmentNumberGrid'),numberOptions=[...Array.from({length:20},(_,i)=>i+1),21];
+ const segmentLabel=n=>Number(n)===21?'STŘED (BULL)':String(n);
  let selectedNumber=20,selectedLimit=30,game=null;
- grid.innerHTML=numberOptions.map(n=>`<button type="button" data-segment-number="${n}" aria-pressed="${n===selectedNumber}" class="${n===selectedNumber?'is-selected':''}">${n}</button>`).join('');
+ grid.innerHTML=numberOptions.map(n=>`<button type="button" data-segment-number="${n}" aria-pressed="${n===selectedNumber}" class="${n===selectedNumber?'is-selected':''}">${segmentLabel(n)}</button>`).join('');
  const makeId=()=>globalThis.crypto?.randomUUID?.()||'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16);});
  const count=(kind,throws)=>throws.filter(t=>t===kind).length;
  const stats=()=>{
@@ -4963,7 +4965,7 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
  function render(){
    if(!game)return;
    const s=stats(),done=s.darts===game.limit,progress=100*s.darts/game.limit;
-   $('segmentPlayCaption').textContent=`SEGMENT ${game.segment}`;
+   $('segmentPlayCaption').textContent=`SEGMENT ${segmentLabel(game.segment)}`;
    const statsHtml=`<div class="segment-live-stats">
      <div class="segment-stat"><span>Hozené šipky</span><strong>${s.darts} / ${game.limit}</strong></div>
      <div class="segment-stat main"><span>Získané body</span><strong>${s.points}</strong></div>
@@ -4972,20 +4974,20 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
    </div>`;
    const root=$('segmentScoreboard');
    if(done){
-     root.innerHTML=`<div class="segment-finished"><span class="ui-section-kicker">KONEC TRÉNINKU</span><h3>SEGMENT ${game.segment}</h3><div class="segment-record">${s.points} bodů</div><p>${s.hits} zásahů z ${s.darts} šipek · úspěšnost ${s.percentage.toFixed(1).replace('.',',')} %</p></div>${statsHtml}
-     <div class="segment-stat-breakdown">Single ${s.singles} · Double ${s.doubles} · Triple ${s.triples} · Mimo ${s.misses}</div>
+     root.innerHTML=`<div class="segment-finished"><span class="ui-section-kicker">KONEC TRÉNINKU</span><h3>SEGMENT ${segmentLabel(game.segment)}</h3><div class="segment-record">${s.points} bodů</div><p>${s.hits} zásahů z ${s.darts} šipek · úspěšnost ${s.percentage.toFixed(1).replace('.',',')} %</p></div>${statsHtml}
+     <div class="segment-stat-breakdown">${game.segment===21?`Vnější střed ${s.singles} · Vnitřní střed ${s.doubles} · Mimo ${s.misses}`:`Single ${s.singles} · Double ${s.doubles} · Triple ${s.triples} · Mimo ${s.misses}`}</div>
      <div class="segment-finished"><div class="segment-save-status" id="segmentSaveStatus" role="status">${html(game.saveMessage||'Výsledek tréninku je dokončený. Ukládám statistiky, pokud jsi přihlášený.')}</div>
      <div class="segment-end-actions"><button class="primary" type="button" data-segment-again>HRÁT ZNOVU</button><button class="secondary" type="button" data-segment-finish-exit>VÝBĚR HRY</button>${game.saveState==='error'?'<button class="secondary" type="button" data-segment-retry>ZNOVU ULOŽIT</button>':''}</div></div>`;
      return;
    }
    const last=game.throws.slice(-12);
-   root.innerHTML=`<div class="segment-topline"><span>VYBRANÉ ČÍSLO</span><strong>${game.segment}</strong><span>${game.limit-s.darts} šipek zbývá</span></div>
+   root.innerHTML=`<div class="segment-topline"><span>VYBRANÝ SEGMENT</span><strong>${segmentLabel(game.segment)}</strong><span>${game.limit-s.darts} šipek zbývá</span></div>
      <div class="segment-progress-track"><div class="segment-progress-fill" style="width:${progress.toFixed(1)}%"></div></div>
      ${statsHtml}
      <div class="segment-scoring-grid">
-       <button type="button" data-segment-hit="1">SINGLE <b>+1 BOD · 1 ŠIPKA</b></button>
-       <button type="button" data-segment-hit="2">DOUBLE <b>+2 BODY · 1 ŠIPKA</b></button>
-       <button type="button" data-segment-hit="3">TRIPLE <b>+3 BODY · 1 ŠIPKA</b></button>
+       <button type="button" data-segment-hit="1">${game.segment===21?'VNĚJŠÍ STŘED':'SINGLE'} <b>+1 BOD · 1 ŠIPKA</b></button>
+       <button type="button" data-segment-hit="2">${game.segment===21?'VNITŘNÍ STŘED':'DOUBLE'} <b>+2 BODY · 1 ŠIPKA</b></button>
+       ${game.segment===21?'':'<button type="button" data-segment-hit="3">TRIPLE <b>+3 BODY · 1 ŠIPKA</b></button>'}
        <button type="button" data-segment-hit="0">0 · MIMO <b>+0 BODŮ · 1 ŠIPKA</b></button>
      </div>
      <div class="segment-action-row"><button type="button" data-segment-undo ${s.darts===0?'disabled':''}>← 1 ŠIPKA ZPĚT</button></div>
@@ -5005,7 +5007,9 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
    const b=event.target.closest('button');if(!b||!game)return;
    if(b.dataset.segmentHit!==undefined){
      if(game.throws.length>=game.limit)return;
-     game.throws.push(Number(b.dataset.segmentHit));
+     const hit=Number(b.dataset.segmentHit);
+     if(game.segment===21 && hit===3)return;
+     game.throws.push(hit);
      render();
      if(game.throws.length===game.limit)submitSave();
    }else if('segmentUndo' in b.dataset){if(game.throws.length&&game.throws.length<game.limit){game.throws.pop();render();}}
