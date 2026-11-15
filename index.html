@@ -455,7 +455,12 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 <button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
 <button class="danger" id="clearEntryListBtn" type="button">Smazat startovní listinu</button>
 <div id="adminEntries"></div>
-<button class="action" id="drawGroupsBtn">Vytvořit zápasy podle počtu hráčů</button>
+<div class="format-draw-buttons" id="formatDrawButtons">
+<button class="action" id="drawGroupsBtn" type="button">SKUPINY + PAVOUK</button>
+<button class="action" id="drawSingleKoBtn" type="button">KO PAVOUK</button>
+<button class="action" id="drawDoubleKoBtn" type="button">DKO PAVOUK</button>
+<button class="action" id="drawRoundRobinBtn" type="button">KK – KAŽDÝ S KAŽDÝM</button>
+</div>
 <div class="row" style="margin-top:8px">
 <button class="secondary" id="cancelDrawBtn" type="button">Zrušit rozlosování</button>
 <button class="danger" id="redrawGroupsBtn" type="button">Rozlosovat znovu</button>
@@ -2010,6 +2015,7 @@ async function drawGroups(){
   const existing=matches.filter(m=>m.tournament_id===tournament_id);
   if(existing.length)return notify("Tento turnaj už má vytvořené zápasy. Kvůli ochraně výsledků nelze losování přepsat.");
   if(es.length>16){
+    return notify("Pro více než 16 hráčů zvol DKO pavouk nebo jiný formát.");
     const shuffled=shuffle(es);
     const bracketRows=buildInitialPlayoffRows(tournament_id,shuffled,[],"DE:WB:1");
     const preview=bracketRows.map(m=>m.player1_entry_id===m.player2_entry_id?`${playerName(m.player1_entry_id)} – volný los`:`${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}`).join("\n");
@@ -2040,6 +2046,38 @@ async function drawGroups(){
   notify(`Hotovo! ${es.length} hráčů rozděleno do ${groupCount} ${groupCount===1?"skupiny":"skupin"}. ${groupCount===1?"Z jedné skupiny postoupí nejvýše TOP 8.":"Z každé skupiny postoupí TOP 4."} Ostatní získají 1 bod. Po dokončení skupin se vytvoří jednostranný pavouk.`);
 }
 guardClick("drawGroupsBtn",drawGroups);
+async function drawDirectFormat(format){
+  const tournament_id=$("entryTournament").value||selectedTournament;
+  const es=entries.filter(e=>e.tournament_id===tournament_id);
+  if(es.length<2)return notify("Pro rozlosování potřebuješ alespoň 2 hráče.");
+  if(matches.some(m=>m.tournament_id===tournament_id))return notify("Turnaj už má vytvořené zápasy. Nejdříve zruš původní rozlosování.");
+  const labels={single_ko:"KO pavouk",double_ko:"DKO pavouk",round_robin:"každý s každým"};
+  if(!confirm(`Vytvořit ${labels[format]} pro ${es.length} hráčů?`))return;
+  const tournament=tournaments.find(t=>t.id===tournament_id);
+  const targetLegs=Number(tournament?.target_legs)||DEFAULT_TARGET_LEGS;
+  const shuffled=shuffle(es);
+  let rows;
+  if(format==="round_robin"){
+    rows=createRoundRobin(shuffled.map(e=>e.id)).map((m,i)=>({
+      tournament_id,stage:"round_robin",group_name:"KK",round_no:m.round_no,
+      match_no:i+1,board_no:null,player1_entry_id:m.player1_entry_id,
+      player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:targetLegs,status:"waiting"
+    }));
+  }else{
+    rows=buildInitialPlayoffRows(tournament_id,shuffled,[],format==="double_ko"?"DE:WB:1":"KO:1");
+    rows.forEach(m=>m.target_legs=targetLegs);
+  }
+  const cleared=await db.from("tournament_entries").update({group_name:null}).eq("tournament_id",tournament_id);
+  if(cleared.error)return notify("Nepodařilo se připravit startovní listinu: "+cleared.error.message);
+  const {error}=await db.from("matches").insert(rows);
+  if(error)return notify("Rozlosování se nepodařilo uložit: "+error.message);
+  selectedTournament=tournament_id;
+  await loadData();
+  notify("Zápasy byly vytvořeny: "+labels[format]+".");
+}
+guardClick("drawSingleKoBtn",()=>drawDirectFormat("single_ko"));
+guardClick("drawDoubleKoBtn",()=>drawDirectFormat("double_ko"));
+guardClick("drawRoundRobinBtn",()=>drawDirectFormat("round_robin"));
 
 window.startNextMatch=async function(board,matchId){
   if(!isAdmin){notify("Tuto akci může provést pouze pořadatel.");return false;}
@@ -2674,7 +2712,7 @@ body{max-width:100%;overflow-x:hidden}
        if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
        created++;
      }
-     msg.textContent=type==='single'?'Turnaj byl vytvořen v Supabase.':'Série a všechna její kola byla vytvořena v Supabase.';
+     msg.textContent=type==='single'?'Turnaj byl vytvořen v Supabase.':'Turnaj vytvořen';
      msg.style.color='#82e6a0';
      form.reset();render();
    }catch(err){msg.style.color='#ff9a9a';msg.textContent='Uložení se nezdařilo: '+err.message+' Pokud vznikla část série, před opakováním zkontroluj uložené turnaje.'}
@@ -2708,4 +2746,4 @@ body{max-width:100%;overflow-x:hidden}
    for(const t of data){const row=document.createElement('div');row.className='owned-row';const info=document.createElement('span');info.textContent=t.name+' · '+t.event_date;const link=document.createElement('a');link.href='?turnaj='+encodeURIComponent(t.id);link.textContent='OTEVŘÍT';row.append(info,link);list.append(row)}
  },true);
 })();
-</script></body></html>
+</script><style id="501live-format-draw-css">.format-draw-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}.format-draw-buttons button{min-height:46px;white-space:normal;background:#a91520;color:white;border:1px solid #d12a34;border-radius:7px;font-weight:700}@media(max-width:540px){.format-draw-buttons{grid-template-columns:1fr}}</style></body></html>
