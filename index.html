@@ -2365,11 +2365,11 @@ init();
  addPoweredFooter($('legacyApp'));
  pageIds.forEach(id=>{const panel=$(id);if(panel){panel.classList.add('portal-page');const back=document.createElement('button');back.type='button';back.className='portal-back';back.textContent='← ZPĚT NA HLAVNÍ STRÁNKU';back.addEventListener('click',showLanding);panel.insertBefore(back,panel.firstChild);pages.appendChild(panel);}});
  function showLegacy(){pages.hidden=true;$('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);}
- function showLanding(){ $('legacyApp').hidden=true;pages.hidden=true;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.remove('active'));$('landingHome').hidden=false;history.pushState({portal:'home'},'',location.pathname+location.search);window.scrollTo(0,0); }
+ function showLanding(){ const home=$('landingHome');$('legacyApp').hidden=true;pages.hidden=true;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.remove('active'));home.classList.remove('has-panel');home.querySelectorAll('.panel').forEach(p=>p.classList.remove('active-panel'));const hero=home.querySelector('.hero');if(hero){hero.style.removeProperty('display');const actions=hero.querySelector('.actions');if(actions)actions.style.removeProperty('display');}home.hidden=false;history.pushState({portal:'home'},'',location.pathname+location.search);window.scrollTo(0,0); }
  function openLandingPanel(id,addHistory=true){const panel=$(id);if(!panel)return;$('landingHome').hidden=true;$('legacyApp').hidden=true;pages.hidden=false;document.querySelectorAll('#portalPages>.portal-page').forEach(p=>p.classList.toggle('active',p.id===id));if(addHistory)history.pushState({portal:id},'',location.pathname+location.search+'#'+id);window.scrollTo(0,0);if(id==='findPanel')setTimeout(()=>$('findQuery')?.focus(),80);}
  window.show501LiveApp=showLegacy;
  document.querySelectorAll('#landingHome [data-panel]').forEach(b=>b.addEventListener('click',()=>openLandingPanel(b.dataset.panel)));
- window.addEventListener('popstate',()=>{const id=location.hash.slice(1);if(pageIds.includes(id))openLandingPanel(id,false);else if($('legacyApp').hidden===false)showLanding();else{pages.hidden=true;$('landingHome').hidden=false;}});
+ window.addEventListener('popstate',()=>{const id=location.hash.slice(1);if(pageIds.includes(id))openLandingPanel(id,false);else showLanding();});
  const initial=location.hash.slice(1);if(pageIds.includes(initial))openLandingPanel(initial,false);
  // Odkaz pro pořadatele otevře přihlášení až po výběru této možnosti.
  const createBtn=document.querySelector('#createPanel [data-open-account="login"]');
