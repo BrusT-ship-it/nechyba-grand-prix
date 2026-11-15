@@ -563,6 +563,65 @@ body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!importa
 #landingHome:has(#trainingCounter:not([hidden])) #trainingPanel>h3,
 #landingHome:has(#trainingCounter:not([hidden])) #trainingPanel>.ui-section-subtitle{display:none!important}
 </style>
+
+<style id="501live-cutthroat-style">
+/* Local, non-persistent cricket. All selectors scoped to its own panel. */
+#cricketPanel{width:min(100%,1060px);max-width:1060px;margin-inline:auto;color:#f4f4f6}
+#cricketPanel [hidden]{display:none!important}
+#cricketPanel .ct-card{border:1px solid #363842;background:#17181e;padding:clamp(12px,2vw,22px);border-radius:16px}
+#cricketPanel .ct-setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}
+#cricketPanel .ct-field{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:750}
+#cricketPanel .ct-field input,#cricketPanel .ct-field select{background:#111217;color:#fff;padding:12px;min-height:48px;width:100%;border:1px solid #51515b;border-radius:9px;box-sizing:border-box;font-size:16px}
+#cricketPanel button{cursor:pointer;touch-action:manipulation;user-select:none}
+#cricketPanel button:disabled{opacity:.35;cursor:not-allowed}
+#cricketPanel .ct-primary{background:#e11d1d;color:#fff;border:1px solid #f34747;border-radius:10px;padding:15px 18px;font-weight:900;font-size:16px;min-height:52px}
+#cricketPanel .ct-secondary{background:#292a30;color:#f2f2f5;border:1px solid #555760;border-radius:9px;padding:12px;font-weight:800;min-height:44px}
+#cricketPanel .ct-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+#cricketPanel .ct-kicker{font-size:12px;color:#c5c7cc;letter-spacing:.08em;font-weight:800}
+#cricketPanel .ct-players{display:grid;grid-template-columns:repeat(var(--ct-count),minmax(0,1fr));gap:7px;margin:10px 0}
+#cricketPanel .ct-player{background:#24252c;border:2px solid #444650;border-radius:10px;padding:10px 7px;min-width:0;text-align:center}
+#cricketPanel .ct-player.active{border-color:#e11d1d;background:#352020}
+#cricketPanel .ct-player-name{font-size:clamp(12px,2.3vw,18px);overflow-wrap:anywhere;font-weight:900;line-height:1.2}
+#cricketPanel .ct-player-score{font-size:clamp(28px,6vw,52px);line-height:1;font-weight:950;margin:6px 0}
+#cricketPanel .ct-player-meta{font-size:11px;color:#b9bdc4}
+#cricketPanel .ct-matrix-scroll{overflow-x:auto;overscroll-behavior-x:contain;border:1px solid #454650;border-radius:12px;background:#1d1f25}
+#cricketPanel .ct-matrix{display:grid;grid-template-columns:76px repeat(var(--ct-count),minmax(120px,1fr));min-width:calc(76px + var(--ct-count) * 120px)}
+#cricketPanel .ct-cell{display:flex;justify-content:center;align-items:center;gap:clamp(2px,.5vw,5px);padding:8px 4px;border-bottom:1px solid #35363d;min-height:49px;text-align:center;box-sizing:border-box}
+#cricketPanel .ct-col-head{background:#292b33;font-weight:800;font-size:12px;overflow-wrap:anywhere;min-height:38px}
+#cricketPanel .ct-col-head.active{color:#ff4d4d}
+#cricketPanel .ct-target-num{background:#24252c;font-weight:1000;font-size:clamp(20px,3vw,30px);color:#fff}
+#cricketPanel .ct-cell.last-row{border-bottom:0}
+#cricketPanel .ct-dot{width:clamp(23px,3.2vw,31px);height:clamp(23px,3.2vw,31px);border:2px solid #8c8e98;border-radius:50%;background:#141519;display:inline-block;box-sizing:border-box;flex-shrink:0}
+#cricketPanel .ct-dot.hit{background:#ef3030;border-color:#ff6b6b;box-shadow:inset 0 0 0 3px #b21313}
+#cricketPanel .ct-mark-closed{background:#242a25}
+#cricketPanel .ct-mark-closed .ct-dot.hit{background:#2dbd68;border-color:#64f2a0;box-shadow:inset 0 0 0 3px #168245}
+#cricketPanel .ct-turn{color:#fff;text-align:center;padding:9px;font-weight:800;font-size:clamp(13px,2.5vw,17px)}
+#cricketPanel .ct-pick-row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;margin:8px 0}
+#cricketPanel .ct-pick{padding:13px 2px;border:2px solid #555762;border-radius:9px;background:#292a31;color:#fff;font-size:clamp(13px,2.4vw,20px);font-weight:950;min-height:54px}
+#cricketPanel .ct-pick.chosen{border-color:#ff4b4b;background:#a71c1c}
+#cricketPanel .ct-multipliers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+#cricketPanel .ct-mult{border:1px solid #666975;border-radius:9px;background:#32343b;color:#fff;padding:15px 4px;font-size:clamp(11px,2vw,16px);font-weight:900;min-height:56px}
+#cricketPanel .ct-action-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+#cricketPanel .ct-hint{color:#aeb1b9;font-size:12px;margin:8px 0}
+#cricketPanel .ct-result{background:#202129;border:1px solid #e11d1d;border-radius:12px;padding:20px;margin-top:12px}
+#cricketPanel .ct-stats{width:100%;border-collapse:collapse;font-size:13px}
+#cricketPanel .ct-stats td,#cricketPanel .ct-stats th{padding:9px 7px;border-bottom:1px solid #3d3e46;text-align:left}
+#cricketPanel .ct-overlay{padding:12px;border:1px solid #bc3434;border-radius:9px;background:#2a1c1f;margin:7px 0;text-align:center}
+@media(max-width:580px){
+ #cricketPanel .ct-setup-grid{grid-template-columns:1fr;gap:10px}
+ #cricketPanel .ct-card{padding:10px}
+ #cricketPanel .ct-matrix{grid-template-columns:58px repeat(var(--ct-count),minmax(110px,1fr));min-width:calc(58px + var(--ct-count) * 110px)}
+ #cricketPanel .ct-pick-row{gap:3px}
+ #cricketPanel .ct-pick{min-height:48px}
+ #cricketPanel .ct-dot{width:27px;height:27px}
+ #cricketPanel .ct-player{padding:7px 3px}
+}
+@media(max-height:900px) and (min-width:650px){
+ #cricketPanel .ct-cell{min-height:43px;padding:5px}
+ #cricketPanel .ct-pick{min-height:45px;padding:8px 2px}
+ #cricketPanel .ct-mult{min-height:48px;padding:9px 3px}
+}
+</style>
 </head><body><div id="landingHome">
 <main class="hero" aria-label="501LIVE – úvodní stránka">
   <div class="portal-kicker"><span class="portal-kicker-line"></span> THE HOME OF DARTS TOURNAMENTS <span class="portal-kicker-line"></span></div>
@@ -579,6 +638,10 @@ body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!importa
       <button type="button" class="portal-dashboard-tile" data-panel="trainingPanel">
         <span class="portal-dashboard-icon" aria-hidden="true">⚙</span>
         <span>TRÉNINK</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" data-panel="cricketPanel">
+        <span class="portal-dashboard-icon" aria-hidden="true">🎯</span>
+        <span>CUT-THROAT CRICKET</span>
       </button>
       <button type="button" class="portal-dashboard-tile" data-panel="localDuelPanel">
         <span class="portal-dashboard-icon" aria-hidden="true">🎯</span>
@@ -716,7 +779,47 @@ body:has(#trainingCounter:not([hidden])) #appBrandFooter{position:static!importa
     <div class="local-game-toolbar"><span id="localDuelTitle"></span><button type="button" class="secondary" id="localDuelExit">← NASTAVENÍ HRY</button></div>
     <div id="localDuelRoot"></div>
   </div>
-</section><section class="panel" id="findPanel"><div class="ui-section-kicker">01 / TURNAJE</div><h3>Najít turnaj</h3><p class="ui-section-subtitle">Vyhledej turnaj a sleduj živé výsledky. Registrace není pro sledování nutná.</p><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
+</section>
+<section class="panel" id="cricketPanel" aria-labelledby="cricketHeading">
+ <div class="ui-section-kicker">501LIVE / SAMOSTATNÁ HRA</div>
+ <h3 id="cricketHeading">CUT-THROAT CRICKET</h3>
+ <p class="ui-section-subtitle">Uzavři 20–15 a BULL. Body za zásahy nad uzavření se přičítají soupeřům, kteří mají číslo stále otevřené. Vyhrává hráč s uzavřenými čísly a nejnižším skóre.</p>
+ <form id="ctSetup" class="ct-card">
+  <div class="ct-setup-grid">
+   <label class="ct-field">Počet hráčů<select id="ctCount"><option value="2" selected>2 hráči</option><option value="3">3 hráči</option><option value="4">4 hráči</option></select></label>
+   <label class="ct-field">Na kolik vítězných legů?<select id="ctLegs"><option value="1" selected>1 leg</option><option value="2">2 legy</option><option value="3">3 legy</option><option value="4">4 legy</option><option value="5">5 legů</option><option value="6">6 legů</option><option value="7">7 legů</option><option value="8">8 legů</option><option value="9">9 legů</option></select></label>
+   <label class="ct-field ct-player-input" data-ct-player="0">Hráč 1<input id="ctName0" required maxlength="32" placeholder="Jméno hráče 1" value="Hráč 1"></label>
+   <label class="ct-field ct-player-input" data-ct-player="1">Hráč 2<input id="ctName1" required maxlength="32" placeholder="Jméno hráče 2" value="Hráč 2"></label>
+   <label class="ct-field ct-player-input" data-ct-player="2" hidden>Hráč 3<input id="ctName2" maxlength="32" placeholder="Jméno hráče 3" value="Hráč 3"></label>
+   <label class="ct-field ct-player-input" data-ct-player="3" hidden>Hráč 4<input id="ctName3" maxlength="32" placeholder="Jméno hráče 4" value="Hráč 4"></label>
+  </div>
+  <p class="ct-hint">SINGLE = 1 značka, DOUBLE = 2, TRIPLE = 3. Vnější BULL = 1, vnitřní BULL = 2. Hra se nikam neukládá.</p>
+  <button class="ct-primary" type="submit">SPUSTIT CRICKET</button>
+ </form>
+ <div id="ctGame" class="ct-card" hidden>
+  <div class="ct-toolbar"><span class="ct-kicker" id="ctStatus">1. LEG</span><button type="button" id="ctExit" class="ct-secondary">← NASTAVENÍ</button></div>
+  <div id="ctPlayers" class="ct-players"></div>
+  <div class="ct-matrix-scroll"><div id="ctMatrix" class="ct-matrix"></div></div>
+  <div id="ctTurn" class="ct-turn" aria-live="polite"></div>
+  <div id="ctLegMessage" class="ct-overlay" hidden></div>
+  <div id="ctScoring">
+   <div class="ct-pick-row" id="ctTargets" aria-label="Vyber číslo"></div>
+   <div class="ct-multipliers">
+    <button type="button" class="ct-mult" data-ct-mult="1">SINGLE</button>
+    <button type="button" class="ct-mult" data-ct-mult="2">DOUBLE</button>
+    <button type="button" class="ct-mult" data-ct-mult="3">TRIPLE</button>
+    <button type="button" class="ct-mult" data-ct-mult="0">MIMO (0)</button>
+   </div>
+   <p id="ctVisitInfo" class="ct-hint" aria-live="polite"></p>
+   <div class="ct-action-row"><button type="button" class="ct-secondary" id="ctUndo">↶ 1 ŠIPKA ZPĚT</button><button type="button" class="ct-secondary" id="ctUndoVisit">↶ VRÁTIT NÁHOZ</button></div>
+   <button type="button" class="ct-primary" id="ctNext" style="width:100%;margin-top:8px">POTVRDIT NÁHOZ</button>
+  </div>
+  <button type="button" class="ct-primary" id="ctNextLeg" hidden style="width:100%;margin-top:12px">DALŠÍ LEG</button>
+  <div id="ctFinal" class="ct-result" hidden></div>
+  <p class="ct-hint">Na úzkých telefonech lze tabulku se značkami posunout vodorovně. Na tabletu zůstává přehledná v jednom celku.</p>
+ </div>
+</section>
+<section class="panel" id="findPanel"><div class="ui-section-kicker">01 / TURNAJE</div><h3>Najít turnaj</h3><p class="ui-section-subtitle">Vyhledej turnaj a sleduj živé výsledky. Registrace není pro sledování nutná.</p><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
 <form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required=""/><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice"></div></form>
 </section>
 </div>
@@ -5256,4 +5359,178 @@ window.addEventListener('501live-checkout-save-status',e=>{if(!session||e.detail
   #landingHome:not(.has-panel) > .hero > .portal-dashboard-menu { padding: 10px !important; }
 }
 </style>
+
+<script id="501live-cricket-local-logic">
+(()=>{
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const nums=[20,19,18,17,16,15,25];
+ const lab=n=>n===25?'BULL':String(n);
+ const val=n=>n;
+ const copy=obj=>JSON.parse(JSON.stringify(obj));
+ const escapeHtml=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let state=null,history=[],selected=20,lastTurnStart=0;
+ function configureNames(){
+   const n=Number($('ctCount').value);
+   document.querySelectorAll('#ctSetup .ct-player-input').forEach((el)=>{
+     let visible=Number(el.dataset.ctPlayer)<n;
+     el.hidden=!visible;
+     el.querySelector('input').required=visible;
+   });
+ }
+ function player(name){return {name,score:0,marks:Object.fromEntries(nums.map(n=>[n,0])),legs:0,darts:0,hits:0,marksThrown:0,totalDarts:0,totalHits:0,totalMarksThrown:0,visits:0,pointsGiven:0,turns:[]};}
+ function newLeg(resetWinner=false){
+   const start=(state.leg-1)%state.players.length;
+   state.players.forEach(p=>{p.score=0;p.marks=Object.fromEntries(nums.map(n=>[n,0]));p.darts=0;p.hits=0;p.marksThrown=0;p.visits=0;p.pointsGiven=0;});
+   state.active=start; state.visitDarts=0;state.visitRecords=[];state.phase='playing';
+   state.turnStarter=start;
+   selected=20;history=[];lastTurnStart=0;
+ }
+ function start(e){
+   e.preventDefault(); const n=Number($('ctCount').value);
+   const names=Array.from({length:n},(_,i)=>$('ctName'+i).value.trim()||'Hráč '+(i+1));
+   state={players:names.map(player),targetLegs:Number($('ctLegs').value),leg:1,active:0,turnStarter:0,visitDarts:0,visitRecords:[],phase:'playing',lastWinner:null,history:[]};
+   newLeg(); $('ctSetup').hidden=true;$('ctGame').hidden=false;render();
+ }
+ function allClosed(p){return nums.every(n=>p.marks[n]===3);}
+ function hasWon(index){
+   const p=state.players[index];
+   return allClosed(p)&&state.players.every(x=>p.score<=x.score);
+ }
+ function hit(n,mult){
+   if(!state||state.phase!=='playing'||state.visitDarts>=3)return;
+   if(mult===3&&n===25)return;
+   history.push(copy(state));
+   const p=state.players[state.active];
+   const old=p.marks[n]; const applied=Math.min(Math.max(3-old,0),mult);
+   const extra=mult-applied;
+   p.marks[n]=Math.min(3,old+mult);
+   if(mult){p.hits++;p.marksThrown+=mult;p.totalHits++;p.totalMarksThrown+=mult;}
+   if(extra){
+     state.players.forEach((other,idx)=>{
+       if(idx!==state.active&&other.marks[n]<3){other.score+=val(n)*extra;p.pointsGiven+=val(n)*extra;}
+     });
+   }
+   p.darts++;p.totalDarts++;state.visitDarts++;state.visitRecords.push(mult===0?'MIMO':lab(n)+' '+(['','S','D','T'][mult]));
+   if(hasWon(state.active)){
+     p.legs++;
+     state.lastWinner=state.active;
+     state.phase=p.legs>=state.targetLegs?'finished':'leg-finished';
+     // Count the partially completed last visit as a visit.
+     p.visits++;
+     state.visitDarts=0;
+     state.visitRecords=[];
+   }
+   render();
+ }
+ function miss(){
+   if(!state||state.phase!=='playing'||state.visitDarts>=3)return;
+   history.push(copy(state));const p=state.players[state.active];p.darts++;p.totalDarts++;state.visitDarts++;state.visitRecords.push('MIMO');render();
+ }
+ function nextTurn(){
+   if(!state||state.phase!=='playing'||state.visitDarts===0)return;
+   history.push(copy(state));
+   state.players[state.active].visits++;
+   state.active=(state.active+1)%state.players.length;
+   state.visitDarts=0;state.visitRecords=[];
+   lastTurnStart=history.length;
+   render();
+ }
+ function undo(){
+   if(!history.length||!state)return;
+   // Restore only the action's pre-state; a finished leg can be rolled back too.
+   state=history.pop();
+   lastTurnStart=history.length;
+   for(let i=history.length-1;i>=0;i--){
+     if(history[i].active!==state.active || history[i].leg!==state.leg){lastTurnStart=i+1;break;}
+     if(i===0)lastTurnStart=0;
+   }
+   render();
+ }
+ function undoVisit(){
+   if(!history.length||!state)return;
+   // Undo all darts of the current visit, or the last completed visit.
+   const targetActive=state.visitDarts>0?state.active:history[history.length-1].active;
+   const targetLeg=state.leg;
+   while(history.length){
+     const previous=history[history.length-1];
+     if(previous.leg!==targetLeg||previous.active!==targetActive)break;
+     state=history.pop();
+     if(state.visitDarts===0)break;
+   }
+   render();
+ }
+ function nextLeg(){
+   if(!state||state.phase!=='leg-finished')return;
+   state.leg++;newLeg();render();
+ }
+ function finishText(){
+   const w=state.players[state.lastWinner];
+   const items=state.players.map(p=>{
+      const success=p.totalDarts?100*p.totalHits/p.totalDarts:0;
+      const mpr=p.totalDarts?3*p.totalMarksThrown/p.totalDarts:0;
+      return `<tr><th>${escapeHtml(p.name)}</th><td>${p.legs}</td><td>${p.totalDarts}</td><td>${p.totalHits}</td><td>${success.toFixed(1)} %</td><td>${mpr.toFixed(2)}</td></tr>`;
+   }).join('');
+   return `<h3 style="color:#fff;margin:0 0 8px">🏆 Vítěz: ${escapeHtml(w.name)}</h3><p>Výsledek: ${state.players.map(p=>escapeHtml(p.name)+' '+p.legs).join(' · ')}</p><div style="overflow-x:auto"><table class="ct-stats"><thead><tr><th>Hráč</th><th>Legy</th><th>Šipky*</th><th>Zásahy*</th><th>Přesnost*</th><th>MPR*</th></tr></thead><tbody>${items}</tbody></table></div><p class="ct-hint">* Součet za celý zápas. Výsledky se neukládají.</p>`;
+ }
+ function render(){
+  if(!state)return;
+  const {players,active,phase}=state;
+  const n=players.length;
+  $('ctStatus').textContent='LEG '+state.leg+' · PRVNÍ NA '+state.targetLegs+' VÍTĚZNÝCH LEGŮ';
+  $('ctPlayers').style.setProperty('--ct-count',n);
+  $('ctPlayers').innerHTML=players.map((p,i)=>`<div class="ct-player ${i===active&&phase==='playing'?'active':''}"><div class="ct-player-name">${escapeHtml(p.name)}</div><div class="ct-player-score">${p.score}</div><div class="ct-player-meta">Legy: ${p.legs} · Šipky: ${p.darts}</div></div>`).join('');
+  const matrix=$('ctMatrix');matrix.style.setProperty('--ct-count',n);
+  const heads=['ČÍSLO',...players.map(p=>escapeHtml(p.name))];
+  let html=heads.map((h,i)=>`<div class="ct-cell ct-col-head ${i-1===active&&phase==='playing'?'active':''}">${h}</div>`).join('');
+  for(let k=0;k<nums.length;k++){
+   const num=nums[k];const isLast=k===nums.length-1;
+   html+=`<div class="ct-cell ct-target-num ${isLast?'last-row':''}">${lab(num)}</div>`;
+   for(const p of players){
+    const m=p.marks[num];
+    html+=`<div class="ct-cell ${m===3?'ct-mark-closed':''} ${isLast?'last-row':''}" aria-label="${escapeHtml(p.name)} ${lab(num)} ${m} ze 3 zásahů">${Array.from({length:3},(_,i)=>`<span class="ct-dot ${i<m?'hit':''}"></span>`).join('')}</div>`;
+   }
+  }
+  matrix.innerHTML=html;
+  $('ctTargets').querySelectorAll('button[data-ct-target]').forEach(b=>b.classList.toggle('chosen',Number(b.dataset.ctTarget)===selected));
+  $('ctScoring').hidden=phase!=='playing';
+  $('ctNextLeg').hidden=phase!=='leg-finished';
+  $('ctFinal').hidden=phase!=='finished';
+  $('ctLegMessage').hidden=phase==='playing';
+  if(phase==='playing'){
+   $('ctTurn').textContent='NA TAHU: '+players[active].name;
+   $('ctVisitInfo').textContent=`Zapsané šipky v náhozu: ${state.visitDarts}/3 · ${state.visitRecords.join(' · ')||'zatím žádná'}`;
+  }else {
+   const winner=players[state.lastWinner];
+   $('ctTurn').textContent=phase==='finished'?'ZÁPAS UKONČEN':'LEG UKONČEN';
+   $('ctLegMessage').textContent=phase==='finished'?winner.name+' vyhrává zápas!':winner.name+' vyhrává '+state.leg+'. leg';
+   if(phase==='finished')$('ctFinal').innerHTML=finishText();
+  }
+  $('ctUndo').disabled=history.length===0;
+  $('ctUndoVisit').disabled=history.length===0;
+  $('ctNext').disabled=state.visitDarts===0;
+  $('ctNext').textContent=state.visitDarts===3?'POTVRDIT NÁHOZ · 3/3':'POTVRDIT NÁHOZ · '+state.visitDarts+'/3';
+  $('ctGame').querySelectorAll('[data-ct-mult]').forEach(b=>b.disabled=phase!=='playing'||state.visitDarts===3||(selected===25&&b.dataset.ctMult==='3'));
+ }
+ $('ctCount').addEventListener('change',configureNames);
+ $('ctSetup').addEventListener('submit',start);
+ $('ctExit').addEventListener('click',()=>{
+   if(state&&state.phase==='playing'&&state.players.some(p=>p.darts>0)&&!confirm('Ukončit rozehranou hru? Výsledky se neukládají.'))return;
+   state=null;history=[];$('ctGame').hidden=true;$('ctSetup').hidden=false;
+ });
+ $('ctUndo').addEventListener('click',undo);
+ $('ctUndoVisit').addEventListener('click',undoVisit);
+ $('ctNext').addEventListener('click',nextTurn);
+ $('ctNextLeg').addEventListener('click',nextLeg);
+ $('ctTargets').innerHTML=nums.map(n=>`<button type="button" class="ct-pick" data-ct-target="${n}">${lab(n)}</button>`).join('')+'<button class="ct-pick" type="button" data-ct-target="0" style="display:none">MIMO</button>';
+ $('ctTargets').addEventListener('click',e=>{
+   const b=e.target.closest('button[data-ct-target]');if(!b)return;selected=Number(b.dataset.ctTarget);render();
+ });
+ $('ctGame').querySelectorAll('[data-ct-mult]').forEach(b=>b.addEventListener('click',()=>{
+   const mult=Number(b.dataset.ctMult);
+   if(mult===0)miss();else hit(selected,mult);
+ }));
+ configureNames();
+})();
+</script>
 </body></html>
