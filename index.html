@@ -552,12 +552,12 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
       <button type="submit" class="primary comp-final-submit" hidden>VYTVOŘIT TURNAJ</button>
     </div>
   </form>
-</section><section class="panel" id="accountPanel"><h3>Můj účet 501LIVE</h3><p class="hint">Jeden účet pro hráče i pořadatele. Registrace je otevřená a nevyžaduje schválení pořadatelem.</p>
-<div class="tabs"><button class="mini-tab active" data-auth="loginView">Přihlášení</button><button class="mini-tab" data-auth="registerView">Nová registrace</button></div>
-<div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input autocomplete="username" class="field wide" placeholder="E-mail" required="" type="email"/><input autocomplete="current-password" class="field wide" placeholder="Heslo" required="" type="password"/><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů 501LIVE.</div></form></div>
-<div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input autocomplete="nickname" class="field" placeholder="Jméno hráče" required="" type="text"/><input autocomplete="email" class="field" placeholder="E-mail" required="" type="email"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Heslo (min. 8 znaků)" required="" type="password"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Potvrzení hesla" required="" type="password"/><label class="choice wide"><input required="" type="checkbox"/> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
-</section><section class="panel" id="trainingPanel"><h3>TRÉNINK</h3><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button></div>
-<div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div></section><section class="panel" id="findPanel"><h3>Najít turnaj</h3><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
+</section><section class="panel" id="accountPanel"><div class="ui-section-kicker">ÚČET 501LIVE</div><h3>Můj účet 501LIVE</h3><p class="hint">Jeden účet pro hráče i pořadatele. Přihlas se, nebo si vytvoř nový účet.</p>
+<div class="tabs"><button class="mini-tab active" data-auth="loginView" type="button">Přihlášení</button><button class="mini-tab" data-auth="registerView" type="button">Nová registrace</button></div>
+<div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input autocomplete="username" aria-label="Přihlašovací e-mail" class="field wide" placeholder="E-mail" required="" type="email"/><input autocomplete="current-password" aria-label="Přihlašovací heslo" class="field wide" placeholder="Heslo" required="" type="password"/><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů 501LIVE.</div></form></div>
+<div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input autocomplete="nickname" aria-label="Jméno hráče" class="field" placeholder="Jméno hráče" required="" type="text"/><input autocomplete="email" aria-label="Registrační e-mail" class="field" placeholder="E-mail" required="" type="email"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Heslo (min. 8 znaků)" required="" type="password"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Potvrzení hesla" required="" type="password"/><label class="choice wide"><input required="" type="checkbox"/> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
+</section><section class="panel" id="trainingPanel"><div class="ui-section-kicker">TRÉNINK</div><h3>TRÉNINK</h3><p class="ui-section-subtitle">Vyber si hru a trénuj zavírání. Počítadlo si pamatuje všechny náhozy během hry.</p><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button></div>
+<div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div></section><section class="panel" id="findPanel"><div class="ui-section-kicker">01 / TURNAJE</div><h3>Najít turnaj</h3><p class="ui-section-subtitle">Vyhledej turnaj a sleduj živé výsledky. Registrace není pro sledování nutná.</p><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
 <form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required=""/><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice"></div></form>
 </section>
 </div>
@@ -584,6 +584,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <div aria-live="polite" id="status" role="status">Připojování k databázi…</div>
 <section id="live" role="tabpanel">
 <h2>Právě se hraje</h2>
+<p class="ui-page-subtitle">Sleduj aktuálně hrané zápasy a stav jednotlivých terčů.</p>
 <div class="panel"><label for="liveTournamentSelect">Turnaj: </label><select id="liveTournamentSelect"></select></div>
 <div class="boards" id="liveBoards">
 <div class="board">Načítám stav terčů…</div>
@@ -591,6 +592,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 </section>
 <section class="hidden" id="group" role="tabpanel">
 <h2>Skupiny</h2>
+<p class="ui-page-subtitle">Pořadí ve skupinách a výsledky jednotlivých utkání.</p>
 <div class="panel">
 <label for="tournamentSelect">Turnaj: </label><select id="tournamentSelect"></select>
 <div class="muted" id="groupsContent">Načítám skupiny…</div>
@@ -598,23 +600,28 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 </section>
 <section class="hidden" id="bracket" role="tabpanel">
 <h2>Vyřazovací pavouk</h2>
+<p class="ui-page-subtitle">Postup hráčů vyřazovací částí turnaje.</p>
 <div class="panel"><label for="bracketTournamentSelect">Turnaj: </label><select id="bracketTournamentSelect"></select><div class="muted" id="bracketInfo" aria-live="polite"></div></div>
 <div class="panel" id="bracketContent">Vyřazovací pavouk zatím není vytvořen.</div>
 </section>
 <section class="hidden" id="start" role="tabpanel">
 <h2>KK – Každý s každým</h2>
+<p class="ui-page-subtitle">Rozpis a tabulka systému každý s každým.</p>
 <div class="panel" id="startContent">Načítám tabulku…</div>
 </section>
 <section class="hidden" id="results" role="tabpanel">
 <h2>Celkové výsledky série</h2>
+<p class="ui-page-subtitle">Konečné pořadí a export výsledků pro pořadatele.</p>
 <div class="panel"><div class="export-actions no-print"><button class="action" id="exportSeriesBtn">Pořadí do Excelu</button><button class="secondary" id="exportMatchesBtn">Výsledky zápasů do Excelu</button><button class="secondary" id="printResultsBtn">Tisk / PDF</button></div><div id="resultsContent">Načítám průběžné pořadí…</div></div>
 </section>
 <section class="hidden" id="players" role="tabpanel">
 <h2>Hráči a statistiky</h2>
+<p class="ui-page-subtitle">Přehled výkonů, průměrů a statistik jednotlivých hráčů.</p>
 <div class="panel"><div class="export-actions no-print"><button class="action" id="exportPlayersBtn">Stáhnout statistiky (CSV)</button><button class="secondary" id="printPlayersBtn">Tisk / PDF</button></div><div id="playerStatsContent">Načítám statistiky…</div><div id="playerProfileContent"></div></div>
 </section>
 <section class="hidden" id="admin" role="tabpanel">
 <h2>Admin</h2>
+<p class="ui-page-subtitle">Správa turnaje, terčů a výsledků na jednom místě.</p>
 <div class="panel" id="loginPanel">
 <p>Přihlášení pořadatele</p>
 <input aria-label="E-mail" autocomplete="username" id="email" placeholder="E-mail" type="email"/>
@@ -2960,7 +2967,7 @@ init();
      const {data:profile}=await client.from('profiles').select('display_name,role').eq('id',data.user.id).maybeSingle();
      notice('loginNotice',`Přihlášení proběhlo. Vítej${profile?.display_name?' '+profile.display_name:''}!`,true);window.dispatchEvent(new CustomEvent('501live-login-success',{detail:{user:data.user,profile}}));
      const createPanel=$('createPanel');if(createPanel){const p=createPanel.querySelector('.note');if(p)p.textContent='Jsi přihlášen. Administraci turnajů otevřeš tlačítkem níže.';}
-   }catch(err){notice('loginNotice','Přihlášení se nezdařilo: '+(err.message||err));}finally{btn.disabled=false;}
+   }catch(err){notice('loginNotice','Přihlášení se nezdařilo: '+((err.message==='Invalid login credentials')?'Zkontroluj e-mail a heslo.':(err.message||err)));}finally{btn.disabled=false;}
  });}
  const registerForm=$('registerForm');
  if(registerForm){registerForm.addEventListener('submit',async e=>{
@@ -2970,7 +2977,7 @@ init();
    const btn=registerForm.querySelector('button[type=submit]');btn.disabled=true;
    try{const {data,error}=await client.auth.signUp({email,password,options:{data:{display_name:name}}});if(error)throw error;
      notice('registerNotice',data.session?'Účet je vytvořen a jsi přihlášen.':'Účet je vytvořen. Zkontroluj e-mail a potvrď registraci.',true);if(data.session)window.dispatchEvent(new CustomEvent('501live-login-success',{detail:{user:data.user}}));
-   }catch(err){notice('registerNotice','Registrace se nezdařila: '+(err.message||err));}finally{btn.disabled=false;}
+   }catch(err){notice('registerNotice','Registrace se nezdařila: '+((err.message==='Signups not allowed for this instance')?'Registrace je nyní vypnutá. Kontaktuj správce 501LIVE.':(err.message||err)));}finally{btn.disabled=false;}
  });}
  // Veřejné vyhledávání turnajů podle názvu, místa nebo kódu.
  const findForm=$('findForm');
@@ -4180,5 +4187,175 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
 @media(prefers-reduced-motion:reduce){
   #landingHome .portal-dashboard-tile{transition:none!important}
 }
+</style>
+<style id="501live-unified-inner-pages-v1">
+
+/* 501LIVE · unified internal pages v1 – UI only. Do not touch body.tablet-mode scoring UI. */
+:root{
+ --ui-ink:#f6f6f8; --ui-muted:#abb0bc; --ui-bg:#101014;
+ --ui-panel:#1c1d23; --ui-panel-hi:#23242c; --ui-border:#363740;
+ --ui-accent:#ed4858; --ui-accent-deep:#bf293b; --ui-radius:16px;
+}
+#landingHome.has-panel,
+body:not(.tablet-mode) #legacyApp{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ui-ink)}
+/* A consistent inset page shell. Main homepage hero is intentionally left untouched. */
+#landingHome.has-panel{background:radial-gradient(ellipse 68% 28% at 50% 0,rgba(224,51,70,.10),transparent 80%),#101014!important;align-items:stretch;justify-content:flex-start;padding-top:clamp(18px,3.2vw,36px)!important;padding-bottom:64px!important}
+#landingHome.has-panel>.landing-back{width:min(100%,800px)!important;max-width:800px;padding:10px 14px!important;margin:0 auto 15px!important;min-height:44px;border:1px solid #3a3b43!important;border-radius:11px;background:#1b1c22!important;color:#e9e9ec!important;font-weight:800;font-size:13px!important;letter-spacing:.02em;cursor:pointer}
+#landingHome.has-panel>.landing-back:hover{border-color:#e24b5b!important;background:#27212a!important}
+#landingHome.has-panel>.panel.active-panel{width:min(100%,800px)!important;max-width:800px;margin-inline:auto!important;padding:clamp(20px,4vw,35px)!important;border-radius:20px!important;background:linear-gradient(155deg,#1e1f25,#191a20 70%)!important;border:1px solid #393943!important;box-shadow:0 20px 70px rgba(0,0,0,.24);min-width:0}
+#landingHome .ui-section-kicker{font-size:11px;font-weight:850;color:#f06d79;letter-spacing:.17em;text-transform:uppercase;margin:0 0 10px}
+#landingHome.has-panel>.panel>h3{font-size:clamp(26px,4vw,35px)!important;line-height:1.15;letter-spacing:-.035em;color:#fff!important;margin:0 0 8px!important;font-weight:850}
+#landingHome .ui-section-subtitle,#landingHome.has-panel>.panel>p.hint{color:#b7bbc6!important;font-size:14px!important;line-height:1.6;margin:7px 0 19px!important}
+#landingHome.has-panel>.panel .note{color:#aeb3c0;font-size:13px;line-height:1.6}
+/* Authentication and registration */
+#landingHome #accountPanel{max-width:660px!important}
+#accountPanel .tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:100%;padding:5px;background:#111218;border-radius:13px;border:1px solid #363740;margin:22px 0!important}
+#accountPanel .tabs .mini-tab{appearance:none;display:block!important;background:transparent!important;border:1px solid transparent!important;color:#adb1bc!important;border-radius:9px!important;min-height:47px;padding:11px!important;margin:0!important;font-size:14px!important;font-weight:800!important;cursor:pointer}
+#accountPanel .tabs .mini-tab.active{background:#3a252c!important;border-color:#974555!important;color:#fff!important;box-shadow:inset 0 1px 0 #ffffff11}
+#accountPanel .auth-view:not(.active){display:none!important}
+#accountPanel .auth-view.active{display:block!important}
+#accountPanel .auth-view .formgrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px!important;width:100%;min-width:0}
+#accountPanel .formgrid .wide{grid-column:1 / -1}
+#accountPanel .formgrid input:not([type="checkbox"]){box-sizing:border-box;display:block;width:100%!important;min-width:0;max-width:none!important;min-height:53px;padding:14px 16px!important;border:1px solid #464850!important;background:#14151a!important;border-radius:11px!important;color:#fff!important;font-size:16px!important;margin:0!important}
+#accountPanel .formgrid input::placeholder{color:#969aa7}
+#accountPanel .formgrid input:focus{outline:2px solid #d34b5a!important;outline-offset:1px;border-color:#db5261!important}
+#accountPanel .formgrid button.primary{appearance:none;display:block!important;width:100%;grid-column:1/-1;min-height:53px;margin:0!important;background:linear-gradient(135deg,#ec4c59,#c42b40)!important;border:1px solid #ed5a67!important;border-radius:11px!important;color:#fff!important;font-size:15px!important;font-weight:850!important;letter-spacing:.025em;cursor:pointer}
+#accountPanel .formgrid .choice{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;color:#c6c7d0!important;line-height:1.5;font-size:13px!important;border:1px solid #393942;border-radius:10px;padding:12px;background:#202127;margin:4px 0}
+#accountPanel .formgrid .choice input{width:20px;height:20px;flex:0 0 20px;margin:0!important;accent-color:#e84b5e}
+#accountPanel #loginNotice:not(.show),#accountPanel #registerNotice:not(.show){display:none!important}
+#accountPanel #loginNotice.show,#accountPanel #registerNotice.show{display:block!important;border:1px solid #7b444b!important;border-left:4px solid #f05e6e!important;background:#2b2027!important;color:#ffe0e4!important;border-radius:10px!important;margin:14px 0 0!important;line-height:1.55;padding:13px 14px!important;overflow-wrap:anywhere}
+#accountPanel button:hover:not(:disabled){filter:brightness(1.09)}
+/* Tournament search and discoverability */
+#findPanel #findForm{display:block;margin-top:18px}
+#findPanel .formrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:10px;width:100%}
+#findPanel #findQuery{width:100%!important;margin:0!important;min-height:54px;max-width:none!important;background:#121319!important;border:1px solid #474851!important;border-radius:11px!important;padding:13px 15px!important;font-size:16px!important;color:#fff!important}
+#findPanel #findForm button[type="submit"]{min-height:54px;min-width:124px;margin:0!important;padding:12px 20px;border:1px solid #e4515e!important;border-radius:11px!important;background:#d83b4d!important;color:#fff!important;font-size:14px;font-weight:850;cursor:pointer}
+#findPanel #findQuery:focus{outline:2px solid #e4515e;outline-offset:1px}
+#landingHome #findNotice:not(.show){display:none}
+#landingHome #findNotice.show{background:#18191f!important;border:1px solid #363942!important;border-left:3px solid #d74356!important;border-radius:12px!important;padding:14px!important;color:#e3e4ea!important}
+#landingHome .tournament-results{gap:10px!important}
+#landingHome .tournament-result{display:block;width:100%;min-height:70px;padding:16px 17px!important;background:linear-gradient(135deg,#292229,#1d1e25)!important;border:1px solid #48404a!important;border-radius:13px!important;color:#fff;text-align:left}
+#landingHome .tournament-result:hover{border-color:#e35a69!important;background:#30242b!important}
+#landingHome .tournament-result b{font-size:17px!important;letter-spacing:-.015em}
+#landingHome .tournament-result span{color:#b8b9c4!important;font-size:12px!important;line-height:1.45}
+/* Training: style the selection screen, never the active training keypad */
+#trainingPanel #trainingChoice.training-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;margin-top:22px!important}
+#trainingPanel #trainingChoice .training-pick{min-height:137px!important;background:linear-gradient(135deg,#24242b,#1b1c23)!important;border:1px solid #42434d!important;border-radius:15px!important;padding:18px 10px!important;box-shadow:0 9px 25px #0002!important}
+#trainingPanel #trainingChoice .training-pick:hover,#trainingPanel #trainingChoice .training-pick:focus-visible{border-color:#e55060!important;background:#332229!important;outline:none!important}
+#trainingPanel #trainingChoice .training-pick b{font-size:clamp(30px,5vw,43px)!important;color:#fff!important;line-height:1.1;letter-spacing:-.045em}
+#trainingPanel #trainingChoice .training-pick span{display:block;margin-top:11px;color:#f16b76!important;font-size:12px!important;letter-spacing:.035em;font-weight:750}
+/* Tournament wizard already good: harmonize small elements only. */
+#landingHome #createPanel .comp-help-box{border-radius:11px!important}
+#landingHome #createPanel .comp-wizard-progress{background:#22232a!important}
+/* Player / organizer personal dashboard, as well as a private platform dashboard */
+#landingHome #profilePanel.active-panel{max-width:850px!important;background:linear-gradient(155deg,#1c1d23,#17181e 80%)!important}
+#profilePanel .dashboard-heading{margin-bottom:20px!important}
+#profilePanel .dashboard-heading .profile-logo{width:min(100%,350px)!important;max-width:350px!important;margin:0 auto 8px!important}
+#profilePanel .dashboard-heading h2{font-size:clamp(28px,5vw,43px)!important;line-height:1.13;margin:0 0 6px!important;letter-spacing:-.035em}
+#profilePanel .dashboard-actions{gap:11px!important}
+#profilePanel .dashboard-actions button{min-height:104px!important;background:#202128!important;border:1px solid #45454f!important;border-radius:13px!important;color:#f6f6f8!important;font-size:clamp(13px,1.5vw,16px)!important;font-weight:850;box-shadow:none!important;transition:border-color .14s,background .14s}
+#profilePanel .dashboard-actions button:hover,#profilePanel .dashboard-actions button:focus-visible{border-color:#db5161!important;background:#31242c!important}
+#profilePanel .dashboard-actions .dashboard-icon{font-size:27px!important}
+#profilePanel .dashboard-footer{margin-top:18px!important}
+#profilePanel #profileMe{max-width:750px!important}
+#profilePanel #profileMe .my-profile-header{border:1px solid #444550!important;background:#22232a!important;border-radius:15px!important}
+#profilePanel #profileMe h3,#profilePanel #profileMe h4{color:#f0f0f4!important}
+#profilePanel #profileMe .stat-card{border-radius:12px;background:#24242b;border:1px solid #3d3d47}
+#profilePanel #ownedCompetitions{max-width:100%;padding:14px 2px}
+#profilePanel #ownedCompetitions .owned-card,#profilePanel #ownedCompetitions .owned-competition{border-radius:13px}
+#profilePanel #owner501Panel .owner501-tiles article{background:#22232a;border-radius:14px;border:1px solid #3f404a}
+#profilePanel #owner501Panel .owner501-content{background:#1e1f26;border:1px solid #3d3f49;border-radius:15px}
+#profilePanel #owner501Panel .owner501-tournament{background:#262730;border-radius:11px}
+/* Public competition pages, not tablet counters. */
+body:not(.tablet-mode) #legacyApp{background:#101014!important;min-height:100vh;padding-bottom:44px}
+body:not(.tablet-mode) #legacyApp>header{background:linear-gradient(135deg,#20171d,#111216)!important;border-bottom:1px solid #4a2a34!important;text-align:left!important;padding:25px clamp(15px,4vw,36px)!important}
+body:not(.tablet-mode) #legacyApp>header h1{max-width:1160px;margin:auto;color:#fff!important;font-size:clamp(28px,5vw,39px)!important;line-height:1.15;letter-spacing:-.045em}
+body:not(.tablet-mode) #legacyApp>header p{max-width:1160px;margin:6px auto 0!important;font-size:10px;color:#f07883!important;font-weight:800;letter-spacing:.18em!important}
+body:not(.tablet-mode) #legacyApp>nav{background:#18191e!important;border-bottom:1px solid #373941!important;gap:4px!important;padding:4px max(12px,calc((100% - 1160px)/2)) 0!important;position:sticky;top:0;z-index:60;scrollbar-width:thin}
+body:not(.tablet-mode) #legacyApp>nav button{flex:0 0 auto!important;min-width:0!important;white-space:nowrap;border:0!important;background:transparent!important;color:#b8bac3!important;margin:0!important;padding:14px 15px!important;font-size:13px;font-weight:750;min-height:49px;position:relative;letter-spacing:.005em}
+body:not(.tablet-mode) #legacyApp>nav button.active{color:#fff!important;border-bottom:3px solid #e64a5a!important;background:#292028!important}
+body:not(.tablet-mode) #legacyApp>nav button:hover{color:#fff!important;background:#272329!important}
+body:not(.tablet-mode) #legacyApp>main{max-width:1180px!important;margin:0 auto!important;padding:clamp(18px,3vw,30px) clamp(12px,2.5vw,24px) 62px!important}
+body:not(.tablet-mode) #legacyApp main>section{min-width:0}
+body:not(.tablet-mode) #legacyApp main>section>h2{font-size:clamp(24px,4vw,32px)!important;font-weight:850;letter-spacing:-.035em;line-height:1.2;margin:0 0 8px!important;color:#fff!important}
+body:not(.tablet-mode) #legacyApp .ui-page-subtitle{color:#aeb2bf;font-size:14px;line-height:1.5;margin:0 0 22px;max-width:660px}
+body:not(.tablet-mode) #legacyApp main>section>.panel{border:1px solid #363841!important;background:linear-gradient(155deg,#1d1e25,#18191f)!important;border-radius:16px!important;padding:clamp(15px,2.5vw,24px)!important;margin:0 0 15px!important;box-shadow:0 9px 34px #0002!important}
+body:not(.tablet-mode) #legacyApp #status{border-left:3px solid #cd4555;background:#1c1c22;border-radius:7px;padding:9px 12px;margin-bottom:14px;color:#b8b9c1;font-size:12px}
+body:not(.tablet-mode) #legacyApp .boards{gap:14px!important}
+body:not(.tablet-mode) #legacyApp .board{border:1px solid #42414b!important;border-top:3px solid #d84b5d!important;border-radius:15px!important;background:linear-gradient(145deg,#24242c,#18191e)!important;padding:clamp(15px,2.5vw,23px)!important;box-shadow:0 12px 28px #0003!important}
+body:not(.tablet-mode) #legacyApp .board h3{font-size:clamp(17px,2.4vw,22px);line-height:1.25}
+body:not(.tablet-mode) #legacyApp .board .timer{font-size:clamp(29px,5vw,40px)}
+body:not(.tablet-mode) #legacyApp .board .next{border-color:#404049!important;color:#c0c0c8}
+body:not(.tablet-mode) #legacyApp .panel label{color:#c8cad3;font-weight:700;font-size:13px}
+body:not(.tablet-mode) #legacyApp input:not([type=checkbox]):not([type=radio]),body:not(.tablet-mode) #legacyApp select,body:not(.tablet-mode) #legacyApp textarea{background:#15161c!important;border:1px solid #4b4d56!important;border-radius:10px!important;color:#f8f8fa!important;padding:11px 13px!important;min-height:43px;font-size:15px;margin:4px!important;max-width:100%}
+body:not(.tablet-mode) #legacyApp select:focus,body:not(.tablet-mode) #legacyApp input:focus{outline:2px solid #e45462!important;outline-offset:1px}
+body:not(.tablet-mode) #legacyApp button.action,body:not(.tablet-mode) #legacyApp a.action{background:#d43a4d!important;color:#fff!important;border:1px solid #e24d5e!important;border-radius:10px!important;padding:10px 16px!important;min-height:43px;font-weight:800;text-decoration:none}
+body:not(.tablet-mode) #legacyApp button.secondary{background:#272831!important;color:#e9e9ee!important;border:1px solid #474852!important;border-radius:10px!important;padding:10px 14px!important;min-height:43px;font-weight:750}
+body:not(.tablet-mode) #legacyApp button.danger{background:#512830!important;color:#ffe0e4!important;border:1px solid #9e4453!important;border-radius:10px!important;padding:10px 14px!important;min-height:43px}
+body:not(.tablet-mode) #legacyApp button:hover:not(:disabled){filter:brightness(1.09)}
+body:not(.tablet-mode) #legacyApp .stat-grid{gap:12px!important}
+body:not(.tablet-mode) #legacyApp .stat-card{background:#22232a!important;border:1px solid #41434d!important;border-radius:13px!important;padding:15px!important}
+body:not(.tablet-mode) #legacyApp .stat-card strong{color:#fff;font-size:clamp(24px,3vw,30px)!important;font-variant-numeric:tabular-nums}
+body:not(.tablet-mode) #legacyApp .group-grid{gap:13px!important}
+body:not(.tablet-mode) #legacyApp .muted{color:#afb2bd!important}
+body:not(.tablet-mode) #legacyApp table{border-collapse:separate!important;border-spacing:0!important;width:100%;font-variant-numeric:tabular-nums}
+body:not(.tablet-mode) #legacyApp th{color:#b9bac5!important;background:#272831!important;letter-spacing:.025em;font-size:12px!important;font-weight:850!important}
+body:not(.tablet-mode) #legacyApp td,body:not(.tablet-mode) #legacyApp th{padding:12px 11px!important;border-bottom:1px solid #3a3c45!important;vertical-align:middle}
+body:not(.tablet-mode) #legacyApp tr:hover td{background:#25262e88}
+body:not(.tablet-mode) #legacyApp .player-link{color:#fff!important;text-decoration-color:#f16577!important;text-underline-offset:3px}
+body:not(.tablet-mode) #legacyApp .export-actions{gap:9px!important;margin:0 0 18px!important}
+body:not(.tablet-mode) #legacyApp .export-actions button{margin:0!important}
+body:not(.tablet-mode) #legacyApp .bracket-round-tab{border-radius:10px!important}
+body:not(.tablet-mode) #legacyApp .bracket-visual-section{margin:16px 0 26px!important}
+body:not(.tablet-mode) #legacyApp .finalist-item{background:#24242c!important;border-color:#42434d!important;border-radius:11px!important}
+/* Organizer panels: preserve accordion controls and existing form events. */
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-overview{background:linear-gradient(135deg,#272027,#1a1c23 76%)!important;border:1px solid #5c3943!important;border-radius:18px!important;box-shadow:0 14px 36px #0003!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-metrics>div{background:#1b1c23;border-radius:12px;border:1px solid #3e4049}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts{gap:10px!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button{background:#272831!important;border:1px solid #454751!important;border-radius:11px!important;color:#fff!important;min-height:57px!important;font-weight:750!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button:hover{background:#35262f!important;border-color:#c84b5c!important}
+body:not(.tablet-mode) #legacyApp #adminPanel details.admin-section{border-radius:14px!important;background:#1d1e25!important;border-color:#393b46!important}
+body:not(.tablet-mode) #legacyApp #adminPanel details.admin-section[open]{border-color:#73404b!important}
+body:not(.tablet-mode) #legacyApp #adminPanel details.admin-section>summary{padding:16px!important}
+body:not(.tablet-mode) #legacyApp #adminPanel details.admin-section[open]>summary{background:#28222a!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin-tournament-picker{border-radius:13px!important;background:#202127!important;border-color:#3c3d46!important}
+/* Mobile tablet-size reading: keep footers, sidebars, and tables within screen. */
+@media(max-width:670px){
+ #landingHome.has-panel>.panel.active-panel{padding:20px 16px!important;border-radius:15px!important}
+ #accountPanel .auth-view .formgrid{grid-template-columns:minmax(0,1fr)!important}
+ #accountPanel .formgrid>input,#accountPanel .formgrid>.wide{grid-column:1 / -1}
+ #findPanel .formrow{grid-template-columns:minmax(0,1fr)!important}
+ #findPanel #findForm button[type=submit]{width:100%!important}
+ #trainingPanel #trainingChoice.training-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+ #trainingPanel #trainingChoice .training-pick{min-height:110px!important;padding:12px 5px!important}
+ #trainingPanel #trainingChoice .training-pick b{font-size:27px!important}
+ #trainingPanel #trainingChoice .training-pick span{font-size:10px!important}
+ #profilePanel .dashboard-actions button{min-height:91px!important}
+ body:not(.tablet-mode) #legacyApp>header{padding:20px 15px!important}
+ body:not(.tablet-mode) #legacyApp>nav button{font-size:12px!important;padding:12px 13px!important;min-height:45px}
+ body:not(.tablet-mode) #legacyApp>main{padding:18px 12px 62px!important}
+ body:not(.tablet-mode) #legacyApp .boards{grid-template-columns:1fr!important}
+ body:not(.tablet-mode) #legacyApp .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ body:not(.tablet-mode) #legacyApp th,body:not(.tablet-mode) #legacyApp td{padding:10px 8px!important;font-size:12px}
+ body:not(.tablet-mode) #legacyApp .panel:not(#loginPanel){min-width:0}
+ body:not(.tablet-mode) #legacyApp .export-actions{flex-direction:column;align-items:stretch}
+ body:not(.tablet-mode) #legacyApp .export-actions button{width:100%;text-align:center}
+}
+@media(prefers-reduced-motion:reduce){#landingHome.has-panel *,body:not(.tablet-mode) #legacyApp *{transition:none!important;animation-duration:.01ms!important}}
+@media print{
+ body:not(.tablet-mode) #legacyApp{background:#fff!important;color:#111!important}
+ body:not(.tablet-mode) #legacyApp main>section>.panel,body:not(.tablet-mode) #legacyApp .stat-card,body:not(.tablet-mode) #legacyApp .board{background:#fff!important;color:#111!important;box-shadow:none!important;border-color:#999!important}
+ body:not(.tablet-mode) #legacyApp th{background:#eee!important;color:#111!important}
+ body:not(.tablet-mode) #legacyApp main>section>h2,body:not(.tablet-mode) #legacyApp .stat-card strong{color:#111!important}
+ body:not(.tablet-mode) #legacyApp .ui-page-subtitle{display:none!important}
+}
+
+
+/* Remove duplicated navigation/quick-actions introduced by older iterations. */
+body.public-tournament-view:not(.tablet-mode) #legacyApp>button.secondary:first-child{display:none!important}
+body.public-tournament-view:not(.tablet-mode) #legacyApp>.public-tournament-back{display:inline-flex!important;align-items:center;min-height:41px;margin:14px max(15px,calc((100% - 1160px)/2))!important;padding:10px 14px!important;border:1px solid #43444d;border-radius:10px;color:#eee;text-decoration:none;background:#25252d;font-size:12px;font-weight:800;letter-spacing:.01em}
+body.public-tournament-view:not(.tablet-mode) #legacyApp>.public-tournament-back:hover{border-color:#e55364;background:#33242c}
+/* The six overview shortcuts include the older three quick actions. */
+body:not(.tablet-mode) #legacyApp #adminPanel .admin-shortcuts{display:none!important}
 </style>
 </body></html>
