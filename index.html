@@ -1718,7 +1718,7 @@ function playerDetailedSummary(playerId,tournamentId=null){
     legsLost+=Number(left?m.legs2:m.legs1)||0;
   }
   return {recorded:rr.length>0,darts:total('darts_thrown'),visits:total('visits'),
-   visits100:total('visits_100'),visits140:total('visits_140'),visits180:total('visits_180'),
+   visits100:Math.max(0,total('visits_100')-total('visits_140')),visits140:Math.max(0,total('visits_140')-total('visits_180')),visits180:total('visits_180'),
    attempts,tracked,untracked,successes,checkouts,doubles,bestAverage,legsWon,legsLost,
    maxCheckout:rr.length?Math.max(0,...rr.map(r=>Number(r.max_checkout)||0)):null,
    maxVisit:rr.length?Math.max(0,...rr.map(r=>Number(r.max_visit)||0)):null};
@@ -1735,7 +1735,7 @@ function renderPlayerStats(){
   const detailAvailable=!detailedVisitError;
   $("playerStatsContent").innerHTML=`<div class="table-wrap"><table><thead><tr>
   <th>Hráč</th><th>Zápasy</th><th>Výhry</th><th>Prohry</th><th>Průměr Ø3</th><th>Nejlepší zápas Ø3</th><th>Šipky</th>
-  <th>100+</th><th>140+</th><th>180</th><th>Double %</th><th>Max. zavření</th><th>Max. nához</th>
+  <th>100–139</th><th>140–179</th><th>180</th><th>Double %</th><th>Max. zavření</th><th>Max. nához</th>
   </tr></thead><tbody>${rows.map(r=>`<tr>
    <td><button class="secondary player-link" data-open-player="${esc(r.player.id)}">${esc(r.player.name)}</button></td>
    <td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td>
@@ -1745,7 +1745,7 @@ function renderPlayerStats(){
    <td>${detailAvailable&&r.detail.recorded?r.detail.visits140:'—'}</td><td>${detailAvailable&&r.detail.recorded?r.detail.visits180:'—'}</td>
    <td>${detailAvailable?doubleStatDisplay(r.detail):'—'}</td>
    <td>${r.checkout?.value??'—'}</td><td>${r.high?.value??'—'}</td></tr>`).join('')}</tbody></table></div>
-   <p class="small">Ø3 = průměr na 3 šipky; nejlepší zápas = nejvyšší průměr v jednom dokončeném zápase. 100+ a 140+ zahrnují také vyšší náhozy. Double % = úspěšná zavření / evidované pokusy na double. * Výsledek je pouze z náhozů se zapnutým sledováním double; starší náhozy se nezapočítávají. Ručně zadané výsledky nemají šipkový průměr.</p>
+   <p class="small">Ø3 = průměr na 3 šipky; nejlepší zápas = nejvyšší průměr v jednom dokončeném zápase. Každý nához se započítá jen do jedné kategorie: 100–139, 140–179 nebo 180. Double % = úspěšná zavření / evidované pokusy na double. * Výsledek je pouze z náhozů se zapnutým sledováním double; starší náhozy se nezapočítávají. Ručně zadané výsledky nemají šipkový průměr.</p>
    ${!detailAvailable?'<p class="warning">Podrobné statistiky ještě nejsou aktivní. Nejdříve spusť přiložený SQL kód v Supabase.</p>':''}`;
 }
 function renderPlayerProfile(playerId){
@@ -1772,9 +1772,9 @@ function renderPlayerProfile(playerId){
       const matchAvg=dartMatchAverageRows.find(r=>r.match_id===m.id&&r.player_entry_id===ownEntry?.id);
       return `<tr><td>${esc(opp)}</td><td>${m.legs1}:${m.legs2}</td><td>${won?"Výhra":"Prohra"}</td><td>${matchAvg?Number(matchAvg.average_3dart).toFixed(2):"—"}</td></tr>`;
     }).join("");
-    return `<details class="panel"><summary>${esc(x.tournament?.name||"Turnaj")} · průměr ${avg?Number(avg.average_3dart).toFixed(2):"—"}</summary><p class="small">Body: ${Number(avg?.counted_points||0)} · šipky: ${Number(avg?.darts_counted||0)}</p>${(()=>{const ev=playerDetailedSummary(playerId,x.entry.tournament_id);return `<p class="small">100+: ${ev.recorded?ev.visits100:'—'} · 140+: ${ev.recorded?ev.visits140:'—'} · 180: ${ev.recorded?ev.visits180:'—'} · Double: ${doubleStatDisplay(ev)}</p>`})()}<div class="table-wrap"><table><tr><th>Soupeř</th><th>Legy</th><th>Výsledek</th><th>Průměr</th></tr>${eveningMatches||"<tr><td colspan='4'>V tomto večeru nejsou dokončené zápasy.</td></tr>"}</table></div></details>`;
+    return `<details class="panel"><summary>${esc(x.tournament?.name||"Turnaj")} · průměr ${avg?Number(avg.average_3dart).toFixed(2):"—"}</summary><p class="small">Body: ${Number(avg?.counted_points||0)} · šipky: ${Number(avg?.darts_counted||0)}</p>${(()=>{const ev=playerDetailedSummary(playerId,x.entry.tournament_id);return `<p class="small">100–139: ${ev.recorded?ev.visits100:'—'} · 140–179: ${ev.recorded?ev.visits140:'—'} · 180: ${ev.recorded?ev.visits180:'—'} · Double: ${doubleStatDisplay(ev)}</p>`})()}<div class="table-wrap"><table><tr><th>Soupeř</th><th>Legy</th><th>Výsledek</th><th>Průměr</th></tr>${eveningMatches||"<tr><td colspan='4'>V tomto večeru nejsou dokončené zápasy.</td></tr>"}</table></div></details>`;
   }).join("");
-  $("playerProfileContent").innerHTML=`<div class="panel"><div class="profile-head"><h3>${esc(p.name)}</h3><button class="secondary" data-close-profile>Zavřít profil</button></div><div class="stat-grid"><div class="stat-card">Zápasy<strong>${stats.played}</strong></div><div class="stat-card">Výhry<strong>${stats.wins}</strong></div><div class="stat-card">Prohry<strong>${stats.losses}</strong></div><div class="stat-card">Úspěšnost<strong>${stats.rate} %</strong></div><div class="stat-card">Celkový průměr<strong>${dart.average==null?"—":dart.average.toFixed(2)}</strong></div><div class="stat-card">Nejvyšší zavření<strong>${checkout?.value??"—"}</strong></div><div class="stat-card">Nejvyšší nához<strong>${high?.value??"—"}</strong></div><div class="stat-card">Nejlepší zápasový průměr<strong>${detail.bestAverage===null?'—':detail.bestAverage.toFixed(2)}</strong></div><div class="stat-card">Hozené šipky<strong>${dart.darts||'—'}</strong></div><div class="stat-card">Vyhrané / prohrané legy<strong>${detail.legsWon} / ${detail.legsLost}</strong></div><div class="stat-card">Náhozy 100+<strong>${detail.recorded?detail.visits100:'—'}</strong></div><div class="stat-card">Náhozy 140+<strong>${detail.recorded?detail.visits140:'—'}</strong></div><div class="stat-card">Náhozy 180<strong>${detail.recorded?detail.visits180:'—'}</strong></div><div class="stat-card">Zavření legů<strong>${detail.recorded?detail.checkouts:'—'}</strong></div><div class="stat-card">Pokusy na double<strong>${detail.tracked?detail.attempts:'Nesledováno'}</strong></div><div class="stat-card">Úspěšnost double<strong>${doubleStatDisplay(detail)}</strong></div></div><p class="small">Průměr je z odehraných šipek a bodů. Double % vychází jen z náhozů se zadaným počtem pokusů; chybějící údaje se nepočítají jako nula.${detail.untracked?' Část náhozů nemá sledování double.':''}</p><h3>Průměry podle večerů</h3>${eveningRows||"<p class='muted'>Zatím nejsou zaznamenané večery.</p>"}<h3>Umístění v turnajích</h3><table><tr><th>Večer</th><th>Umístění</th><th>Body</th></tr>${history.map(x=>`<tr><td>${esc(x.tournament?.name||"Turnaj")}</td><td>${x.entry.final_place??"—"}</td><td>${x.entry.series_points??"—"}</td></tr>`).join("")}</table><h3>Historie zápasů</h3><div class="table-wrap"><table><tr><th>Večer</th><th>Soupeř</th><th>Výsledek</th><th>Výsledek hráče</th><th>Průměr</th></tr>${matchRows||"<tr><td colspan='5'>Zatím žádné dokončené zápasy.</td></tr>"}</table></div></div>`;
+  $("playerProfileContent").innerHTML=`<div class="panel"><div class="profile-head"><h3>${esc(p.name)}</h3><button class="secondary" data-close-profile>Zavřít profil</button></div><div class="stat-grid"><div class="stat-card">Zápasy<strong>${stats.played}</strong></div><div class="stat-card">Výhry<strong>${stats.wins}</strong></div><div class="stat-card">Prohry<strong>${stats.losses}</strong></div><div class="stat-card">Úspěšnost<strong>${stats.rate} %</strong></div><div class="stat-card">Celkový průměr<strong>${dart.average==null?"—":dart.average.toFixed(2)}</strong></div><div class="stat-card">Nejvyšší zavření<strong>${checkout?.value??"—"}</strong></div><div class="stat-card">Nejvyšší nához<strong>${high?.value??"—"}</strong></div><div class="stat-card">Nejlepší zápasový průměr<strong>${detail.bestAverage===null?'—':detail.bestAverage.toFixed(2)}</strong></div><div class="stat-card">Hozené šipky<strong>${dart.darts||'—'}</strong></div><div class="stat-card">Vyhrané / prohrané legy<strong>${detail.legsWon} / ${detail.legsLost}</strong></div><div class="stat-card">Náhozy 100–139<strong>${detail.recorded?detail.visits100:'—'}</strong></div><div class="stat-card">Náhozy 140–179<strong>${detail.recorded?detail.visits140:'—'}</strong></div><div class="stat-card">Náhozy 180<strong>${detail.recorded?detail.visits180:'—'}</strong></div><div class="stat-card">Zavření legů<strong>${detail.recorded?detail.checkouts:'—'}</strong></div><div class="stat-card">Pokusy na double<strong>${detail.tracked?detail.attempts:'Nesledováno'}</strong></div><div class="stat-card">Úspěšnost double<strong>${doubleStatDisplay(detail)}</strong></div></div><p class="small">Průměr je z odehraných šipek a bodů. Double % vychází jen z náhozů se zadaným počtem pokusů; chybějící údaje se nepočítají jako nula.${detail.untracked?' Část náhozů nemá sledování double.':''}</p><h3>Průměry podle večerů</h3>${eveningRows||"<p class='muted'>Zatím nejsou zaznamenané večery.</p>"}<h3>Umístění v turnajích</h3><table><tr><th>Večer</th><th>Umístění</th><th>Body</th></tr>${history.map(x=>`<tr><td>${esc(x.tournament?.name||"Turnaj")}</td><td>${x.entry.final_place??"—"}</td><td>${x.entry.series_points??"—"}</td></tr>`).join("")}</table><h3>Historie zápasů</h3><div class="table-wrap"><table><tr><th>Večer</th><th>Soupeř</th><th>Výsledek</th><th>Výsledek hráče</th><th>Průměr</th></tr>${matchRows||"<tr><td colspan='5'>Zatím žádné dokončené zápasy.</td></tr>"}</table></div></div>`;
 }
 function downloadCSV(filename,rows){
   const cell=v=>{let s=String(v??"");if(typeof v==="string"&&/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
@@ -1789,7 +1789,7 @@ function exportSeries(){
 function exportPlayers(){
   const rows=players.map(p=>({p,...playerStats(p.id),dart:playerDartSummary(p.id),d:playerDetailedSummary(p.id),c:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),h:playerBest(p.id,["p1_highest_score","p2_highest_score"])}));
   downloadCSV("501live-podrobne-statistiky-hracu.csv",[
-    ["Hráč","Zápasy","Výhry","Prohry","Úspěšnost zápasů %","Celkový průměr Ø3","Nejlepší zápasový průměr Ø3","Šipky","100+","140+","180","Vyhrané legy","Prohrané legy","Zavření","Pokusy na double","Úspěšnost double %","Náhozy bez sledování double","Nejvyšší zavření","Nejvyšší nához"],
+    ["Hráč","Zápasy","Výhry","Prohry","Úspěšnost zápasů %","Celkový průměr Ø3","Nejlepší zápasový průměr Ø3","Šipky","100–139","140–179","180","Vyhrané legy","Prohrané legy","Zavření","Pokusy na double","Úspěšnost double %","Náhozy bez sledování double","Nejvyšší zavření","Nejvyšší nához"],
     ...rows.map(r=>[r.p.name,r.played,r.wins,r.losses,r.rate,r.dart.average??"",r.d.bestAverage??"",r.dart.darts||"",r.d.recorded?r.d.visits100:"",r.d.recorded?r.d.visits140:"",r.d.recorded?r.d.visits180:"",r.d.legsWon,r.d.legsLost,r.d.recorded?r.d.checkouts:"",r.d.tracked?r.d.attempts:"",r.d.doubles===null?"":Number(r.d.doubles.toFixed(2)),r.d.untracked,r.c?.value??"",r.h?.value??""])
   ]);
 }
@@ -3271,7 +3271,7 @@ if(!watchOwner()){const ownerPoll=setInterval(()=>{if(watchOwner())clearInterval
 $('profileMeStats').onclick=()=>{$('profileMe').hidden=true;$('profileDashboard').hidden=true;$('profileStatistics').hidden=false;renderStats('turnaje');};
 $('profileStatsBack').onclick=()=>{ $('profileStatistics').hidden=true;$('profileMe').hidden=false; };
 profile.querySelectorAll('[data-stats-tab]').forEach(b=>b.onclick=()=>renderStats(b.dataset.statsTab));
-const tournamentNames=['Odehrané turnaje','Vyhrané turnaje','Odehrané zápasy','Vyhrané zápasy','Celkový průměr Ø3','Nejlepší zápas Ø3','Hozené šipky','Náhozy 100+','Náhozy 140+','Náhozy 180','Nejvyšší zavření','Nejvyšší nához','Úspěšnost double'];
+const tournamentNames=['Odehrané turnaje','Vyhrané turnaje','Odehrané zápasy','Vyhrané zápasy','Celkový průměr Ø3','Nejlepší zápas Ø3','Hozené šipky','Náhozy 100–139','Náhozy 140–179','Náhozy 180','Nejvyšší zavření','Nejvyšší nához','Úspěšnost double'];
 let trainingMode='170';
 let trainingStatsRequest=0;
 const trainingNames=['Dokončené tréninky','Hozené šipky','Nejlepší průměr Ø3','Nejvyšší zavření','Nejvyšší nához','Průměr šipek na leg'];
@@ -3340,7 +3340,7 @@ async function loadOwnTournamentStats(){
    const playedTournaments=new Set(ownEntries.filter(e=>games.some(m=>m.player1_entry_id===e.id||m.player2_entry_id===e.id)).map(e=>e.tournament_id));
    const values=[playedTournaments.size,ownEntries.filter(e=>Number(e.final_place)===1).length,games.length,won,
      pdarts?(3*ppoints/pdarts).toFixed(2):'—',bestAvg===null?'—':bestAvg.toFixed(2),
-     pdarts||'—',detailsErr?'—':sum('visits_100'),detailsErr?'—':sum('visits_140'),detailsErr?'—':sum('visits_180'),
+     pdarts||'—',detailsErr?'—':Math.max(0,sum('visits_100')-sum('visits_140')),detailsErr?'—':Math.max(0,sum('visits_140')-sum('visits_180')),detailsErr?'—':sum('visits_180'),
      maxCheckout||'—',maxVisit||'—',detailsErr?'—':rate];
    if(currentTab!=='turnaje'||currentUser?.id!==user.id||seq!==ownStatsReq)return;
    $('profileStatsGrid').querySelectorAll('strong').forEach((el,i)=>el.textContent=values[i]??'—');
@@ -3521,7 +3521,7 @@ function model(g){
   return {name,legDarts:legMine.reduce((n,v)=>n+v.dartsCount,0),darts,points,avg:darts?3*points/darts:null,
     maxVisit:mine.length?Math.max(...mine.map(v=>v.countedPoints)):0,
     maxCheckout:mine.length?Math.max(0,...mine.filter(v=>v.isCheckout).map(v=>v.scoreBefore)):0,
-    high100:visits.length,high140:mine.filter(v=>v.countedPoints>=140).length,
+    high100:mine.filter(v=>v.countedPoints>=100&&v.countedPoints<140).length,high140:mine.filter(v=>v.countedPoints>=140&&v.countedPoints<180).length,
     high180:mine.filter(v=>v.countedPoints===180).length,checkout:mine.filter(v=>v.isCheckout).length,
     attempts,successful,trackedVisits:tracked.length,untracked:mine.length-tracked.length,
     rate:attempts?100*successful/attempts:null};
@@ -3576,7 +3576,7 @@ function render(kind){
  <div class="tablet-counter-actions"><button type="button" class="secondary" data-local-undo>ZPĚT – VRÁTIT NÁHOZ</button><button type="button" class="action" data-local-submit ${!ready?'disabled':''}>POTVRDIT NÁHOZ</button></div><div data-local-feedback class="local-error" role="status" aria-live="polite"></div></div>`;
 }
 function statsMarkup(g,m){
- return `<div class="local-result-stats">${g.names.map((name,i)=>{const s=m.stats[i];return `<div class="local-result-player"><h4>${html(name)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${m.wins[i]}</b></div><div><span>Průměr Ø3</span><b>${s.avg===null?'—':fmt(s.avg)}</b></div><div><span>Hozené šipky</span><b>${s.darts}</b></div><div><span>Nejvyšší nához</span><b>${s.maxVisit}</b></div><div><span>Nejvyšší zavření</span><b>${s.maxCheckout||'—'}</b></div><div><span>Náhozy 100+ / 140+ / 180</span><b>${s.high100} / ${s.high140} / ${s.high180}</b></div><div><span>Úspěšná zavření</span><b>${s.checkout}</b></div><div><span>Pokusy na double</span><b>${s.trackedVisits?s.attempts:'Nesledováno'}</b></div><div><span>Úspěšnost double</span><b>${s.rate===null?'Nesledováno':fmt(s.rate)+' %'+(s.untracked?' *':'')}</b></div></div>${s.untracked&&s.trackedVisits?'<small>* Úspěšnost jen ze sledovaných náhozů.</small>':''}</div>`}).join('')}</div>`;
+ return `<div class="local-result-stats">${g.names.map((name,i)=>{const s=m.stats[i];return `<div class="local-result-player"><h4>${html(name)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${m.wins[i]}</b></div><div><span>Průměr Ø3</span><b>${s.avg===null?'—':fmt(s.avg)}</b></div><div><span>Hozené šipky</span><b>${s.darts}</b></div><div><span>Nejvyšší nához</span><b>${s.maxVisit}</b></div><div><span>Nejvyšší zavření</span><b>${s.maxCheckout||'—'}</b></div><div><span>Náhozy 100–139 / 140–179 / 180</span><b>${s.high100} / ${s.high140} / ${s.high180}</b></div><div><span>Úspěšná zavření</span><b>${s.checkout}</b></div><div><span>Pokusy na double</span><b>${s.trackedVisits?s.attempts:'Nesledováno'}</b></div><div><span>Úspěšnost double</span><b>${s.rate===null?'Nesledováno':fmt(s.rate)+' %'+(s.untracked?' *':'')}</b></div></div>${s.untracked&&s.trackedVisits?'<small>* Úspěšnost jen ze sledovaných náhozů.</small>':''}</div>`}).join('')}</div>`;
 }
 function submit(kind){
  const g=sessions[kind];if(!g)return;
