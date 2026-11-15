@@ -2316,7 +2316,7 @@ init();
    const btn=loginForm.querySelector('button[type=submit]');btn.disabled=true;
    try{const {data,error}=await client.auth.signInWithPassword({email,password});if(error)throw error;
      const {data:profile}=await client.from('profiles').select('display_name,role').eq('id',data.user.id).maybeSingle();
-     notice('loginNotice',`Přihlášení proběhlo. Vítej${profile?.display_name?' '+profile.display_name:''}!`,true);
+     notice('loginNotice',`Přihlášení proběhlo. Vítej${profile?.display_name?' '+profile.display_name:''}!`,true);window.dispatchEvent(new CustomEvent('501live-login-success',{detail:{user:data.user,profile}}));
      const createPanel=$('createPanel');if(createPanel){const p=createPanel.querySelector('.note');if(p)p.textContent='Jsi přihlášen. Administraci turnajů otevřeš tlačítkem níže.';}
      const adminBtn=document.createElement('button');adminBtn.className='primary';adminBtn.type='button';adminBtn.textContent='OTEVŘÍT APLIKACI 501LIVE';adminBtn.onclick=showLegacy;
      $('accountPanel').appendChild(adminBtn);
@@ -2329,7 +2329,7 @@ init();
    const client=getDb();if(!client){notice('registerNotice','Databáze se ještě připojuje. Zkus to prosím za chvíli.');return;}
    const btn=registerForm.querySelector('button[type=submit]');btn.disabled=true;
    try{const {data,error}=await client.auth.signUp({email,password,options:{data:{display_name:name}}});if(error)throw error;
-     notice('registerNotice',data.session?'Účet je vytvořen a jsi přihlášen.':'Účet je vytvořen. Zkontroluj e-mail a potvrď registraci.',true);
+     notice('registerNotice',data.session?'Účet je vytvořen a jsi přihlášen.':'Účet je vytvořen. Zkontroluj e-mail a potvrď registraci.',true);if(data.session)window.dispatchEvent(new CustomEvent('501live-login-success',{detail:{user:data.user}}));
    }catch(err){notice('registerNotice','Registrace se nezdařila: '+(err.message||err));}finally{btn.disabled=false;}
  });}
  // Veřejné vyhledávání turnajů podle názvu, místa nebo kódu.
@@ -2355,6 +2355,64 @@ init();
  });
  // Jednoduchá navigace zpět na hlavní stranu z původní turnajové aplikace.
  if($('legacyApp')){const legacyBack=document.createElement('button');legacyBack.className='secondary';legacyBack.textContent='← HLAVNÍ STRANA 501LIVE';legacyBack.style.margin='12px';legacyBack.onclick=showLanding;$('legacyApp').prepend(legacyBack);}
+})();
+</script>
+
+<style id="501live-profile-style">
+#profilePanel .profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+#profilePanel .profile-stat{background:#1b1b1b;border:1px solid #444;border-radius:12px;padding:18px;text-align:center}
+#profilePanel .profile-stat strong{display:block;font-size:28px;color:#f2384b}
+#profilePanel .profile-stat span{font-size:13px;color:#ddd}
+#profilePanel .profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+#profilePanel .profile-actions button{flex:1;min-width:160px}
+#profilePanel .profile-muted{color:#bbb}
+</style>
+<script id="501live-profile-controller">
+(()=>{
+const $=id=>document.getElementById(id);
+const account=$('accountPanel');if(!account)return;
+const profile=document.createElement('section');profile.id='profilePanel';profile.className='panel';
+profile.innerHTML=`<h3>MŮJ PROFIL</h3><p id="profileWelcome" class="profile-muted"></p><div class="profile-stats"><div class="profile-stat"><strong>—</strong><span>Odehrané turnaje</span></div><div class="profile-stat"><strong>—</strong><span>Vyhrané turnaje</span></div><div class="profile-stat"><strong>—</strong><span>Nejlepší průměr</span></div><div class="profile-stat"><strong>—</strong><span>Nejvyšší zavření</span></div></div><p class="profile-muted">Turnajové statistiky a hráčský QR kód doplníme po propojení hráčských účtů s výsledky. Zatím se nezobrazují neověřené hodnoty.</p><div class="profile-actions"><button type="button" class="primary" id="profileOrganizer">MOJE POŘÁDANÉ TURNAJE</button><button type="button" class="secondary" id="profileLogout">ODHLÁSIT SE</button></div><div class="notice" id="profileMessage"></div>`;
+account.parentElement.insertBefore(profile,account.nextSibling);
+const getClient=()=>window.db||(typeof db!=='undefined'?db:null);
+function openProfile(user,details){
+ if(!user||new URLSearchParams(location.search).has('turnaj')||new URLSearchParams(location.search).has('tablet'))return;
+ const home=$('landingHome');home.hidden=false;$('legacyApp').hidden=true;home.classList.add('has-panel');
+ home.querySelectorAll(':scope > .panel').forEach(p=>p.classList.toggle('active-panel',p.id==='profilePanel'));
+ const name=details?.display_name||user.user_metadata?.display_name||user.email?.split('@')[0]||'Hráč';
+ $('profileWelcome').textContent=name+' · '+(user.email||'');
+ window.scrollTo(0,0);
+}
+window.addEventListener('501live-login-success',e=>openProfile(e.detail.user,e.detail.profile));
+// Přepínání přihlášení a registrace.
+account.querySelectorAll('[data-auth]').forEach(button=>button.addEventListener('click',()=>{
+ account.querySelectorAll('[data-auth]').forEach(b=>b.classList.toggle('active',b===button));
+ account.querySelectorAll('.auth-view').forEach(view=>view.classList.toggle('active',view.id===button.dataset.auth));
+}));
+$('profileLogout').addEventListener('click',async()=>{
+ const client=getClient();if(!client)return;
+ const {error}=await client.auth.signOut();
+ if(error){$('profileMessage').textContent='Odhlášení se nezdařilo: '+error.message;return;}
+ $('landingHome').classList.remove('has-panel');
+ $('landingHome').querySelectorAll(':scope > .panel').forEach(p=>p.classList.remove('active-panel'));
+ window.scrollTo(0,0);
+});
+$('profileOrganizer').addEventListener('click',()=>{
+ // Přístup k administraci zůstává řízen existujícím ověřením oprávnění pořadatele.
+ $('landingHome').hidden=true;$('legacyApp').hidden=false;window.scrollTo(0,0);
+});
+let checked=false;
+const restore=async()=>{
+ if(checked)return;
+ const client=getClient();if(!client)return;
+ checked=true;
+ const {data,error}=await client.auth.getUser();if(error||!data?.user)return;
+ const {data:details}=await client.from('profiles').select('display_name,role').eq('id',data.user.id).maybeSingle();
+ openProfile(data.user,details);
+};
+// Supabase se inicializuje v původním turnajovém skriptu.
+const poll=setInterval(()=>{if(checked){clearInterval(poll);return;}restore()},300);
+setTimeout(()=>clearInterval(poll),12000);
 })();
 </script>
 <script id="training-v2-tournament-counter">(()=>{
