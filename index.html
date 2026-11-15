@@ -9,7 +9,7 @@
 <link href="/manifest.webmanifest" rel="manifest"/>
 <link href="/icons/icon-192.png" rel="apple-touch-icon"/>
 <link href="/icons/icon-192.png" rel="icon" type="image/png"/>
-<title>NECHYBA GRAND PRIX</title>
+<title>501LIVE – THE HOME OF DARTS TOURNAMENTS</title>
 <!-- Doporučení: před ostrým nasazením připni přesnou verzi (např. @2.x.y) a přidej integrity (SRI) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -417,6 +417,29 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
   body.tablet-mode .tablet-score-card .tablet-card-score{font-size:clamp(46px,9dvh,75px)}
 }
 </style>
+<style id="501live-organizer-dashboard-v3">
+#adminPanel{max-width:1160px;margin:auto}
+#adminPanel .admin501-overview{border:1px solid #493036;background:linear-gradient(135deg,#252023,#151618 75%);border-radius:18px;padding:clamp(17px,2.5vw,26px);margin:8px 0 18px;box-shadow:0 12px 34px #0003}
+.admin501-overview-title{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.admin501-eyebrow{font-size:11px;letter-spacing:.14em;color:#fb7185;font-weight:900}
+#admin501TourName{margin:8px 0 0;font-size:clamp(24px,3.5vw,36px);color:#fff;line-height:1.15}
+.admin501-live-dot{color:#eec9cd;font-weight:800;font-size:12px;padding:9px 12px;border:1px solid #704047;border-radius:30px;background:#40272c}
+.admin501-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:21px 0 15px}
+.admin501-metrics>div{background:#101114;border:1px solid #363033;border-radius:12px;padding:15px 9px;text-align:center;display:flex;flex-direction:column;gap:5px}
+.admin501-metrics strong{font-size:clamp(22px,3.5vw,32px);color:#fff;font-variant-numeric:tabular-nums;line-height:1.2}
+.admin501-metrics small{font-size:12px;color:#b6b6bc}
+.admin501-next{margin:0 0 17px!important;color:#ddd!important;padding:12px 14px;background:#19191c;border-left:3px solid #e6384c;border-radius:6px;font-size:14px}
+.admin501-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.admin501-shortcuts button{min-height:55px;background:#26272c;color:#fff;border:1px solid #45454c;border-radius:11px;text-align:center;padding:9px;font-size:14px;font-weight:800;cursor:pointer}
+.admin501-shortcuts button:hover,.admin501-shortcuts button:focus-visible{border-color:#f04c5f;background:#342328;outline:2px solid transparent}
+#adminPanel .admin-section{scroll-margin-top:18px;border-radius:12px;border-color:#414148}
+#adminPanel .admin-section>summary{font-size:16px;min-height:58px;background:#1e1f22;color:#f1f1f2}
+#adminPanel .admin-section[open]>summary{color:#ff7080;border-bottom:1px solid #3e3e44}
+#adminPanel .admin-section>summary::after{content:'+';font-size:19px;margin-left:10px}
+#adminPanel .admin-section[open]>summary::after{content:'−'}
+#adminPanel .admin-section>.panel{border:0;border-radius:0;margin:0}
+@media(max-width:700px){.admin501-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.admin501-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.admin501-shortcuts button{font-size:13px;min-height:55px}}
+</style>
 </head><body><div id="landingHome">
 <main class="hero" aria-label="501LIVE – úvodní stránka">
   <div class="portal-kicker"><span class="portal-kicker-line"></span> THE HOME OF DARTS TOURNAMENTS <span class="portal-kicker-line"></span></div>
@@ -504,8 +527,8 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 </section>
 </div>
 <div hidden="" id="legacyApp"><header>
-<h1>NECHYBA GRAND PRIX</h1>
-<p>STEEL DARTS SERIES</p>
+<h1>501LIVE</h1>
+<p>THE HOME OF DARTS TOURNAMENTS</p>
 </header>
 <div class="hidden" id="tabletRoot">
 
@@ -564,12 +587,31 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <button class="action" id="loginBtn">Přihlásit se</button>
 </div>
 <div class="hidden" id="adminPanel">
+<div class="admin501-overview" id="admin501Overview" aria-label="Přehled turnaje pro pořadatele">
+  <div class="admin501-overview-title"><div><span class="admin501-eyebrow">501LIVE / POŘADATEL</span><h3 id="admin501TourName">Přehled turnaje</h3></div><span class="admin501-live-dot" id="admin501Status">Připraveno</span></div>
+  <div class="admin501-metrics">
+    <div><strong id="admin501Players">0</strong><small>Hráčů</small></div>
+    <div><strong id="admin501Boards">—</strong><small>Terčů</small></div>
+    <div><strong id="admin501Done">0 / 0</strong><small>Odehráno</small></div>
+    <div><strong id="admin501Active">0</strong><small>Právě hraje</small></div>
+  </div>
+  <p class="admin501-next" id="admin501Next">Vyber turnaj a připrav jeho startovní listinu.</p>
+  <div class="admin501-shortcuts" role="group" aria-label="Rychlé akce pořadatele">
+    <button type="button" data-admin501-open="admin501PlayersSection">👥 Hráči</button>
+    <button type="button" data-admin501-open="admin501StartSection">🎯 Startovní listina a los</button>
+    <button type="button" data-admin501-open="admin501BoardSection">🎯 Terče a výsledky</button>
+    <button type="button" data-admin501-open="admin501TabletSection">▦ QR počítadla</button>
+    <button type="button" data-admin501-open="admin501HistorySection">✎ Opravy výsledků</button>
+    <button type="button" data-admin501-open="admin501AdvancedSection">⚙ Další nastavení</button>
+  </div>
+</div>
+<details class="admin-section admin501-board-section" id="admin501BoardSection" open><summary>Aktuální zápasy a terče</summary>
 <div class="panel">
 <strong>Terče – zápis výsledků</strong>
 <p class="small">Zde můžeš spustit zápas na terči nebo zadat jeho výsledek ručně, pokud se nebude hrát přes tablet. Ruční výsledek zadávej u zápasu, který ještě nebyl spuštěn.</p>
 <div id="adminBoards"></div>
-</div>
-<details class="admin-section">
+</div></details>
+<details class="admin-section" id="admin501TabletSection">
 <summary>Tabletová počítadla</summary>
 <div class="panel">
 <strong>Otevření počítadel na jednotlivých terčích</strong>
@@ -592,7 +634,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 </div>
 </div>
 </details>
-<details class="admin-section">
+<details class="admin-section" id="admin501PlayersSection">
 <summary>Hráči</summary>
 <div class="panel">
 <strong>Správa hráčů a přihlášení do turnajů</strong>
@@ -602,7 +644,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <div id="adminPlayers"></div>
 </div>
 </details>
-<details class="admin-section">
+<details class="admin-section" id="admin501StartSection">
 <summary>Startovní listina a losování</summary>
 <div class="panel">
 <strong>Startovní listina turnaje</strong>
@@ -637,7 +679,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <div id="bracketSeedControl"></div>
 </div>
 </details>
-<details class="admin-section">
+<details class="admin-section" id="admin501AdvancedSection">
 <summary>Pořadí a body</summary>
 <div class="panel">
 <strong>Automatické pořadí a body</strong>
@@ -651,7 +693,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <div id="historicalPointsEditor"></div>
 </div>
 </details>
-<details class="admin-section">
+<details class="admin-section" id="admin501FinalSection">
 <summary>Finálová osmička</summary>
 <div class="panel">
 <strong>Finálová osmička</strong>
@@ -660,7 +702,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <button class="action" id="syncFinalistsBtn">Nastavit finálovou osmičku podle série</button>
 </div>
 </details>
-<details class="admin-section">
+<details class="admin-section" id="admin501HistorySection">
 <summary>Historie zápasů a opravy výsledků</summary>
 <div class="panel">
 <p class="small">Zde najdeš čekající zápasy pro ruční zadání výsledku bez tabletu a možnost opravit už uložené výsledky. Zápasy hrané přes tablet se zapisují automaticky.</p>
@@ -678,7 +720,7 @@ body.tablet-mode .tablet-score-card .tablet-player-stats strong{color:#fff;font-
 <span>Sleduj nás na Instagramu</span>
 </a>
 </div>
-<footer>NECHYBA GRAND PRIX · NOVÁ VČELNICE</footer></div>
+<footer>501LIVE · THE HOME OF DARTS TOURNAMENTS</footer></div>
 <script>
 const SUPABASE_URL = "https://xripncjhmguohzbtenof.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Vhef4LmGjv7UO7uXCYmZAg_0w3JPY2T";
@@ -1581,6 +1623,39 @@ function renderRoundRobinTable(es,ms){
   <h3>Rozpis zápasů a výsledky</h3>${rounds.map(round=>`<h4>${round}. kolo</h4><div class="table-wrap"><table><thead><tr><th>Hráč 1</th><th>Výsledek</th><th>Hráč 2</th><th>Stav</th></tr></thead><tbody>${games.filter(m=>(Number(m.round_no)||1)===round).sort((a,b)=>(Number(a.match_no)||0)-(Number(b.match_no)||0)).map(m=>`<tr><td>${esc(playerName(m.player1_entry_id))}</td><td><strong>${m.status==='finished'?`${m.legs1}:${m.legs2}`:'– : –'}</strong></td><td>${esc(playerName(m.player2_entry_id))}</td><td>${m.status==='finished'?'Odehráno':m.status==='live'?'Právě se hraje':'Čeká'}</td></tr>`).join('')}</tbody></table></div>`).join('')}
   <p class="small">Výsledky se zapisují přes počítadlo na terči nebo ručně v administraci v sekci Terče. Tabulka se aktualizuje z uložených zápasů.</p>`;
 }
+function renderAdmin501Overview(){
+  const root=document.getElementById('admin501Overview');
+  if(!root || !isAdmin)return;
+  const t=tournaments.find(x=>x.id===selectedTournament);
+  const es=tournamentEntries();
+  const ms=tournamentMatches();
+  const complete=ms.filter(m=>m.status==='finished').length;
+  const live=ms.filter(m=>m.status==='live').length;
+  const boards=Number(t?.board_count||t?.boards_count||t?.boards||0);
+  const set=(id,value)=>{const node=document.getElementById(id);if(node)node.textContent=String(value)};
+  set('admin501TourName',t?.name||'Vyber turnaj');
+  set('admin501Players',new Set(es.map(e=>e.player_id)).size);
+  set('admin501Boards',boards>0?boards:'—');
+  set('admin501Done',`${complete} / ${ms.length}`);
+  set('admin501Active',live);
+  set('admin501Status',live?'Právě se hraje':ms.length&&complete===ms.length?'Dokončeno':'Příprava / čeká');
+  let next='Nejdříve vyber turnaj.';
+  if(t && es.length<2)next='Začni přidáním hráčů na startovní listinu.';
+  else if(t && !ms.length)next='Hráči jsou připraveni. Další krok: rozlosovat turnaj.';
+  else if(live)next='Turnaj právě probíhá. Sleduj terče a přidělování zapisovatelů.';
+  else if(ms.length&&complete===ms.length)next='Všechny zápasy jsou dokončené. Zkontroluj výsledky a statistiky.';
+  else if(ms.length)next='Zápasy jsou rozlosované. Otevři terče a spusť další hru.';
+  set('admin501Next',next);
+}
+document.getElementById('admin501Overview')?.addEventListener('click',event=>{
+  const button=event.target.closest('[data-admin501-open]');
+  if(!button)return;
+  const section=document.getElementById(button.dataset.admin501Open);
+  if(!section)return;
+  section.open=true;
+  section.scrollIntoView({behavior:'smooth',block:'start'});
+});
+
 function renderAll(){
   const es=tournamentEntries();
   const ms=tournamentMatches();
@@ -1602,6 +1677,7 @@ function renderAll(){
   renderPlayerStats();
   renderAutomaticPlacementsStatus();
   renderLive();
+  if(isAdmin)renderAdmin501Overview();
   if(isAdmin){
     setFormHTML($("adminPlayers"),players.map(p=>{
       const playerEntries=entries.filter(e=>e.player_id===p.id);
@@ -3725,6 +3801,154 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
  });
  observer.observe(byId('competitionFeedback'),{childList:true,characterData:true,subtree:true});
  show(0);
+})();
+</script>
+<style id="501live-platform-owner-css">
+#owner501Button[hidden],#owner501Panel[hidden]{display:none!important}
+#owner501Button{border-color:#bb3649!important;color:#fff!important;background:linear-gradient(135deg,#652635,#2e1c22)!important}
+#owner501Panel{color:#f4f4f6;width:100%;margin:auto}
+.owner501-top{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;margin:10px 0 22px}
+.owner501-top h2{color:#fff;font-size:clamp(24px,5vw,34px);margin:4px 0 5px}.owner501-top p{color:#b8b8bd;margin:0}
+.owner501-top .owner501-small{font-size:12px;color:#ff7689;letter-spacing:.13em;font-weight:900}
+.owner501-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-bottom:20px}
+.owner501-tiles article{border:1px solid #414047;border-radius:13px;background:#18191c;padding:17px 13px;min-width:0}
+.owner501-tiles strong{display:block;font-size:clamp(22px,4vw,34px);color:#fff;font-variant-numeric:tabular-nums;line-height:1.2}
+.owner501-tiles span{display:block;font-size:12px;color:#bfc0c8;margin-top:7px}
+.owner501-content{border:1px solid #414047;border-radius:14px;background:#17181b;padding:clamp(14px,2.5vw,22px);margin:15px 0}
+.owner501-content h3{margin:0 0 12px;font-size:20px;color:#fff}
+.owner501-chart{display:flex;gap:7px;align-items:flex-end;min-height:128px;padding:12px 0 0;border-bottom:1px solid #52525a}
+.owner501-bar{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:4px}
+.owner501-bar-fill{background:linear-gradient(180deg,#f24c61,#922534);border-radius:5px 5px 0 0;width:100%;min-height:2px}
+.owner501-bar small{font-size:10px;color:#bbb;white-space:nowrap}
+.owner501-tournaments{display:grid;gap:8px}
+.owner501-tournament{border:1px solid #34363a;background:#1f2024;border-radius:10px;padding:12px;display:flex;gap:14px;align-items:center;justify-content:space-between;min-width:0}
+.owner501-tournament>div{min-width:0}.owner501-tournament strong{display:block;color:#fff;overflow-wrap:anywhere}.owner501-tournament small{color:#b8b8bd;font-size:12px;display:block;margin-top:5px}
+.owner501-tournament a{color:#ff8996;font-size:13px;font-weight:800;white-space:nowrap}
+.owner501-hint{color:#b4b4bb;font-size:12px;line-height:1.5}
+.owner501-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.owner501-actions button{min-height:42px}
+@media(max-width:560px){.owner501-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.owner501-chart{gap:4px}.owner501-tournament{flex-wrap:wrap}}
+</style>
+<script id="501live-platform-owner-controller">
+(()=>{
+ const byId=id=>document.getElementById(id);
+ const profile=byId('profilePanel');
+ const actions=profile?.querySelector('.dashboard-actions');
+ if(!profile||!actions)return;
+ const trigger=document.createElement('button');
+ trigger.id='owner501Button';trigger.type='button';trigger.hidden=true;
+ trigger.innerHTML='<span class="dashboard-icon" aria-hidden="true">▤</span>SPRÁVA 501LIVE';
+ actions.appendChild(trigger);
+ const area=document.createElement('div');area.id='owner501Panel';area.hidden=true;
+ area.innerHTML=`<div class="owner501-top"><div><span class="owner501-small">POUZE MAJITEL PLATFORMY</span><h2>Přehled 501LIVE</h2><p>Registrace, turnaje a návštěvnost na jednom místě</p></div><div class="owner501-actions"><button id="owner501Refresh" type="button" class="secondary">↻ Obnovit statistiky</button><button id="owner501Back" type="button" class="secondary">← Zpět na můj účet</button></div></div>
+ <div id="owner501Message" role="status" aria-live="polite" class="owner501-hint"></div>
+ <div class="owner501-tiles">
+   <article><strong id="owner501Accounts">—</strong><span>Registrované účty</span></article>
+   <article><strong id="owner501Players">—</strong><span>Evidovaní hráči</span></article>
+   <article><strong id="owner501Tournaments">—</strong><span>Všechny turnaje</span></article>
+   <article><strong id="owner501Matches">—</strong><span>Odehrané zápasy</span></article>
+   <article><strong id="owner501Visits">—</strong><span>Návštěvy celkem</span></article>
+   <article><strong id="owner501Today">—</strong><span>Návštěvy dnes</span></article>
+ </div>
+ <section class="owner501-content"><h3>Návštěvnost za 14 dní</h3><div class="owner501-chart" id="owner501Chart" aria-label="Návštěvnost za posledních 14 dní"></div><p class="owner501-hint" id="owner501TrafficNote">Návštěva znamená jednu relaci prohlížeče, nikoli jedinečného člověka. Měří se až od nasazení.</p></section>
+ <section class="owner501-content"><h3>Všechny založené turnaje</h3><div class="owner501-tournaments" id="owner501TourList"></div><div class="owner501-actions" style="margin-top:14px"><button type="button" class="secondary" id="owner501More" hidden>Načíst další turnaje</button></div></section>`;
+ profile.appendChild(area);
+ let offset=0,loaded=false,busy=false;
+ const format=value=>Number(value||0).toLocaleString('cs-CZ');
+ const getDb=()=>window.db||(typeof db!=='undefined'?db:null);
+ const status=msg=>{byId('owner501Message').textContent=msg};
+ function displayOverview(d){
+   const fields={owner501Accounts:'registered_accounts',owner501Players:'player_records',owner501Tournaments:'tournaments_total',owner501Matches:'finished_matches',owner501Visits:'visits_total',owner501Today:'visits_today'};
+   Object.entries(fields).forEach(([id,key])=>byId(id).textContent=format(d[key]));
+   const days=Array.isArray(d.recent_days)?d.recent_days:[];
+   const chart=byId('owner501Chart');chart.replaceChildren();
+   const max=Math.max(1,...days.map(day=>Number(day.visits)||0));
+   for(const day of days){
+     const item=document.createElement('div');item.className='owner501-bar';
+     const bar=document.createElement('div');bar.className='owner501-bar-fill';bar.style.height=(Math.max(2,Math.round((Number(day.visits)||0)/max*96)))+'px';
+     bar.title=`${day.day}: ${format(day.visits)} návštěv`;
+     const label=document.createElement('small');label.textContent=String(day.day||'').slice(8,10)+'.';
+     item.append(bar,label);chart.append(item);
+   }
+ }
+ async function loadTournaments(reset=false){
+   const client=getDb();if(!client)return;
+   if(reset){offset=0;byId('owner501TourList').replaceChildren();}
+   const {data,error}=await client.rpc('get_501live_owner_tournaments',{p_limit:40,p_offset:offset});
+   if(error)throw error;
+   const list=byId('owner501TourList'),items=Array.isArray(data)?data:[];
+   if(reset&&!items.length)list.textContent='Zatím nejsou založené žádné turnaje.';
+   for(const t of items){
+     const row=document.createElement('div');row.className='owner501-tournament';
+     const info=document.createElement('div');const name=document.createElement('strong');name.textContent=t.name||'Turnaj';
+     const detail=document.createElement('small');
+     const date=t.event_date?new Date(t.event_date+'T12:00:00').toLocaleDateString('cs-CZ'):'Bez data';
+     detail.textContent=`${date} · ${t.status||'—'} · ${format(t.players_count)} hráčů · ${format(t.matches_count)} zápasů`;
+     info.append(name,detail);
+     const link=document.createElement('a');link.href='/?turnaj='+encodeURIComponent(t.id);link.textContent='Otevřít';
+     row.append(info,link);list.append(row);
+   }
+   offset+=items.length;
+   byId('owner501More').hidden=items.length<40;
+ }
+ async function refresh(){
+   if(busy)return;busy=true;status('Načítám statistiky…');
+   byId('owner501Refresh').disabled=true;byId('owner501More').disabled=true;
+   try{
+     const {data,error}=await getDb().rpc('get_501live_owner_overview');
+     if(error)throw error;
+     displayOverview(data||{});
+     await loadTournaments(true);
+     loaded=true;status('Aktualizováno '+new Date().toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}));
+   }catch(error){status('Statistiky se nepodařilo načíst: '+(error?.message||error));}
+   finally{busy=false;byId('owner501Refresh').disabled=false;byId('owner501More').disabled=false;}
+ }
+ trigger.onclick=()=>{
+   byId('profileDashboard').hidden=true;byId('profileMe').hidden=true;byId('profileStatistics').hidden=true;
+   const owned=byId('ownedCompetitions');if(owned)owned.hidden=true;
+   area.hidden=false;window.scrollTo(0,0);
+   if(!loaded)refresh();
+ };
+ byId('owner501Back').onclick=()=>{area.hidden=true;byId('profileDashboard').hidden=false;window.scrollTo(0,0)};
+ byId('owner501Refresh').onclick=refresh;
+ byId('owner501More').onclick=async()=>{
+   if(busy)return;busy=true;byId('owner501More').disabled=true;
+   try{await loadTournaments(false)}catch(error){status('Další turnaje se nepodařilo načíst: '+(error?.message||error))}
+   finally{busy=false;byId('owner501More').disabled=false;}
+ };
+ const previousReturn=window._501liveReturnDashboard;
+ window._501liveReturnDashboard=()=>{area.hidden=true;if(typeof previousReturn==='function')previousReturn();};
+ async function checkOwner(){
+   const client=getDb();if(!client)return false;
+   const {data:{user}={},error:authError}=await client.auth.getUser();
+   const matches=!!user&&String(user.email||'').trim().toLowerCase()==='brus.t@seznam.cz';
+   // Toto je jen viditelnost tlačítka; skutečný přístup hlídá RLS/SECURITY DEFINER v Supabase.
+   trigger.hidden=!matches;
+   if(!matches){area.hidden=true;loaded=false;return true;}
+   // Přístup do přehledu není důvěryhodný bez úspěšné odpovědi chráněného RPC.
+   if(!authError){const {error}=await client.rpc('get_501live_owner_overview');if(error){trigger.hidden=true;return true;}}
+   return true;
+ }
+ window.addEventListener('501live-login-success',()=>{loaded=false;checkOwner()});
+ let bootTries=0;const boot=setInterval(()=>{
+   if(!getDb()&&bootTries++<40)return;
+   clearInterval(boot);if(getDb())checkOwner();
+ },350);
+ // Traffic without storing e-mail, IP address, or a persistent visitor ID.
+ let trafficStarted=false;
+ const recordTraffic=async()=>{
+   if(trafficStarted||!getDb())return false;
+   const client=getDb();
+   let isFirst=true;
+   try{isFirst=sessionStorage.getItem('501live-traffic-counted-v1')!=='1'}catch(_){/* private mode */}
+   const {error}=await client.rpc('record_501live_traffic',{p_first_in_session:isFirst});
+   if(!error){trafficStarted=true;try{sessionStorage.setItem('501live-traffic-counted-v1','1')}catch(_){}}
+   return !error;
+ };
+ let trackerTries=0;const tracker=setInterval(()=>{
+   if(trackerTries++>=30){clearInterval(tracker);return;}
+   recordTraffic().then(ok=>{if(ok)clearInterval(tracker)}).catch(()=>{});
+ },900);
 })();
 </script>
 </body></html>
