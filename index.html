@@ -1354,6 +1354,8 @@ function renderAll(){
   const knockout=ms.filter(m=>m.stage==="playoff"||m.stage==="knockout"||
     String(m.group_name||"").startsWith("KO:")||String(m.group_name||"").startsWith("DE:"))
     .sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
+  const bracketInfo=$("bracketInfo");
+  if(bracketInfo)bracketInfo.textContent=knockout.length?`${knockout.length} zápasů v pavouku`:'Pro vybraný turnaj zatím nejsou načtené zápasy pavouka.';
   try {
     $("bracketContent").innerHTML=knockout.length?renderBracketMatches(knockout):(es.length>16?"Oboustranný pavouk bude vytvořen po spuštění turnaje v administraci.":"Pavouk bude vytvořen po dokončení skupin.");
   } catch (bracketError) {
@@ -1705,7 +1707,7 @@ async function loadData(){
   playerById=new Map(players.map(x=>[x.id,x]));
   const options=sortTournaments(tournaments).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
   if(!selectedTournament||!tournaments.some(x=>x.id===selectedTournament))selectedTournament=pickDefaultTournament();
-  ["tournamentSelect","liveTournamentSelect"].forEach(id=>{
+  ["tournamentSelect","liveTournamentSelect","bracketTournamentSelect"].forEach(id=>{
     const sel=$(id);
     sel.innerHTML=options;
     sel.value=selectedTournament;
@@ -1719,10 +1721,17 @@ async function loadData(){
   updateConnectionStatus();
 }
 $("tournamentSelect").addEventListener("change",e=>{
-  selectedTournament=e.target.value;$("liveTournamentSelect").value=selectedTournament;renderAll();
+  selectedTournament=e.target.value;$("liveTournamentSelect").value=selectedTournament;$("bracketTournamentSelect").value=selectedTournament;renderAll();
 });
 $("liveTournamentSelect").addEventListener("change",e=>{
-  selectedTournament=e.target.value;$("tournamentSelect").value=selectedTournament;renderAll();
+  selectedTournament=e.target.value;$("tournamentSelect").value=selectedTournament;$("bracketTournamentSelect").value=selectedTournament;renderAll();
+});
+$("bracketTournamentSelect").addEventListener("change",e=>{
+  selectedTournament=e.target.value;
+  $("tournamentSelect").value=selectedTournament;
+  $("liveTournamentSelect").value=selectedTournament;
+  $("bracketTournamentSelect").value=selectedTournament;
+  renderAll();
 });
 $("entryTournament").addEventListener("change",e=>{
   selectedTournament=e.target.value;
