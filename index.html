@@ -319,17 +319,16 @@ body.organizer-view #legacyApp>button.secondary{display:none!important}
 <label>Název soutěže<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open"></label>
 <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
 <div id="competitionSeriesFields" hidden>
-<label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5"></label>
+<label>Počet večerů / kol série<input id="competitionRounds" type="number" min="2" max="30" value="5"></label>
 <div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
 </div>
 <div class="competition-pair">
 <label>Počet terčů<input id="competitionBoards" type="number" min="1" max="64" value="2" required></label>
 <label>Hra<select id="competitionGame"><option value="501">501 Double Out</option><option value="301">301 Double Out</option></select></label>
 </div>
-<label>Herní systém (pro samostatný turnaj nebo výchozí nastavení)<select id="competitionFormat"><option value="groups">Skupiny + play-off</option><option value="single_ko">Single KO</option><option value="double_ko" selected>Double KO</option><option value="round_robin">Každý s každým</option></select></label>
+<label id="competitionFormatLabel">Herní systém<select id="competitionFormat"><option value="groups">Skupiny + play-off</option><option value="single_ko">Single KO</option><option value="double_ko" selected>Double KO</option><option value="round_robin">Každý s každým</option></select></label>
 <label>Počet vítězných legů<input id="competitionLegs" type="number" min="1" max="21" value="2" required></label>
-<div id="competitionEveningsWrap" hidden><h4>Herní systém jednotlivých večerů</h4><p class="hint">Každý večer může mít jiný formát. Počet hráčů doplní až startovní listina.</p><div id="competitionEvenings"></div></div>
-<div id="competitionScoringWrap" hidden><h4>Vlastní bodování série</h4><p class="hint">Zadej body za jednotlivá umístění. Pořadí bez zadaných bodů získá 0.</p><div id="competitionScoring"></div><button type="button" id="competitionAddPlace" class="primary">+ PŘIDAT UMÍSTĚNÍ</button></div>
+<p id="competitionSeriesInfo" class="hint" hidden>Herní systém každého večera nastavíš až v administraci před rozlosováním, podle aktuální startovní listiny. Bodování série se vypočítá automaticky podle pravidel NECHYBA GRAND PRIX (60 / 30 / 10).</p>
 <p id="competitionFeedback" role="status" class="hint"></p>
 <button type="submit" class="primary">ULOŽIT ROZPRACOVANÉ NASTAVENÍ</button>
 <p class="hint">Nastavení se v této verzi ukládá jako návrh do tohoto prohlížeče. Založení soutěže v Supabase a spuštění registrace hráčů doplníme po přípravě databáze.</p>
@@ -1461,6 +1460,38 @@ function pointsForFinalPlace(place,totalPlayers){
   const placeLevel=Math.ceil(Math.log2(position));
   return Math.max(1,rounds+1-placeLevel);
 }
+// Bodování série podle skutečné fáze vyřazení, nikoli podle pořadí v tabulce.
+function pointsForElimination(entryId, eventEntries, eventMatches, finalPlace){
+  const playoff=eventMatches.filter(m=>m.stage==="playoff"&&m.status==="finished"&&m.winner_entry_id);
+  const double=playoff.some(m=>String(m.group_name||"").startsWith("DE:"));
+  if(double){
+    const finals=playoff.filter(m=>String(m.group_name||"").startsWith("DE:GF:"))
+      .sort((a,b)=>(Number(a.round_no)||0)-(Number(b.round_no)||0));
+    const lb=playoff.filter(m=>String(m.group_name||"").startsWith("DE:LB:"));
+    const phases=[...new Set(lb.map(m=>Number(m.round_no)||0))].sort((a,b)=>a-b);
+    const lastFinal=finals[finals.length-1];
+    if(!lastFinal)return null;
+    if(entryId===lastFinal.winner_entry_id)return phases.length+2;
+    if(entryId===matchLoser(lastFinal))return phases.length+1;
+    const eliminated=lb.filter(m=>m.player1_entry_id!==m.player2_entry_id&&matchLoser(m)===entryId)
+      .sort((a,b)=>(Number(b.round_no)||0)-(Number(a.round_no)||0));
+    if(!eliminated.length)return null;
+    return phases.indexOf(Number(eliminated[0].round_no)||0)+1;
+  }
+  const groupGames=eventMatches.some(m=>m.stage==="group");
+  const played=playoff.filter(m=>m.player1_entry_id!==m.player2_entry_id);
+  if(groupGames&&!played.some(m=>m.player1_entry_id===entryId||m.player2_entry_id===entryId))return 1;
+  if(played.length){
+    const phases=[...new Set(played.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
+    const final=played.filter(m=>(Number(m.round_no)||1)===phases[phases.length-1])[0];
+    if(final&&final.winner_entry_id===entryId)return phases.length+(groupGames?2:1);
+    const loss=played.filter(m=>matchLoser(m)===entryId).sort((a,b)=>(Number(b.round_no)||0)-(Number(a.round_no)||0))[0];
+    if(loss)return phases.indexOf(Number(loss.round_no)||1)+1+(groupGames?1:0);
+  }
+  // Samostatné pořadí bez pavouka (každý s každým): poslední 1 bod.
+  if(!played.length&&finalPlace!=null)return Math.max(1,eventEntries.length-Number(finalPlace)+1);
+  return null;
+}
 function calculateFinalPlacements(tournamentId, eventEntries, eventMatches){
   const bracket=eventMatches.filter(m=>m.stage==="playoff");
   if(!bracket.length||!bracket.every(m=>m.status==="finished"&&m.winner_entry_id))return null;
@@ -1520,7 +1551,8 @@ async function saveAutomaticPlacements(tournamentId,freshMatches){
   const jobs=[];
   for(const item of placements){
     const entry=eventEntries.find(e=>e.id===item.entryId);
-    const points=isQualifier?pointsForFinalPlace(item.place,eventEntries.length):null;
+    const points=isQualifier?pointsForElimination(item.entryId,eventEntries,eventMatches,item.place):null;
+    if(isQualifier&&points===null)return false;
     if(Number(entry?.final_place)===item.place&&(isQualifier?Number(entry?.series_points)===points:true))continue;
     const update={final_place:item.place};
     if(isQualifier)update.series_points=points;
@@ -2574,7 +2606,7 @@ body{max-width:100%;overflow-x:hidden}
 }
 </style>
 <style id="501live-competition-style">
-#competitionSeriesFields[hidden],#competitionFinalFields[hidden],#competitionEveningsWrap[hidden],#competitionScoringWrap[hidden]{display:none!important}
+#competitionSeriesFields[hidden],#competitionFinalFields[hidden],#competitionFormatLabel[hidden],#competitionSeriesInfo[hidden]{display:none!important}
 #newCompetitionForm{display:grid;gap:16px;width:min(100%,760px);margin:auto}
 #newCompetitionForm label{display:grid;gap:7px;font-weight:600;font-size:15px}
 #newCompetitionForm input,#newCompetitionForm select{display:block;width:100%;min-width:0;min-height:46px;background:#171717;color:#fff;border:1px solid #555;border-radius:8px;padding:10px;font:inherit}
@@ -2598,26 +2630,10 @@ body{max-width:100%;overflow-x:hidden}
    const isSeries=type!=='single';
    el('competitionSeriesFields').hidden=!isSeries;
    el('competitionFinalFields').hidden=type!=='final';
-   el('competitionEveningsWrap').hidden=!isSeries;
-   el('competitionScoringWrap').hidden=!isSeries;
-   const box=el('competitionEvenings');
-   const existing=[...box.querySelectorAll('select')].map(x=>x.value);
-   box.replaceChildren();
-   if(!isSeries)return;
-   const count=Math.max(2,Math.min(30,Number(el('competitionRounds').value)||2));
-   for(let i=0;i<count;i++){
-     const row=document.createElement('div');row.className='competition-evening';
-     const label=document.createElement('label');label.textContent=`${i+1}. večer`;
-     const select=makeSelect(saved?.[i]||existing[i]||el('competitionFormat').value);
-     select.setAttribute('aria-label',`Herní systém ${i+1}. večera`);
-     row.append(label,select);box.append(row);
-   }
-   if(type==='final'){
-     const row=document.createElement('div');row.className='competition-evening';
-     const label=document.createElement('label');label.textContent='Závěrečné finále';
-     const select=makeSelect(saved?.[count]||existing[count]||'groups');
-     row.append(label,select);box.append(row);
-   }
+   el('competitionFormatLabel').hidden=isSeries;
+   el('competitionSeriesInfo').hidden=!isSeries;
+   // Herní formát jednotlivých večerů se určuje až v administraci.
+
  }
  function addPlace(value=''){
    const box=el('competitionScoring');const n=box.children.length+1;
@@ -2629,8 +2645,7 @@ body{max-width:100%;overflow-x:hidden}
  }
  el('competitionType').addEventListener('change',()=>renderEvenings());
  el('competitionRounds').addEventListener('input',()=>renderEvenings());
- el('competitionAddPlace').onclick=()=>addPlace();
- for(let i=0;i<8;i++)addPlace();
+
  try{
    const draft=JSON.parse(localStorage.getItem('501live_competition_draft')||'null');
    if(draft){
@@ -2642,9 +2657,7 @@ body{max-width:100%;overflow-x:hidden}
      el('competitionGame').value=draft.game||501;
      el('competitionFormat').value=draft.format||'double_ko';
      el('competitionLegs').value=draft.legs||2;
-     el('competitionScoring').replaceChildren();
-     for(const points of draft.points?.length?draft.points:Array(8).fill(''))addPlace(points);
-     renderEvenings(draft.evenings);
+     renderEvenings();
    }else renderEvenings();
  }catch(e){renderEvenings()}
  form.addEventListener('submit',e=>{
@@ -2657,8 +2670,7 @@ body{max-width:100%;overflow-x:hidden}
      finalists:type==='final'?Number(el('competitionFinalists').value):null,
      boards:Number(el('competitionBoards').value),game:Number(el('competitionGame').value),
      format:el('competitionFormat').value,legs:Number(el('competitionLegs').value),
-     evenings:type==='single'?[]:[...el('competitionEvenings').querySelectorAll('select')].map(x=>x.value),
-     points:type==='single'?[]:[...el('competitionScoring').querySelectorAll('input')].map(x=>x.value===''?0:Number(x.value))
+     evenings:[],points:[],scoring_method:type==='single'?null:'nechyba_60_30_10'
    };
    if(!draft.name){el('competitionFeedback').textContent='Vyplň název soutěže.';return}
    try{localStorage.setItem('501live_competition_draft',JSON.stringify(draft));el('competitionFeedback').textContent='Nastavení bylo uloženo jako návrh v tomto prohlížeči. Turnaj zatím není zveřejněný.'}
