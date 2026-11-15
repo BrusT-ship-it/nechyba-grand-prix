@@ -1174,8 +1174,11 @@ function orderGroupStandings(rows, groupMatches){
   }
   return sorted;
 }
+const creatingGroupTiebreaks = new Set();
 async function ensureGroupTiebreaks(groupName, members, groupMatches){
   if(!isAdmin)return;
+  const creationKey = `${selectedTournament}:${groupName}`;
+  if(creatingGroupTiebreaks.has(creationKey))return;
   const regular=groupMatches.filter(m=>m.stage==="group");
   if(!regular.length||!regular.every(m=>m.status==="finished"))return;
   const allTies=groupMatches.filter(m=>m.stage==="tiebreak");
@@ -1209,18 +1212,36 @@ async function ensureGroupTiebreaks(groupName, members, groupMatches){
     i=j;
   }
   if(!tiedBlocks.length)return;
-  const round=Math.max(0,...allTies.map(m=>Number(m.round_no)||0))+1;
-  const next=[];let matchNo=Math.max(0,...groupMatches.map(m=>Number(m.match_no)||0));
-  tiedBlocks.forEach(ids=>{
-    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
-      next.push({tournament_id:selectedTournament,stage:"tiebreak",group_name:groupName,round_no:round,match_no:++matchNo,board_no:null,player1_entry_id:ids[i],player2_entry_id:ids[j],legs1:0,legs2:0,target_legs:1,status:"waiting"});
+  // match_no je jedinečné v rámci turnaje, nikoli pouze uvnitř skupiny.
+  // Počty pro skupinu A a B se proto nesmějí překrývat.
+  creatingGroupTiebreaks.add(creationKey);
+  try {
+    for(let attempt=0;attempt<2;attempt++){
+      const {data:current,error:readError}=await db.from("matches")
+        .select("id,stage,group_name,round_no,match_no,status")
+        .eq("tournament_id",selectedTournament);
+      if(readError){notify("Rozhodovací zápasy: chyba načtení: "+readError.message);return;}
+      const all=current||[];
+      const existing=all.filter(m=>m.stage==="tiebreak"&&m.group_name===groupName);
+      if(existing.some(m=>m.status!=="finished"))return;
+      // Nepřidávat další várku, pokud se už některý rozhodovací zápas vytvořil.
+      // Druhé kolo lze případně spustit samostatným vědomým krokem.
+      if(existing.length)return;
+      let matchNo=Math.max(0,...all.map(m=>Number(m.match_no)||0));
+      const round=1;
+      const next=[];
+      tiedBlocks.forEach(ids=>{
+        for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
+          next.push({tournament_id:selectedTournament,stage:"tiebreak",group_name:groupName,round_no:round,match_no:++matchNo,board_no:null,player1_entry_id:ids[i],player2_entry_id:ids[j],legs1:0,legs2:0,target_legs:1,status:"waiting"});
+        }
+      });
+      if(!next.length)return;
+      const {error}=await db.from("matches").insert(next);
+      if(!error){await loadData();notify(`Ve skupině ${groupName} byly vytvořeny rozhodovací zápasy na jeden leg.`);return;}
+      if(error.code!=="23505"||attempt===1){notify("Rozhodovací zápasy se nepodařilo vytvořit: "+error.message);return;}
+      // Jiné zařízení mezitím mohlo založit zápas se stejným číslem: zkusit znovu.
     }
-  });
-  if(!next.length)return;
-  const {error}=await db.from("matches").insert(next);
-  if(error){notify("Rozhodovací zápasy se nepodařilo vytvořit: "+error.message);return;}
-  await loadData();
-  notify(`Ve skupině ${groupName} byly vytvořeny rozhodovací zápasy na jeden leg.`);
+  } finally {creatingGroupTiebreaks.delete(creationKey);}
 }
 function renderGroups(){
   const es=tournamentEntries();
