@@ -6305,7 +6305,7 @@ mountSearch();
   for(const id of ['drawGroupsBtn','drawSingleKoBtn','drawDoubleKoBtn','drawRoundRobinBtn']){
     $(id)?.addEventListener('click',e=>{
       if(confirmedPairsMode&&activeTournament===tournament.value){
-        e.preventDefault();e.stopImmediatePropagation();message('Turnaj je založený pro dvojice. Losování 2 proti 2 bude doplněno v další etapě; nyní jej nespouštěj jako jednotlivce.',true);
+        e.preventDefault();e.stopImmediatePropagation();message('Pro dvojice použij červené tlačítko ROZLOSOVAT DVOJICE – KO v sekci Sestavení týmů.',true);
       }
     },true);
   }
@@ -6313,6 +6313,17 @@ mountSearch();
 })();
 </script>
 
+
+<style id="darturnio-pairs-ko-buttons-fix">
+/* Only the draw controls, never the tournament scoring or public views. */
+body.darturnio-pairs-selected #formatDrawButtons,
+body.darturnio-pairs-selected #cancelDrawBtn,
+body.darturnio-pairs-selected #redrawGroupsBtn,
+body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
+#darturnioPairKnockout{scroll-margin-top:16px}
+#darturnioDrawPairKo{width:100%;min-height:54px;font-size:16px}
+#darturnioPairKoFeedback{min-height:18px}
+</style>
 <style id="darturnio-pair-ko-v2-style">
 #darturnioPairKnockout{margin-top:18px;border-top:1px solid #555;padding-top:16px}
 #darturnioPairKnockout .pair-ko-round{margin:15px 0}
@@ -6335,6 +6346,8 @@ mountSearch();
  function node(tag,klass,txt){const el=document.createElement(tag);if(klass)el.className=klass;if(txt!==undefined)el.textContent=txt;return el}
  async function render(){
   const request=++sequence,tid=tidField.value;lastTournament=tid;out.replaceChildren();drawn=false;draw.disabled=true;
+  document.body.classList.remove('darturnio-pairs-selected');
+  root.hidden=true;
   if(!tid)return;
   const db=client();if(!db){say('Databáze není připojena.',true);return}
   const [mode,pairs,matches,players]=await Promise.all([
@@ -6345,6 +6358,8 @@ mountSearch();
   ]);
   if(request!==sequence||tidField.value!==tid)return;
   if(mode.error||mode.data?.participant_mode!=='pairs')return;
+  document.body.classList.add('darturnio-pairs-selected');
+  root.hidden=false;
   if(matches.error){say('Nejdřív spusť SQL pro KO dvojic. '+matches.error.message,true);return}
   if(pairs.error){say(pairs.error.message,true);return}
   const playerMap=new Map((players.data||[]).map(p=>[p.id,p.name]));
