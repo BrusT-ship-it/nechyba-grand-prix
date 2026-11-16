@@ -654,6 +654,7 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
 }
 </style>
 <style id="darturnio-pairs-stage-one-style">
+#darturnioPairsPanel[hidden]{display:none!important}
 #darturnioPairsPanel{margin:16px 0;padding:16px;border:1px solid #484044;border-left:3px solid #E11D1D;border-radius:12px;background:#19191d}
 #darturnioPairsPanel h3{margin:0 0 10px;font-size:18px}
 #darturnioPairsPanel .darturnio-pairs-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
@@ -728,6 +729,8 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
       <p class="comp-step-desc">Vyber název a typ soutěže. Jednorázový turnaj nastavíš nejrychleji.</p>
       <label>Název turnaje nebo série<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open" autocomplete="off"></label>
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
+      <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2) – příprava týmů</option></select></label>
+      <p id="competitionPairsNote" class="small" hidden>V této etapě lze dvojice sestavovat v administraci. Losování a počítadla pro dvojice zatím nejsou aktivní.</p>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
         <div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
@@ -1019,7 +1022,7 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
   <p id="playerQrFeedback" role="status" aria-live="polite" class="small"></p>
   <button class="secondary" id="playerQrClose" type="button">ZAVŘÍT</button>
 </div>
-<div class="darturnio-pairs-panel" id="darturnioPairsPanel">
+<div class="darturnio-pairs-panel" id="darturnioPairsPanel" hidden>
   <h3>Turnaj dvojic – sestavení týmů</h3>
   <p class="small">Příprava turnaje 2 proti 2: vyber dva různé hráče. Každý hráč může být v daném turnaji jen v jedné dvojici. Rozlosování a počítadla dvojic doplníme v další etapě.</p>
   <div class="darturnio-pairs-fields">
@@ -4130,6 +4133,9 @@ body{max-width:100%;overflow-x:hidden}
    }
  }
  $('competitionType').addEventListener('change',render);$('competitionRounds').addEventListener('change',render);
+ const participantSelect=$('competitionParticipantMode');
+ function modeInfo(){ $('competitionPairsNote').hidden=participantSelect.value!=='pairs'; }
+ participantSelect.addEventListener('change',modeInfo);modeInfo();
  render();
  const button=form.querySelector('button[type=submit]');button.textContent='VYTVOŘIT TURNAJ';
  form.addEventListener('submit',async e=>{
@@ -4139,6 +4145,7 @@ body{max-width:100%;overflow-x:hidden}
    const {data:{user},error:authError}=await db.auth.getUser();
    if(authError||!user){msg.textContent='Pro vytvoření turnaje se nejprve přihlas.';return}
    const type=$('competitionType').value, name=$('competitionName').value.trim();
+   const participantMode=$('competitionParticipantMode').value;
    const rounds=type==='single'?1:Number($('competitionRounds').value);
    const dates=[...$('competitionDates').querySelectorAll('input[type=date]')].map(x=>x.value);
    const boards=Number($('competitionBoards').value),game=Number($('competitionGame').value),legs=Number($('competitionLegs').value);
@@ -4153,17 +4160,30 @@ body{max-width:100%;overflow-x:hidden}
      for(let i=0;i<dates.length;i++){
        const isFinal=type==='final'&&i===rounds;
        const eventName=type==='single'?name:(isFinal?`${name} – finále`:`${name} – ${i+1}. večer`);
+       const createdAfter=new Date(Date.now()-5000).toISOString();
        const {error}=await db.rpc('create_501live_tournament',{
          p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
          p_game_format:type==='single'?$('competitionFormat').value:null,p_target_legs:legs,
          p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
        });
        if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
+       // The original RPC still creates the tournament; set the new mode on that
+       // specific, freshly-created event belonging to the current organizer.
+       // Never silently mark an unrelated historic tournament.
+       if(participantMode==='pairs'){
+         const found=await db.from('tournaments').select('id,participant_mode,created_at')
+           .eq('organizer_id',user.id).eq('name',eventName)
+           .gte('created_at',createdAfter).order('created_at',{ascending:false}).limit(2);
+         if(found.error)throw new Error('Turnaj byl založen, ale nastavení dvojic selhalo: '+found.error.message);
+         if(!found.data||found.data.length!==1)throw new Error('Turnaj byl založen, ale nelze bezpečně určit jeho záznam pro nastavení dvojic. Zkontroluj seznam turnajů, nový nevytvářej znovu.');
+         const saved=await db.rpc('darturnio_set_tournament_pairs_mode',{p_tournament_id:found.data[0].id});
+         if(saved.error)throw new Error('Turnaj byl založen, ale nepodařilo se zapnout režim dvojic: '+saved.error.message);
+       }
        created++;
      }
      msg.textContent=type==='single'?'Turnaj byl vytvořen v Supabase.':'Turnaj vytvořen';
      msg.style.color='#82e6a0';
-     form.reset();render();
+     form.reset();render();modeInfo();
    }catch(err){msg.style.color='#FF4646';msg.textContent='Uložení se nezdařilo: '+err.message+' Pokud vznikla část série, před opakováním zkontroluj uložené turnaje.'}
    finally{button.disabled=false;button.textContent='VYTVOŘIT TURNAJ'}
  });
@@ -4796,6 +4816,7 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
   const frag=document.createDocumentFragment();
   frag.append(row('Název',byId('competitionName').value.trim()||'—'));
   frag.append(row('Typ',typeLabel));
+  frag.append(row('Účastníci',byId('competitionParticipantMode').selectedOptions[0]?.textContent||'Jednotlivci'));
   if(type!=='single')frag.append(row('Počet večerů',byId('competitionRounds').value+(type==='final'?' + finále':'')));
   if(type==='final')frag.append(row('Postupujících',byId('competitionFinalists').value));
   frag.append(row('Hra',game));
@@ -6144,7 +6165,7 @@ mountSearch();
   if(!panel||!tournament||!pool)return;
   const a=$('darturnioPairPlayer1'), b=$('darturnioPairPlayer2'), list=$('darturnioPairList'),status=$('darturnioPairStatus'), add=$('darturnioAddPair');
   const client=()=>window.db||(typeof db!=='undefined'?db:null);
-  let activeTournament='', knownPairs=[], request=0, busy=false;
+  let activeTournament='', knownPairs=[], request=0, busy=false, confirmedPairsMode=false;
   function message(msg,isError=false){status.textContent=msg;status.style.color=isError?'#ff8b8b':'#9be6b2'}
   function fill(){
     const opts=[...pool.options].filter(o=>o.value);
@@ -6165,9 +6186,14 @@ mountSearch();
     }
   }
   async function reload(){
-    const my=++request, tid=tournament.value;activeTournament=tid;fill();knownPairs=[];render();
-    if(!tid){message('Nejprve vyber turnaj.',true);return}
-    const db=client();if(!db){message('Databáze není připojena.',true);return}
+    const my=++request, tid=tournament.value;activeTournament=tid;confirmedPairsMode=false;panel.hidden=true;fill();knownPairs=[];render();
+    if(!tid){return}
+    const db=client();if(!db){return}
+    const modeResult=await db.from('tournaments').select('participant_mode').eq('id',tid).maybeSingle();
+    if(my!==request||tid!==tournament.value)return;
+    if(modeResult.error){return} // Fail closed: unknown mode is never treated as doubles.
+    confirmedPairsMode=modeResult.data?.participant_mode==='pairs';panel.hidden=!confirmedPairsMode;
+    if(!confirmedPairsMode)return;
     const {data,error}=await db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid).order('created_at',{ascending:true});
     if(my!==request||tid!==tournament.value)return;
     if(error){message('Pro správu dvojic nejprve spusť přiložené SQL v Supabase. '+error.message,true);return}
@@ -6182,6 +6208,7 @@ mountSearch();
   }
   add.addEventListener('click',async()=>{
     const tid=tournament.value,p1=a.value,p2=b.value;
+    if(!confirmedPairsMode||panel.hidden){message('Dvojice lze přidávat jen do turnaje dvojic.',true);return}
     if(busy)return;
     if(!tid||!p1||!p2){message('Vyber turnaj a oba hráče.',true);return}
     if(p1===p2){message('Do jedné dvojice vyber dva různé hráče.',true);return}
@@ -6202,8 +6229,8 @@ mountSearch();
   // Do not let the existing singles draw silently turn pairs into singles.
   for(const id of ['drawGroupsBtn','drawSingleKoBtn','drawDoubleKoBtn','drawRoundRobinBtn']){
     $(id)?.addEventListener('click',e=>{
-      if(knownPairs.length&&activeTournament===tournament.value){
-        e.preventDefault();e.stopImmediatePropagation();message('Tento turnaj má sestavené dvojice. Losování 2 proti 2 bude doplněno v další etapě; nyní jej nespouštěj jako jednotlivce.',true);
+      if(confirmedPairsMode&&activeTournament===tournament.value){
+        e.preventDefault();e.stopImmediatePropagation();message('Turnaj je založený pro dvojice. Losování 2 proti 2 bude doplněno v další etapě; nyní jej nespouštěj jako jednotlivce.',true);
       }
     },true);
   }
