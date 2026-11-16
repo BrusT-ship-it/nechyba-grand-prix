@@ -1785,6 +1785,19 @@ function renderBracketMatches(rows){
     const b=m.player2_entry_id?playerName(m.player2_entry_id):'Čeká na postup';
     return `<div class="bracket-match-card"><div class="bracket-match-top"><span>Zápas ${i+1}</span><span class="bracket-match-status ${m.status==='live'?'live':''}">${status}</span></div><div class="bracket-player ${m.status==='finished'&&m.winner_entry_id===m.player1_entry_id?'winner':''}"><span>${esc(a)}</span><strong>${m.status==='finished'&&!bye?Number(m.legs1)||0:'–'}</strong></div><div class="bracket-player ${m.status==='finished'&&m.winner_entry_id===m.player2_entry_id&&!bye?'winner':''}"><span>${esc(bye?'VOLNÝ LOS':b)}</span><strong>${m.status==='finished'&&!bye?Number(m.legs2)||0:'–'}</strong></div>${scorekeeper?`<div class="bracket-match-note">Zapisuje: ${esc(playerName(scorekeeper))}</div>`:''}</div>`;
   }).join('');
+  if(isDouble){
+    // DKO is shown as one continuous bracket: losers on the left, opening matches
+    // in the middle and the winners' path on the right. All matches retain DB IDs.
+    const ordered=rows.slice().sort((a,b)=>(Number(a.round_no)||0)-(Number(b.round_no)||0)||(Number(a.match_no)||0)-(Number(b.match_no)||0));
+    const wb=ordered.filter(m=>String(m.group_name||'').startsWith('DE:WB:'));
+    const lb=ordered.filter(m=>String(m.group_name||'').startsWith('DE:LB:'));
+    const gf=ordered.filter(m=>String(m.group_name||'').startsWith('DE:GF:'));
+    const collect=arr=>{const map=new Map();arr.forEach(m=>{const k=String(m.group_name);if(!map.has(k))map.set(k,[]);map.get(k).push(m)});return [...map.entries()]};
+    const left=collect(lb).reverse(),right=collect(wb),final=collect(gf);
+    const cols=[...left.map(([k,ms])=>({k,ms,side:'left'})),...right.map(([k,ms],i)=>({k,ms,side:i===0?'center':'right'})),...final.map(([k,ms])=>({k,ms,side:'final'}))];
+    const markup=cols.map(({k,ms,side})=>`<div class="dko-column dko-${side}" data-dko-phase="${esc(k)}"><h4>${esc(title(k,ms))}</h4><div class="dko-stack">${ms.map((m,i)=>`<div class="dko-node" data-dko-id="${esc(m.id)}" data-dko-round="${Number(m.round_no)||0}" data-dko-p1="${esc(m.player1_entry_id||'')}" data-dko-p2="${esc(m.player2_entry_id||'')}" data-dko-winner="${esc(m.winner_entry_id||'')}">${cards([m])}</div>`).join('')}</div></div>`).join('');
+    return `<section class="dko-unified"><div class="dko-legend"><span>← Poražení · opravná strana</span><b>Úvodní zápasy</b><span>Vítězové · pravá strana →</span></div><p class="small">Pavouk posouvej do stran. Spojnice ukazují již potvrzené postupy; další zápasy se doplňují automaticky po dohrání kola.</p><div class="dko-viewport"><div class="dko-canvas"><svg class="dko-lines" aria-hidden="true"></svg><div class="dko-columns">${markup}</div></div></div></section>`;
+  }
   const sections=isDouble?[['Pravá strana',keys.filter(k=>String(k).startsWith('DE:WB:'))],['Levá strana',keys.filter(k=>String(k).startsWith('DE:LB:'))],['Finále',keys.filter(k=>String(k).startsWith('DE:GF:'))]]:[['Vyřazovací pavouk',keys]];
   return sections.filter(([_,ks])=>ks.length).map(([heading,ks],si)=>{
     const id='bracket-section-'+si;
@@ -1854,7 +1867,7 @@ async function createDoubleEliminationNextPhase(tournamentId,rows){
   if(phase.startsWith("DE:WB:")){
     const newLosers=wbRows.filter(m=>m.player1_entry_id!==m.player2_entry_id).map(matchLoser);
     const combined=[...lbWinners,...newLosers];
-    return insertDoubleEliminationPhase(tournamentId,shuffleAvoidingRematches(combined,rows),nextRound,`DE:LB:${wbRound}`,rows);
+    return insertDoubleEliminationPhase(tournamentId,combined,nextRound,`DE:LB:${wbRound}`,rows);
   }
   // Po dokončení spodní fáze pokračuje horní část, pokud v ní zbývá více než jeden hráč.
   if(wbWinners.length>1){
@@ -1863,7 +1876,7 @@ async function createDoubleEliminationNextPhase(tournamentId,rows){
     return true;
   }
   // Horní část už má vítěze. Spodní část se dohraje na jediného finalistu.
-  if(lbWinners.length>1)return insertDoubleEliminationPhase(tournamentId,shuffleAvoidingRematches(lbWinners,rows),nextRound,`DE:LB:FINAL${nextRound}`,rows);
+  if(lbWinners.length>1)return insertDoubleEliminationPhase(tournamentId,lbWinners,nextRound,`DE:LB:FINAL${nextRound}`,rows);
   if(lbWinners.length===1&&wbWinners.length===1){
     const grandFinal={tournament_id:tournamentId,stage:"playoff",group_name:"DE:GF:1",round_no:nextRound,match_no:Math.max(0,...rows.map(m=>Number(m.match_no)||0))+1,board_no:null,player1_entry_id:wbWinners[0],player2_entry_id:lbWinners[0],legs1:0,legs2:0,target_legs:DEFAULT_TARGET_LEGS,status:"waiting"};
     const {error}=await db.from("matches").insert([grandFinal]);if(error)throw new Error("Velké finále se nepodařilo vytvořit: "+error.message);
@@ -6541,5 +6554,11 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  setInterval(()=>{if(isVisible())refresh(false)},12000);
  setTimeout(()=>refresh(true),150);
 })();
+</script>
+<style id="dko-connected-v2">
+.dko-unified{max-width:100%;margin:15px 0}.dko-legend{display:flex;justify-content:space-between;gap:16px;color:#ddd;font-size:13px;min-width:620px}.dko-legend span:first-child{color:#ff8585}.dko-legend span:last-child{color:#75dda0}.dko-viewport{overflow:auto;max-width:100%;padding:8px 0 20px;touch-action:pan-x pan-y}.dko-canvas{position:relative;width:max-content;min-width:100%;padding:20px 22px}.dko-columns{position:relative;display:flex;align-items:stretch;gap:64px;z-index:1}.dko-column{width:224px;flex:none}.dko-column h4{min-height:36px;text-align:center;font-size:13px;color:#bbb}.dko-center h4{color:#fff}.dko-stack{display:flex;flex-direction:column;justify-content:space-around;gap:28px;height:100%;min-height:240px}.dko-node{position:relative}.dko-node .bracket-match-card{min-height:114px;background:#1c1c1f;border:1px solid #484848}.dko-center .bracket-match-card{border-color:#b52525}.dko-node .bracket-match-card:after{display:none!important}.dko-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}.dko-legend{min-width:0}.dko-legend b{text-align:center}@media(max-width:650px){.dko-columns{gap:48px}.dko-column{width:205px}.dko-legend{font-size:11px}}
+</style>
+<script id="dko-connect-lines-v2">
+(()=>{function draw(){document.querySelectorAll('.dko-canvas').forEach(canvas=>{const svg=canvas.querySelector('.dko-lines');if(!svg)return;const nodes=[...canvas.querySelectorAll('.dko-node')],box=canvas.getBoundingClientRect(),w=canvas.scrollWidth,h=canvas.scrollHeight;svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.setAttribute('width',w);svg.setAttribute('height',h);let lines='';const pts=n=>{const r=n.getBoundingClientRect();return {x:r.left-box.left+w*0,y:r.top-box.top+r.height/2}};for(const source of nodes){const winner=source.dataset.dkoWinner;if(!winner)continue;const loser=source.dataset.dkoP1===winner?source.dataset.dkoP2:source.dataset.dkoP1;const round=Number(source.dataset.dkoRound);for(const id of [winner,loser]){if(!id||id===winner&&id===loser)continue;const candidates=nodes.filter(n=>n!==source&&Number(n.dataset.dkoRound)>round&&(n.dataset.dkoP1===id||n.dataset.dkoP2===id)).sort((a,b)=>Number(a.dataset.dkoRound)-Number(b.dataset.dkoRound));const target=candidates[0];if(!target)continue;const a=pts(source),b=pts(target);const right=b.x>a.x;const sx=a.x+(right?source.offsetWidth:0),tx=b.x+(right?0:target.offsetWidth),mid=(sx+tx)/2;lines+=`<path d="M${sx} ${a.y} H${mid} V${b.y} H${tx}" fill="none" stroke="${id===winner?'#319b64':'#b64b4b'}" stroke-width="2" opacity=".9"/>`;}}svg.innerHTML=lines;});}let queued=false;const schedule=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;draw()})};const obs=new MutationObserver(m=>{if(m.some(x=>x.type==='childList'&&[...x.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.dko-unified')||n.querySelector?.('.dko-unified')))))schedule()});document.addEventListener('DOMContentLoaded',()=>{obs.observe(document.body,{childList:true,subtree:true});schedule();window.addEventListener('resize',schedule)});})();
 </script>
 </body></html>
