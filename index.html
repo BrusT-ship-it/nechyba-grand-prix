@@ -1056,7 +1056,7 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
 </div>
 <div class="darturnio-pairs-panel" id="darturnioPairsPanel" hidden>
   <h3>Turnaj dvojic – sestavení týmů</h3>
-  <p class="small">Příprava turnaje 2 proti 2: vyber dva různé hráče. Každý hráč může být v daném turnaji jen v jedné dvojici. Rozlosování a počítadla dvojic doplníme v další etapě.</p>
+  <p class="small">Příprava turnaje 2 proti 2: vyber dva různé hráče. Každý hráč může být v daném turnaji jen v jedné dvojici. KO pavouk dvojic lze nyní zkušebně rozlosovat. Počítadla dvojic a další turnajové formáty doplníme v dalších etapách.</p>
   <div class="darturnio-pairs-fields">
     <label>První hráč<select id="darturnioPairPlayer1" aria-label="První hráč dvojice"></select></label>
     <label>Druhý hráč<select id="darturnioPairPlayer2" aria-label="Druhý hráč dvojice"></select></label>
@@ -1064,6 +1064,14 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
   <button class="action" type="button" id="darturnioAddPair">Přidat dvojici</button>
   <p class="small" role="status" aria-live="polite" id="darturnioPairStatus"></p>
   <div id="darturnioPairList"></div>
+  <section id="darturnioPairKnockout" class="darturnio-pair-ko">
+    <h3>KO pavouk dvojic – testovací režim</h3>
+    <p class="small">Dvojice hrají jako tým. V této etapě zadává výsledek pořadatel ručně; tabletové počítadlo ani individuální statistiky se pro dvojice zatím nepoužívají.</p>
+    <button type="button" class="action" id="darturnioDrawPairKo">ROZLOSOVAT DVOJICE – KO</button>
+    <button type="button" class="secondary" id="darturnioResetPairKo" hidden>Zrušit KO rozlosování dvojic</button>
+    <p class="small" id="darturnioPairKoFeedback" role="status" aria-live="polite"></p>
+    <div id="darturnioPairKoMatches"></div>
+  </section>
 </div>
 <div id="adminEntries"></div>
 <div class="format-draw-buttons" id="formatDrawButtons">
@@ -6264,7 +6272,7 @@ mountSearch();
     const {data,error}=await db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid).order('created_at',{ascending:true});
     if(my!==request||tid!==tournament.value)return;
     if(error){message('Pro správu dvojic nejprve spusť přiložené SQL v Supabase. '+error.message,true);return}
-    knownPairs=data||[];render();message(`${knownPairs.length} dvojic v turnaji. Zatím pouze registrace – losování dvojic není aktivní.`);
+    knownPairs=data||[];render();message(`${knownPairs.length} dvojic v turnaji. Turnaj dvojic. Pro testovací KO použij samostatné tlačítko níže.`);
   }
   async function removePair(id){
     if(busy||!id||!window.confirm('Odebrat tuto dvojici ze startovní přípravy?'))return;
@@ -6302,6 +6310,94 @@ mountSearch();
     },true);
   }
   reload();
+})();
+</script>
+
+<style id="darturnio-pair-ko-v2-style">
+#darturnioPairKnockout{margin-top:18px;border-top:1px solid #555;padding-top:16px}
+#darturnioPairKnockout .pair-ko-round{margin:15px 0}
+#darturnioPairKnockout .pair-ko-match{border:1px solid #444;border-left:3px solid #E11D1D;background:#17171a;border-radius:8px;padding:12px;margin:8px 0}
+#darturnioPairKnockout .pair-ko-teams{font-weight:750;line-height:1.6;overflow-wrap:anywhere}
+#darturnioPairKnockout .pair-ko-score{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+#darturnioPairKnockout .pair-ko-score input{width:69px;min-height:44px;font-size:17px;text-align:center;margin:0}
+#darturnioPairKnockout .pair-ko-score button{margin:0;min-height:44px}
+#darturnioPairKnockout .pair-ko-note{font-size:12px;color:#aab;margin-top:4px}
+@media(max-width:520px){#darturnioPairKnockout .pair-ko-score{gap:7px}#darturnioPairKnockout .pair-ko-score button{width:100%}}
+</style>
+<script id="darturnio-pair-ko-v2-controller">
+(()=>{'use strict';
+ const $=id=>document.getElementById(id);
+ const root=$('darturnioPairKnockout'),tidField=$('entryTournament'),draw=$('darturnioDrawPairKo'),reset=$('darturnioResetPairKo'),out=$('darturnioPairKoMatches'),feedback=$('darturnioPairKoFeedback');
+ if(!root||!tidField||!draw||!out)return;
+ const client=()=>window.db||(typeof db!=='undefined'?db:null);
+ let sequence=0,drawn=false,pending=false,lastTournament='';
+ function say(t,err=false){feedback.textContent=t;feedback.style.color=err?'#ff9898':'#9de3b0'}
+ function node(tag,klass,txt){const el=document.createElement(tag);if(klass)el.className=klass;if(txt!==undefined)el.textContent=txt;return el}
+ async function render(){
+  const request=++sequence,tid=tidField.value;lastTournament=tid;out.replaceChildren();drawn=false;draw.disabled=true;
+  if(!tid)return;
+  const db=client();if(!db){say('Databáze není připojena.',true);return}
+  const [mode,pairs,matches,players]=await Promise.all([
+   db.from('tournaments').select('participant_mode,target_legs').eq('id',tid).maybeSingle(),
+   db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid),
+   db.from('darturnio_pair_matches').select('id,round_no,match_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no'),
+   db.from('players').select('id,name').limit(1000)
+  ]);
+  if(request!==sequence||tidField.value!==tid)return;
+  if(mode.error||mode.data?.participant_mode!=='pairs')return;
+  if(matches.error){say('Nejdřív spusť SQL pro KO dvojic. '+matches.error.message,true);return}
+  if(pairs.error){say(pairs.error.message,true);return}
+  const playerMap=new Map((players.data||[]).map(p=>[p.id,p.name]));
+  const pairNames=new Map((pairs.data||[]).map(p=>[p.id,`${playerMap.get(p.player1_id)||'Hráč 1'} + ${playerMap.get(p.player2_id)||'Hráč 2'}`]));
+  const rows=matches.data||[];drawn=rows.length>0;draw.hidden=drawn;reset.hidden=!drawn;draw.disabled=drawn||(pairs.data||[]).length<2;
+  if(!drawn){say((pairs.data||[]).length<2?'Sestav alespoň dvě dvojice.':'Připraveno k rozlosování KO dvojic.');return}
+  const rounds=[...new Set(rows.map(r=>r.round_no))];
+  for(const round of rounds){
+   const section=node('section','pair-ko-round');section.append(node('h4','',round===rounds[rounds.length-1]?'Finále':`${round}. kolo`));
+   for(const m of rows.filter(x=>x.round_no===round)){
+    const card=node('div','pair-ko-match');const name1=pairNames.get(m.pair1_id)||'Čeká na postup';const name2=pairNames.get(m.pair2_id)||'Čeká na postup';
+    card.append(node('div','pair-ko-teams',`${name1}  ×  ${name2}`));
+    if(m.status==='finished')card.append(node('div','pair-ko-note',m.pair2_id?`Výsledek ${m.legs1}:${m.legs2} · Vítěz: ${pairNames.get(m.winner_pair_id)||'–'}`:'Volný los – automatický postup'));
+    else if(m.status==='pending')card.append(node('div','pair-ko-note','Čeká se na soupeře z předchozího kola'));
+    else{
+      const controls=node('div','pair-ko-score');const x=node('input');x.type='number';x.min='0';x.max=String(m.target_legs);x.value=String(m.target_legs);x.setAttribute('aria-label','Legy první dvojice');
+      const sep=node('strong','',':');const y=node('input');y.type='number';y.min='0';y.max=String(m.target_legs);y.value='0';y.setAttribute('aria-label','Legy druhé dvojice');
+      const save=node('button','action','Potvrdit výsledek');save.type='button';save.addEventListener('click',async()=>{
+       const a=Number(x.value),b=Number(y.value),t=Number(m.target_legs);
+       if(!Number.isInteger(a)||!Number.isInteger(b)||Math.max(a,b)!==t||Math.min(a,b)<0||Math.min(a,b)>=t){say(`Vítěz musí získat přesně ${t} legů.`,true);return}
+       if(!window.confirm(`Potvrdit výsledek ${name1} ${a}:${b} ${name2}?`))return;
+       save.disabled=true;
+       try{const {error}=await db.rpc('darturnio_submit_pair_result',{p_match_id:m.id,p_legs1:a,p_legs2:b});if(error)throw error;say('Výsledek uložen. Vítěz automaticky postupuje.');await render()}
+       catch(e){say('Výsledek se nepodařilo zapsat: '+e.message,true);save.disabled=false}
+      });controls.append(x,sep,y,save);card.append(controls);
+    }
+    section.append(card);
+   }
+   out.append(section);
+  }
+  const last=rows.find(r=>r.round_no===rounds[rounds.length-1]);
+  if(last?.status==='finished'&&last.winner_pair_id)say('Turnaj dvojic dokončen. Vítěz: '+(pairNames.get(last.winner_pair_id)||'–'));
+  else say('KO pavouk dvojic je aktivní. Výsledky zapisuje pořadatel.');
+ }
+ draw.addEventListener('click',async()=>{
+  if(pending||drawn)return;
+  const tid=tidField.value;const db=client();if(!tid||!db)return;
+  if(!confirm('Rozlosovat KO pavouk dvojic? Zápasy se uloží do Supabase. V této etapě se výsledky zadávají ručně.'))return;
+  pending=true;draw.disabled=true;
+  try{const {error}=await db.rpc('darturnio_draw_pairs_ko',{p_tournament_id:tid});if(error)throw error;say('Dvojice byly rozlosovány.');await render()}
+  catch(e){say('Losování se nezdařilo: '+e.message,true);draw.disabled=false}finally{pending=false}
+ });
+ reset.addEventListener('click',async()=>{
+  const tid=tidField.value,db=client();if(!tid||!db||pending)return;
+  if(!window.confirm('Opravdu zrušit KO pavouk dvojic? Vymažou se všechny jeho výsledky a postupy. Sestavené dvojice i hráči na startovní listině zůstanou.'))return;
+  pending=true;reset.disabled=true;
+  try{const {error}=await db.rpc('darturnio_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;await render();say('KO rozlosování dvojic bylo zrušeno.')}
+  catch(e){say('Nepodařilo se zrušit rozlosování: '+e.message,true)}finally{pending=false;reset.disabled=false}
+ });
+ tidField.addEventListener('change',render);
+ // Existing app updates tournament selector dynamically.
+ const observer=new MutationObserver(()=>{if(tidField.value!==lastTournament)render()});observer.observe(tidField,{childList:true});
+ render();
 })();
 </script>
 </body></html>
