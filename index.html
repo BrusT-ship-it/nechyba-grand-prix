@@ -6434,4 +6434,90 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  render();
 })();
 </script>
+
+<style id="darturnio-public-pairs-bracket-style">
+/* Jen verejny pavouk turnaju dvojic; ostatni turnajove formaty beze zmeny. */
+#bracketContent .dt-pair-bracket{display:flex;align-items:stretch;gap:16px;overflow-x:auto;padding:8px 2px 18px;scrollbar-width:thin}
+#bracketContent .dt-pair-round{flex:1 0 225px;min-width:0;display:flex;flex-direction:column;gap:12px}
+#bracketContent .dt-pair-round h3{color:#eee;font-size:17px;margin:0 0 4px;border-bottom:2px solid #E11D1D;padding-bottom:9px}
+#bracketContent .dt-pair-match{border:1px solid #424242;border-left:4px solid #E11D1D;border-radius:10px;background:#181819;padding:12px;display:flex;flex-direction:column;gap:7px}
+#bracketContent .dt-pair-match-number{font-size:12px;color:#aaa;font-weight:700}
+#bracketContent .dt-pair-side{display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:6px;padding:8px 7px;background:#242428;min-height:50px}
+#bracketContent .dt-pair-side span{overflow-wrap:anywhere;min-width:0;line-height:1.35}
+#bracketContent .dt-pair-side strong{font-size:22px;font-variant-numeric:tabular-nums;flex:none}
+#bracketContent .dt-pair-side.dt-pair-winner{background:#173b27;border:1px solid #38a76a}
+#bracketContent .dt-pair-status{font-size:12px;color:#b9b9bf}
+#bracketContent .dt-pair-final-tag{color:#60d990}
+@media(max-width:570px){#bracketContent .dt-pair-bracket{gap:12px}#bracketContent .dt-pair-round{flex-basis:min(80vw,285px)}#bracketContent .dt-pair-match{padding:10px}}
+</style>
+<script id="darturnio-public-pairs-bracket-controller">
+(()=>{'use strict';
+ const el=id=>document.getElementById(id);
+ const bracket=el('bracket'),content=el('bracketContent'),info=el('bracketInfo'),select=el('bracketTournamentSelect');
+ if(!bracket||!content||!select)return;
+ let requestId=0,lastId='',lastFetch=0,loading=false;
+ function newNode(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=String(text);return node}
+ function isVisible(){return !bracket.classList.contains('hidden')&&!bracket.hidden&&!document.body.classList.contains('tablet-mode')}
+ function dbClient(){try{return typeof db!=='undefined'?db:window.db}catch{return window.db}}
+ function tournamentId(){return select.value||''}
+ function paint(payload){
+  const rows=Array.isArray(payload.matches)?payload.matches:[];
+  if(info)info.textContent=rows.length?`KO dvojic: ${rows.length} zápasů`:'KO pavouk dvojic ještě není rozlosovaný.';
+  if(!rows.length){content.textContent='Dvojice zatím nemají rozlosovaný KO pavouk.';return}
+  const allRounds=[...new Set(rows.map(m=>Number(m.round_no)))].sort((a,b)=>a-b);
+  const grid=newNode('div','dt-pair-bracket');
+  for(const round of allRounds){
+   const col=newNode('section','dt-pair-round');
+   col.append(newNode('h3','',round===allRounds[allRounds.length-1]?'Finále':round===allRounds[allRounds.length-2]?'Semifinále':`${round}. kolo`));
+   for(const m of rows.filter(m=>Number(m.round_no)===round).sort((a,b)=>a.match_no-b.match_no)){
+    const card=newNode('article','dt-pair-match');card.append(newNode('div','dt-pair-match-number',`Zápas ${m.match_no}`));
+    for(const side of [1,2]){
+     const id=m[`pair${side}_id`];
+     const finished=m.status==='finished';
+     const winner=finished&&id&&m.winner_pair_id===id;
+     const line=newNode('div','dt-pair-side'+(winner?' dt-pair-winner':''));
+     line.append(newNode('span','',m[`pair${side}_name`]||'Čeká na postup'));
+     if(id)line.append(newNode('strong','',finished?m[`legs${side}`]:'–'));
+     card.append(line);
+    }
+    const note=m.status==='finished'?(m.pair1_id&&m.pair2_id?'Odehráno':'Volný los'):(m.pair1_id&&m.pair2_id?'Čeká na odehrání':'Čeká na postupující');
+    card.append(newNode('div','dt-pair-status',note));col.append(card);
+   }
+   grid.append(col);
+  }
+  content.replaceChildren(grid);
+ }
+ async function refresh(force=false){
+  if(!isVisible())return;
+  const tid=tournamentId(),client=dbClient();if(!tid||!client)return;
+  if(!force&&loading&&tid===lastId)return;
+  if(!force&&tid===lastId&&Date.now()-lastFetch<5000)return;
+  const seq=++requestId;lastId=tid;loading=true;lastFetch=Date.now();
+  try{
+   const {data,error}=await client.rpc('darturnio_public_pair_bracket',{p_tournament_id:tid});
+   if(seq!==requestId||tid!==tournamentId()||!isVisible())return;
+   if(error)throw error;
+   if(data===null||data===undefined){return} // Turnaj jednotlivcu: puvodni pavouk zustava.
+   paint(data);
+  }catch(e){
+   if(seq!==requestId||tid!==tournamentId()||!isVisible())return;
+   // Verejna data nevyzaduji prihlaseni. Zobrazit presnou chybu misto ticheho selhani.
+   if(info)info.textContent='KO dvojic se nepodařilo načíst.';
+   content.textContent='Pavouk dvojic nelze zobrazit: '+(e?.message||String(e));
+  }finally{if(seq===requestId)loading=false}
+ }
+ document.addEventListener('click',e=>{
+  if(e.target.closest('[data-tab="bracket"]'))setTimeout(()=>refresh(true),80);
+ },true);
+ select.addEventListener('change',()=>{requestId++;lastId='';setTimeout(()=>refresh(true),0)});
+ // Po prepnuti turnaje nebo obnove dat je puvodni renderAll znovu vykresli; doplnit dvojice nasledne.
+ if(typeof renderAll==='function'){
+  const oldRenderAll=renderAll;
+  renderAll=function(...args){const result=oldRenderAll.apply(this,args);if(isVisible())setTimeout(()=>refresh(true),0);return result};
+ }
+ // Pravidelne obnoveni jen kdyz divak opravdu sleduje kartu Pavouk.
+ setInterval(()=>{if(isVisible())refresh(false)},12000);
+ setTimeout(()=>refresh(true),150);
+})();
+</script>
 </body></html>
