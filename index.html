@@ -753,7 +753,7 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
       <label>Název turnaje nebo série<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open" autocomplete="off"></label>
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
       <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2) – příprava týmů</option></select></label>
-      <p id="competitionPairsNote" class="small" hidden>V této etapě lze dvojice sestavovat v administraci. Losování a počítadla pro dvojice zatím nejsou aktivní.</p>
+      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Zatím podporujeme testovací KO s ručními výsledky; počítadla dvojic připravujeme.</p>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
         <div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
@@ -767,7 +767,6 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
         <label>Počet terčů<input id="competitionBoards" type="number" min="1" max="64" value="2" required inputmode="numeric"></label>
         <label>Hra<select id="competitionGame"><option value="501">501 Double Out</option><option value="301">301 Double Out</option><option value="701">Cut-Throat Cricket</option></select></label>
       </div>
-      <label id="competitionFormatLabel">Herní systém<select id="competitionFormat"><option value="groups">Skupiny + play-off</option><option value="single_ko">Single KO</option><option value="double_ko" selected>Double KO</option><option value="round_robin">Každý s každým</option></select></label>
       <label>Počet vítězných legů<input id="competitionLegs" type="number" min="1" max="21" value="2" required inputmode="numeric"></label>
       <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span>Pro každý terč později získáš vlastní odkaz a QR kód počítadla.</span></div>
     </section>
@@ -2192,7 +2191,10 @@ function renderAll(){
     const adminTournamentId=$("entryTournament")?.value||selectedTournament;
     const adminEntriesForTournament=entries.filter(e=>e.tournament_id===adminTournamentId);
     const adminTournamentName=tournaments.find(t=>t.id===adminTournamentId)?.name||"vybraný turnaj";
-    $("adminEntries").innerHTML=`<p>Startovní listina – <strong>${esc(adminTournamentName)}</strong></p>
+    const isPairsForAdmin=tournaments.find(t=>t.id===adminTournamentId)?.participant_mode==='pairs';
+    $("adminEntries").innerHTML=isPairsForAdmin
+      ? `<p><strong>Startovní listina dvojic – ${esc(adminTournamentName)}</strong></p><p class="small">Přihlášené dvojice a jejich členové jsou uvedeni v sekci <strong>Turnaj dvojic – sestavení týmů</strong> výše. Samostatná startovní listina jednotlivců se u tohoto turnaje nepoužívá.</p>`
+      : `<p>Startovní listina – <strong>${esc(adminTournamentName)}</strong></p>
       ${adminEntriesForTournament.length
         ? `<p>Přihlášeno: <strong>${adminEntriesForTournament.length}</strong> hráčů.</p>
            <div class="table-wrap"><table><tr><th>Hráč</th></tr>
@@ -4198,7 +4200,7 @@ body{max-width:100%;overflow-x:hidden}
  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
  function render(){
    const type=$('competitionType').value,series=type!=='single',n=series?Math.max(2,Math.min(30,Number($('competitionRounds').value)||2)):1;
-   $('competitionSeriesFields').hidden=!series;$('competitionFinalFields').hidden=type!=='final';$('competitionFormatLabel').hidden=series;
+   $('competitionSeriesFields').hidden=!series;$('competitionFinalFields').hidden=type!=='final';
    if($('competitionSeriesInfo'))$('competitionSeriesInfo').hidden=!series;
    const wrap=$('competitionDates');const old=[...wrap.querySelectorAll('input[type=date]')].map(x=>x.value);wrap.replaceChildren();
    const count=n+(type==='final'?1:0);
@@ -4238,7 +4240,7 @@ body{max-width:100%;overflow-x:hidden}
        const createdAfter=new Date(Date.now()-5000).toISOString();
        const {error}=await db.rpc('create_501live_tournament',{
          p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
-         p_game_format:type==='single'?$('competitionFormat').value:null,p_target_legs:legs,
+         p_game_format:null,p_target_legs:legs,
          p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
        });
        if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
@@ -4885,7 +4887,6 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
   const type=byId('competitionType').value;
   const typeLabel=byId('competitionType').selectedOptions[0]?.textContent||'Turnaj';
   const dates=[...byId('competitionDates').querySelectorAll('input[type="date"]')].map(el=>el.value);
-  const fmt=byId('competitionFormat').selectedOptions[0]?.textContent||'';
   const game=byId('competitionGame').selectedOptions[0]?.textContent||'';
   const formatDate=raw=>{const d=new Date(raw+'T12:00:00');return Number.isNaN(d.getTime())?raw:d.toLocaleDateString('cs-CZ',{day:'numeric',month:'numeric',year:'numeric'})};
   const frag=document.createDocumentFragment();
@@ -4895,7 +4896,6 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
   if(type!=='single')frag.append(row('Počet večerů',byId('competitionRounds').value+(type==='final'?' + finále':'')));
   if(type==='final')frag.append(row('Postupujících',byId('competitionFinalists').value));
   frag.append(row('Hra',game));
-  if(type==='single')frag.append(row('Herní systém',fmt));
   frag.append(row('Terče',byId('competitionBoards').value));
   frag.append(row('Vítězné legy',byId('competitionLegs').value));
   frag.append(row('Termíny',dates.map(formatDate).join(' · ')||'—'));
@@ -6350,11 +6350,10 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   root.hidden=true;
   if(!tid)return;
   const db=client();if(!db){say('Databáze není připojena.',true);return}
-  const [mode,pairs,matches,players]=await Promise.all([
+  const [mode,pairs,matches]=await Promise.all([
    db.from('tournaments').select('participant_mode,target_legs').eq('id',tid).maybeSingle(),
    db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid),
-   db.from('darturnio_pair_matches').select('id,round_no,match_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no'),
-   db.from('players').select('id,name').limit(1000)
+   db.from('darturnio_pair_matches').select('id,round_no,match_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no')
   ]);
   if(request!==sequence||tidField.value!==tid)return;
   if(mode.error||mode.data?.participant_mode!=='pairs')return;
@@ -6362,7 +6361,10 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   root.hidden=false;
   if(matches.error){say('Nejdřív spusť SQL pro KO dvojic. '+matches.error.message,true);return}
   if(pairs.error){say(pairs.error.message,true);return}
-  const playerMap=new Map((players.data||[]).map(p=>[p.id,p.name]));
+  const participantIds=[...new Set((pairs.data||[]).flatMap(p=>[p.player1_id,p.player2_id]).filter(Boolean))];
+  const playerLookup=participantIds.length?await db.from('players').select('id,name').in('id',participantIds):{data:[]};
+  if(request!==sequence||tidField.value!==tid)return;
+  const playerMap=new Map((playerLookup.data||[]).map(p=>[p.id,p.name]));
   const pairNames=new Map((pairs.data||[]).map(p=>[p.id,`${playerMap.get(p.player1_id)||'Hráč 1'} + ${playerMap.get(p.player2_id)||'Hráč 2'}`]));
   const rows=matches.data||[];drawn=rows.length>0;draw.hidden=drawn;reset.hidden=!drawn;draw.disabled=drawn||(pairs.data||[]).length<2;
   if(!drawn){say((pairs.data||[]).length<2?'Sestav alespoň dvě dvojice.':'Připraveno k rozlosování KO dvojic.');return}
@@ -6410,6 +6412,8 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   catch(e){say('Nepodařilo se zrušit rozlosování: '+e.message,true)}finally{pending=false;reset.disabled=false}
  });
  tidField.addEventListener('change',render);
+ const pairsList=$('darturnioPairList');
+ if(pairsList){let observedUpdate=false;const pairObserver=new MutationObserver(()=>{if(observedUpdate)return;observedUpdate=true;queueMicrotask(()=>{observedUpdate=false;render()})});pairObserver.observe(pairsList,{childList:true});}
  // Existing app updates tournament selector dynamically.
  const observer=new MutationObserver(()=>{if(tidField.value!==lastTournament)render()});observer.observe(tidField,{childList:true});
  render();
