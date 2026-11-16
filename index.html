@@ -6316,6 +6316,10 @@ mountSearch();
 
 <style id="darturnio-pairs-ko-buttons-fix">
 /* Only the draw controls, never the tournament scoring or public views. */
+/* Parent panel already verifies pairs tournament mode. Do not conceal its KO tools while loading. */
+#darturnioPairsPanel:not([hidden]) #darturnioPairKnockout {display:block!important}
+#darturnioPairsPanel:not([hidden]) #darturnioPairKnockout[hidden] {display:block!important}
+
 body.darturnio-pairs-selected #formatDrawButtons,
 body.darturnio-pairs-selected #cancelDrawBtn,
 body.darturnio-pairs-selected #redrawGroupsBtn,
@@ -6347,8 +6351,10 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  async function render(){
   const request=++sequence,tid=tidField.value;lastTournament=tid;out.replaceChildren();drawn=false;draw.disabled=true;
   document.body.classList.remove('darturnio-pairs-selected');
-  root.hidden=true;
-  if(!tid)return;
+  // While loading, the parent (pairs panel) controls visibility; don't hide the KO section.
+  root.hidden=false;
+  say('Načítám stav KO pavouka dvojic…');
+  if(!tid){root.hidden=true;return;}
   const db=client();if(!db){say('Databáze není připojena.',true);return}
   const [mode,pairs,matches]=await Promise.all([
    db.from('tournaments').select('participant_mode,target_legs').eq('id',tid).maybeSingle(),
@@ -6356,10 +6362,17 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    db.from('darturnio_pair_matches').select('id,round_no,match_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no')
   ]);
   if(request!==sequence||tidField.value!==tid)return;
-  if(mode.error||mode.data?.participant_mode!=='pairs')return;
+  if(mode.error){
+    say('Nepodařilo se ověřit typ turnaje: '+mode.error.message,true);
+    return;
+  }
+  if(mode.data?.participant_mode!=='pairs'){
+    root.hidden=true;
+    return;
+  }
   document.body.classList.add('darturnio-pairs-selected');
   root.hidden=false;
-  if(matches.error){say('Nejdřív spusť SQL pro KO dvojic. '+matches.error.message,true);return}
+  if(matches.error){say('Databáze pro KO dvojic není připravená: '+matches.error.message,true);return}
   if(pairs.error){say(pairs.error.message,true);return}
   const participantIds=[...new Set((pairs.data||[]).flatMap(p=>[p.player1_id,p.player2_id]).filter(Boolean))];
   const playerLookup=participantIds.length?await db.from('players').select('id,name').in('id',participantIds):{data:[]};
@@ -6414,6 +6427,8 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  tidField.addEventListener('change',render);
  const pairsList=$('darturnioPairList');
  if(pairsList){let observedUpdate=false;const pairObserver=new MutationObserver(()=>{if(observedUpdate)return;observedUpdate=true;queueMicrotask(()=>{observedUpdate=false;render()})});pairObserver.observe(pairsList,{childList:true});}
+  const pairsPanel=$('darturnioPairsPanel');
+  if(pairsPanel){new MutationObserver(()=>{if(!pairsPanel.hidden)render()}).observe(pairsPanel,{attributes:true,attributeFilter:['hidden']});}
  // Existing app updates tournament selector dynamically.
  const observer=new MutationObserver(()=>{if(tidField.value!==lastTournament)render()});observer.observe(tidField,{childList:true});
  render();
