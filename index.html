@@ -1355,7 +1355,17 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 </header>
 <div class="hidden" id="tabletRoot">
 
-<div class="panel" id="tabletLogin"><p>Přihlášení pořadatele pro zápis na terči</p><input autocomplete="username" id="tabletEmail" placeholder="E-mail" type="email"/><input autocomplete="current-password" id="tabletPassword" placeholder="Heslo" type="password"/><button class="action" id="tabletLoginBtn">Přihlásit se</button></div>
+<div class="panel" id="tabletLogin">
+  <h2 style="margin:0 0 10px">Pro zápis chybí zabezpečený QR přístup</h2>
+  <p id="darturnioQrLoginNotice" style="line-height:1.5">Tento odkaz neobsahuje platný klíč pro zapisovatele. Požádej pořadatele, aby v <strong>Administrace → Tabletová počítadla</strong> zvolil <strong>Vydat QR přístup – terč</strong> a naskenuj nově vytvořený QR kód. Starší QR kódy bez klíče slouží jen k otevření přihlašovacího režimu.</p>
+  <details style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">Jsem pořadatel – přihlásit se heslem</summary>
+    <div style="display:grid;gap:10px;margin-top:12px">
+      <input autocomplete="username" id="tabletEmail" placeholder="E-mail" type="email"/>
+      <input autocomplete="current-password" id="tabletPassword" placeholder="Heslo" type="password"/>
+      <button class="action" id="tabletLoginBtn">Přihlásit se</button>
+    </div>
+  </details>
+</div>
 <div class="hidden" id="tabletApp"></div>
 <details class="tablet-settings"><summary>⚙ Nastavení terče</summary><div class="tablet-head"><div><h1 id="tabletTitle" style="font-size:clamp(22px,5vw,34px)">NECHYBA – TERČ</h1><p class="small" id="tabletTournament"></p><select aria-label="Turnaj na tomto terči" id="tabletTournamentSelect"></select></div><div class="row"><button class="secondary" id="tabletRefreshBtn">Obnovit</button><button class="secondary" id="tabletLogoutBtn">Odhlásit</button></div></div></details>
 </div>
@@ -1629,19 +1639,26 @@ const tabletBoard = (()=>{
 })();
 // Jednorazovy QR pristup k TERCI, ne globalni prihlaseni poradatele.
 // Tajny token je jen ve fragmentu (#dtb=...), nikdy v HTTP URL ani QR sluzbe.
+let darturnioQrProblem = '';
 let darturnioBoardQrToken = (()=>{
  if(!tabletBoard||!selectedTournament)return '';
  const key='darturnio-board-qr-v1-'+selectedTournament+'-'+tabletBoard;
+ let incoming='';
  try{
   const hash=new URLSearchParams(location.hash.replace(/^#/,''));
-  const incoming=hash.get('dtb')||'';
-  if(/^dtb_[0-9a-f]{64}$/.test(incoming)){
-   sessionStorage.setItem(key,incoming);
-   history.replaceState(history.state,'',location.pathname+location.search);
-   return incoming;
+  incoming=hash.get('dtb')||'';
+ }catch(_){}
+ if(incoming){
+  if(!/^dtb_[0-9a-f]{64}$/.test(incoming)){
+   darturnioQrProblem='QR kód obsahuje neplatný formát přístupového klíče. Požádej pořadatele o nový zabezpečený QR kód.';
+   return '';
   }
-  return sessionStorage.getItem(key)||'';
- }catch(_){return ''}
+  // Zapisovatel musi mit pristup i pokud prohlizec zakazuje sessionStorage.
+  try{sessionStorage.setItem(key,incoming)}catch(_){}
+  try{history.replaceState(history.state,'',location.pathname+location.search)}catch(_){}
+  return incoming;
+ }
+ try{return sessionStorage.getItem(key)||''}catch(_){return ''}
 })();
 function darturnioQrTablet(){return !!(tabletBoard&&darturnioBoardQrToken)}
 function darturnioDropQrToken(){
@@ -4775,13 +4792,6 @@ if(tabletBoard){
   });
 }
 
-function initTabletQrCodes(root=document){
-  root.querySelectorAll('.tablet-qr[data-qr-path]').forEach(img=>{
-    const targetUrl=new URL(img.dataset.qrPath,window.location.origin).href;
-    const url='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data='+encodeURIComponent(targetUrl);
-    if(img.src!==url)img.src=url;
-  });
-}
 function renderDarturnioTabletLinks(count=darturnioBoardCount()){
   const root=$('darturnioTabletLinks');
   if(!root)return;
@@ -4793,14 +4803,11 @@ function renderDarturnioTabletLinks(count=darturnioBoardCount()){
   root.innerHTML=Array.from({length:count},(_,i)=>i+1).map(board=>{
     const link='/?tablet='+board+'&turnaj='+encodeURIComponent(selectedTournament);
     return `<div class="tablet-counter-item">
-      ${qrSinglesOnly?`<button type="button" class="action" data-darturnio-issue-board="${board}">Vydat QR přístup – terč ${board}</button><div data-darturnio-board-secure></div>`:'<p class="small">QR zápis dvojic bez přihlášení připravujeme samostatně.</p>'}
-      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít počítadlo jako přihlášený pořadatel</a>
-      <div class="tablet-qr-wrap">
-        <img alt="QR kód – terč ${board}" class="tablet-qr" data-qr-path="${esc(link)}" width="180" height="180" loading="lazy" />
-        <span class="small">Počítadlo terče ${board}</span>
-      </div></div>`;
+      ${qrSinglesOnly?`<p class="small"><strong>Bez přihlášení:</strong> klikni na tlačítko a naskenuj QR kód, který se zobrazí až po vydání klíče.</p><button type="button" class="action" data-darturnio-issue-board="${board}">Vydat zabezpečený QR přístup – terč ${board}</button><div data-darturnio-board-secure></div>`:'<p class="small">QR zápis dvojic bez přihlášení připravujeme samostatně.</p>'}
+      <p class="small" style="margin-top:12px">Alternativa: přístup s heslem pořadatele</p>
+      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít jako přihlášený pořadatel</a>
+      </div>`;
   }).join('');
-  initTabletQrCodes(root);
 }
 // QR přístup se vydá pouze na výslovný pokyn pořadatele.
 // Zobrazený tajný odkaz se neposílá žádnému externímu QR API.
@@ -4826,8 +4833,8 @@ document.addEventListener('click',async(event)=>{
   if(!host)return;
   host.replaceChildren();
   const link=document.createElement('a');link.className='action';link.href=target.href;
-  link.target='_blank';link.rel='noopener noreferrer';link.textContent='Otevřít zabezpečený terč '+board;
-  const note=document.createElement('p');note.className='small';note.textContent='Tento QR klíč umožňuje zapisovat pouze na terči '+board+'. Předej jej jen zapisovateli.';
+  link.target='_blank';link.rel='noopener noreferrer';link.textContent='Otevřít zabezpečené počítadlo bez přihlášení – terč '+board;
+  const note=document.createElement('p');note.className='small';note.textContent='Naskenuj NOVÝ QR kód níže. Ten umožní zapisovat pouze na terči '+board+' bez hesla pořadatele. Předej jej jen zapisovateli.';
   const code=document.createElement('div');
   code.style.cssText='background:white;display:inline-flex;padding:10px;margin:10px 0';
   host.append(link,note,code);
@@ -4842,7 +4849,6 @@ document.addEventListener('click',async(event)=>{
 });
 
 async function init(){
-  initTabletQrCodes();
   if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(error=>console.warn("PWA service worker:",error));}
   // Offline reload: do not wait for Supabase/auth before restoring confirmed scores.
   if(tabletBoard && !navigator.onLine){tabletShowOfflineSnapshot();return;}
@@ -4852,7 +4858,15 @@ async function init(){
     const {data,error}=await db.rpc('darturnio_verify_board_token',{
        p_tournament_id:selectedTournament,p_board_no:tabletBoard,p_token:darturnioBoardQrToken
     });
-    if(error||data!==true){darturnioDropQrToken();notify('QR přístup je neplatný, vypršel nebo byl zrušen. Požádej pořadatele o nový QR kód.');}
+    if(error||data!==true){
+      darturnioDropQrToken();
+      darturnioQrProblem='QR klíč není platný, vypršel nebo byl zrušen. Požádej pořadatele o nový zabezpečený QR kód.';
+      notify(darturnioQrProblem);
+    }
+  }
+  if(tabletBoard&&darturnioQrProblem){
+    const notice=document.getElementById('darturnioQrLoginNotice');
+    if(notice)notice.textContent=darturnioQrProblem;
   }
   await syncClock();
   await loadData();
