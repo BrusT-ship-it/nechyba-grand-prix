@@ -915,6 +915,11 @@ body:has(#ctGame:not([hidden])) #appBrandFooter{
 #admin501StartSection.dt-final-only #darturnioDrawSettings,
 #admin501StartSection.dt-final-only #dtFinalSeedingBanner,
 #admin501StartSection.dt-final-only #formatDrawButtons ~ * {display:none!important}
+#admin501StartSection:not(.dt-final-only) #dtFinalAdvanceChoice{display:none!important}
+#admin501StartSection.dt-final-only #dtFinalAdvanceChoice{display:block;margin:0 0 16px;padding:14px;border:1px solid #555;border-left:4px solid #e11d1d;border-radius:10px;background:#1c1c20}
+#dtFinalAdvanceChoice label{display:block;font-weight:750;margin-bottom:8px}
+#dtFinalAdvanceChoice select{display:block;width:100%;max-width:400px;margin:0;min-height:48px}
+#dtFinalAdvanceChoice .small{margin:9px 0 0}
 #admin501StartSection.dt-final-only #formatDrawButtons {display:grid;grid-template-columns:1fr;gap:12px;margin:0}
 #admin501StartSection.dt-final-only #formatDrawButtons>button {width:100%;margin:0;min-height:57px}
 #admin501StartSection.dt-final-only>.panel {padding:18px}
@@ -1521,6 +1526,11 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <p class="small" id="dtDrawHelp">Vyber formát níže. Remíza je možná jen pro skupiny a každý s každým. KO/DKO vyžaduje vítěze.</p>
 </div>
 <div id="dtFinalSeedingBanner" class="dt-final-seeding" hidden></div>
+<div id="dtFinalAdvanceChoice" hidden>
+<label for="dtFinalAdvancers">Postupujících z každé skupiny</label>
+<select id="dtFinalAdvancers" aria-describedby="dtFinalAdvanceHint"></select>
+<p class="small" id="dtFinalAdvanceHint">Platí pouze pro Skupiny + KO a Skupiny + DKO. Lze zvolit i postup všech hráčů.</p>
+</div>
 <div class="format-draw-buttons" id="formatDrawButtons">
 <button class="action" id="drawGroupsBtn" type="button">SKUPINY + KO PAVOUK</button>
 <button class="action" id="drawGroupsDkoBtn" type="button">SKUPINY + DKO PAVOUK</button>
@@ -1972,9 +1982,23 @@ function darturnioRank(identifiers,games,getId1=m=>m.player1_entry_id,getId2=m=>
 function darturnioRankingKey(r){return [r.points,r.legsFor-r.legsAgainst,r.legsFor,
  r.miniPoints,r.miniDiff,r.miniFor,r.tiebreakWins].join('|')}
 function orderGroupStandings(rows,groupMatches){
- const order=darturnioRank(rows.map(r=>r.entry.id),groupMatches);
- const lookup=new Map(rows.map(r=>[r.entry.id,r]));
- return order.map(r=>({...lookup.get(r.id),...r}));
+  const order=darturnioRank(rows.map(r=>r.entry.id),groupMatches);
+  const lookup=new Map(rows.map(r=>[r.entry.id,r]));
+  const ordered=order.map(r=>({...lookup.get(r.id),...r}));
+  // Ve finale rozhoduje poradi ze skupiny. Pri uplne shode vsech
+  // skupinovych kriterii se pro nasazeni pouzije vyssi kvalifikacni seed,
+  // nikoli nahodne poradi nactenych zaznamu. Shoda NA HRANICI POSTUPU
+  // zustava shodou a stale vyzaduje rozhodovaci leg.
+  if(ordered.length&&darturnioFinalData(ordered[0].entry?.tournament_id)){
+    for(let i=0;i<ordered.length;){
+      let j=i+1;
+      while(j<ordered.length&&darturnioRankingKey(ordered[j])===darturnioRankingKey(ordered[i]))j++;
+      if(j>i+1)ordered.splice(i,j-i,...ordered.slice(i,j).sort((a,b)=>
+        (Number(a.entry.final_seed)||9999)-(Number(b.entry.final_seed)||9999)));
+      i=j;
+    }
+  }
+  return ordered;
 }
 // Jedno nastavení platí pro oba typy skupinového play-off. Starým turnajům
 // bez uloženého počtu zachováme dosavadní nasazení nejvýše osmi účastníků.
@@ -1996,13 +2020,8 @@ function darturnioSeedGroupQualifiers(tournamentId,groups,entriesCount){
       if(group[rank]&&selected.length<count)selected.push(group[rank].entry);
     }
   }
-  if(darturnioFinalData(tournamentId)){
-    const unique=new Set(selected.map(e=>e.id));
-    // Starší již rozlosovaná finále nemusí mít final_seed.
-    // V takovém případě zachováme jejich historické skupinové nasazení.
-    if(unique.size===selected.length&&selected.every(e=>e.final_seed!=null&&Number.isInteger(Number(e.final_seed))&&Number(e.final_seed)>=1))
-      selected.sort((a,b)=>Number(a.final_seed)-Number(b.final_seed));
-  }
+  // Po skupinách rozhoduje aktuální pořadí ve skupinách, nikoli
+  // původní kvalifikační nasazení. I když postupují všichni.
   return selected;
 }
 const creatingGroupTiebreaks = new Set();
@@ -3298,12 +3317,64 @@ async function saveAutomaticPlacements(tournamentId,freshMatches){
   if(failed)throw new Error("Automatické uložení pořadí se nepodařilo: "+failed.error.message);
   return true;
 }
+const darturnioFinalSetupPending=new Set();
+const darturnioFinalSetupErrors=new Map();
 function renderAdminFinalists(){
   const tid=selectedTournament;
   const definition=darturnioFinalData(tid);
   const isFinal=!!definition;
   const startSection=$('admin501StartSection');
   if(startSection)startSection.classList.toggle('dt-final-only',isFinal);
+  const choice=$('dtFinalAdvanceChoice');
+  const select=$('dtFinalAdvancers');
+  const hint=$('dtFinalAdvanceHint');
+  if(choice)choice.hidden=!isFinal;
+  const ready=isFinal&&[4,8,16,32].includes(Number(definition?.series?.finalists_count));
+  if(isFinal&&!ready&&!darturnioFinalSetupPending.has(tid)&&!darturnioFinalSetupErrors.has(tid)){
+    darturnioFinalSetupPending.add(tid);
+    darturnioEnsureFinalSeries(tid).then(()=>{
+      if(selectedTournament===tid)renderAdminFinalists();
+    }).catch(err=>{
+      darturnioFinalSetupErrors.set(tid,err?.message||'Nastaveni finale nelze nacist.');
+      if(selectedTournament===tid)renderAdminFinalists();
+    }).finally(()=>darturnioFinalSetupPending.delete(tid));
+  }
+  if(isFinal&&select&&!ready){
+    select.replaceChildren();
+    const option=document.createElement('option');
+    option.value='';
+    option.textContent='Načítám počet finalistů…';
+    select.appendChild(option);
+    select.disabled=true;
+    select.dataset.signature='';
+    if(hint)hint.textContent=darturnioFinalSetupErrors.has(tid)?
+      'Nastavení série není dostupné: '+darturnioFinalSetupErrors.get(tid):
+      'Nastavení počtu finalistů se načítá ze série.';
+  }
+  if(ready&&select){
+    select.disabled=false;
+    const n=Number(definition.series.finalists_count);
+    const max=Math.floor(n/2);
+    const saved=Number(tournaments.find(t=>t.id===tid)?.draw_qualifiers_per_group);
+    const previous=select.dataset.tournament===String(tid)?Number(select.value):NaN;
+    const chosen=Number.isInteger(previous)&&previous>=1&&previous<=max?previous:
+      Number.isInteger(saved)&&saved>=1&&saved<=max?saved:Math.max(1,Math.floor(max/2));
+    const signature=tid+':'+max;
+    if(select.dataset.signature!==signature){
+      select.replaceChildren();
+      for(let i=1;i<=max;i++){
+        const option=document.createElement('option');
+        option.value=String(i);
+        option.textContent=i===max?`${i} – postupují všichni`:`${i} z každé skupiny`;
+        select.append(option);
+      }
+      select.dataset.signature=signature;
+    }
+    select.dataset.tournament=String(tid);
+    select.value=String(chosen);
+    if(hint)hint.textContent=`2 skupiny · ${chosen*2} z ${n} finalistů do pavouka. `+
+      (chosen===max?'Všichni postoupí. Pavouk se nasadí podle pořadí ve skupinách.':'Po skupinách postupují nejlepší hráči.');
+  }
   // Žádný další krok a žádná chybná hláška v administraci: veškeré načtení
   // průběžné tabulky i postupujících nastane až stiskem jednoho z pěti tlačítek.
   const banner=$('dtFinalSeedingBanner');
@@ -3404,6 +3475,15 @@ async function darturnioPrepareFinalDraw(tid){
     return sorted;
   }finally{darturnioFinalPreparing=false;}
 }
+document.getElementById('dtFinalAdvancers')?.addEventListener('change',()=>{
+  const select=document.getElementById('dtFinalAdvancers');
+  const hint=document.getElementById('dtFinalAdvanceHint');
+  const tid=document.getElementById('entryTournament')?.value||selectedTournament;
+  const n=Number(darturnioFinalData(tid)?.series?.finalists_count)||entries.filter(e=>e.tournament_id===tid).length;
+  const chosen=Number(select?.value)||1;
+  if(hint)hint.textContent=`2 skupiny · ${chosen*2} z ${n} finalistů do pavouka. `+
+    (chosen*2===n?'Postupují všichni; výsledky skupin určí nasazení pavouka.':'Postupují nejlepší hráči ze skupin.');
+});
 window.darturnioPrepareFinalDraw=darturnioPrepareFinalDraw;
 async function fetchAll(table,orderCols){
   // PostgREST vrací max. 1000 řádků na dotaz, proto stránkujeme.
@@ -3805,7 +3885,11 @@ function darturnioDrawSettings(format){
     const n=entries.filter(e=>e.tournament_id===tid).length;
     const groups=Math.min(2,Math.floor(n/2));
     const legs=Math.min(21,Math.max(1,Number(t?.target_legs)||2));
-    const qualifiers=groups===2?Math.max(1,Math.floor(n/4)):1;
+    const max=groups?Math.floor(n/groups):0;
+    const selected=Number(document.getElementById('dtFinalAdvancers')?.value);
+    const saved=Number(t?.draw_qualifiers_per_group);
+    const qualifiers=Number.isInteger(selected)&&selected>=1&&selected<=max?selected:
+      Number.isInteger(saved)&&saved>=1&&saved<=max?saved:Math.max(1,Math.floor(max/2));
     return {rule:'first_to',legs,groups,qualifiers};
   }
   const rule=document.getElementById('dtDrawLegRule')?.value||'first_to';
