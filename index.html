@@ -1757,6 +1757,12 @@ function tournamentMatches(){
 function tournamentEntries(){
   return entries.filter(e=>e.tournament_id===selectedTournament);
 }
+// Ve veřejné záložce Hráči a statistiky patří pouze hráči ze startovní
+// listiny aktuálně vybraného turnaje, nikoliv celá databáze hráčů.
+function currentTournamentPlayers(){
+  const playerIds=new Set(tournamentEntries().map(e=>e.player_id).filter(Boolean));
+  return players.filter(p=>playerIds.has(p.id));
+}
 function formatDuration(startedAt){
   if(!startedAt)return "00:00";
   const seconds=Math.max(0,Math.floor((Date.now()+clockOffset-new Date(startedAt).getTime())/1000));
@@ -2712,11 +2718,20 @@ function doubleStatDisplay(d){
 }
 function numberOrDash(v){return v===null||v===undefined?'—':String(v)}
 function renderPlayerStats(){
-  const rows=players.map(p=>({player:p,...playerStats(p.id),dart:playerDartSummary(p.id),
+  const rows=currentTournamentPlayers().map(p=>({player:p,...playerStats(p.id),dart:playerDartSummary(p.id),
      detail:playerDetailedSummary(p.id),checkout:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),
      high:playerBest(p.id,["p1_highest_score","p2_highest_score"])}))
      .sort((a,b)=>b.wins-a.wins||b.rate-a.rate||a.player.name.localeCompare(b.player.name,"cs"));
   const detailAvailable=!detailedVisitError;
+  const openProfile=$("playerProfileContent").querySelector("#publicCricketStats[data-player-id]");
+  if(openProfile&&!rows.some(r=>r.player.id===openProfile.dataset.playerId)){
+    $("playerProfileContent").innerHTML='';
+  }
+  if(!rows.length){
+    $("playerStatsContent").innerHTML='<p class="muted">Na startovní listině vybraného turnaje zatím není žádný hráč.</p>';
+    $("playerProfileContent").innerHTML='';
+    return;
+  }
   $("playerStatsContent").innerHTML=`<div class="table-wrap"><table><thead><tr>
   <th>Hráč</th><th>Zápasy</th><th>Výhry</th><th>Prohry</th><th>Průměr Ø3</th><th>Nejlepší zápas Ø3</th><th>Šipky</th>
   <th>100–139</th><th>140–179</th><th>180</th><th>Double %</th><th>Max. zavření</th><th>Max. nához</th>
@@ -2752,7 +2767,7 @@ async function loadPublicCricketStats(playerId){
   target.innerHTML=error?`<p class="warning">Cricketové statistiky se nepodařilo načíst: ${esc(error.message)}</p>`:cricketTournamentStatsMarkup(data||[]);
 }
 function renderPlayerProfile(playerId){
-  const p=players.find(x=>x.id===playerId);if(!p)return;
+  const p=currentTournamentPlayers().find(x=>x.id===playerId);if(!p)return;
   const stats=playerStats(playerId),checkout=playerBest(playerId,["p1_highest_checkout","p2_highest_checkout"]),high=playerBest(playerId,["p1_highest_score","p2_highest_score"]),dart=playerDartSummary(playerId);
   const detail=playerDetailedSummary(playerId);
   const history=entries.filter(e=>e.player_id===playerId&&Number(tournaments.find(t=>t.id===e.tournament_id)?.game_type)!==701).map(e=>({entry:e,tournament:tournaments.find(t=>t.id===e.tournament_id)})).sort((a,b)=>(Number(a.tournament?.event_no)||0)-(Number(b.tournament?.event_no)||0));
@@ -2791,7 +2806,7 @@ function exportSeries(){
   downloadCSV("nechyba-grand-prix-celkove-vysledky.csv",[["Pořadí","Hráč",...qs.map(t=>t.name),"Celkem bodů"],...standings.map((r,i)=>[i+1,r.player?.name||"",...r.eventResults.map(x=>x.points??""),r.total])]);
 }
 function exportPlayers(){
-  const rows=players.map(p=>({p,...playerStats(p.id),dart:playerDartSummary(p.id),d:playerDetailedSummary(p.id),c:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),h:playerBest(p.id,["p1_highest_score","p2_highest_score"])}));
+  const rows=currentTournamentPlayers().map(p=>({p,...playerStats(p.id),dart:playerDartSummary(p.id),d:playerDetailedSummary(p.id),c:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),h:playerBest(p.id,["p1_highest_score","p2_highest_score"])}));
   downloadCSV("501live-podrobne-statistiky-hracu.csv",[
     ["Hráč","Zápasy","Výhry","Prohry","Úspěšnost zápasů %","Celkový průměr Ø3","Nejlepší zápasový průměr Ø3","Šipky","100–139","140–179","180","Vyhrané legy","Prohrané legy","Zavření","Pokusy na double","Úspěšnost double %","Náhozy bez sledování double","Nejvyšší zavření","Nejvyšší nához"],
     ...rows.map(r=>[r.p.name,r.played,r.wins,r.losses,r.rate,r.dart.average??"",r.d.bestAverage??"",r.dart.darts||"",r.d.recorded?r.d.visits100:"",r.d.recorded?r.d.visits140:"",r.d.recorded?r.d.visits180:"",r.d.legsWon,r.d.legsLost,r.d.recorded?r.d.checkouts:"",r.d.tracked?r.d.attempts:"",r.d.doubles===null?"":Number(r.d.doubles.toFixed(2)),r.d.untracked,r.c?.value??"",r.h?.value??""])
@@ -6223,130 +6238,6 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
    if(trackerTries++>=30){clearInterval(tracker);return;}
    recordTraffic().then(ok=>{if(ok)clearInterval(tracker)}).catch(()=>{});
  },900);
-})();
-</script>
-<style id="darturnio-owner-user-activity-style">
-/* Only the protected platform-owner dashboard; no changes to scoring pages. */
-#dtUserActivity{border-color:#484048}
-#dtUserActivity .dt-ua-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-#dtUserActivity .dt-ua-head h3{margin:0}
-#dtUserActivity .dt-ua-head button{padding:9px 13px;min-height:40px}
-#dtUserActivity .dt-ua-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:17px 0 20px}
-#dtUserActivity .dt-ua-metric{background:#242127;border:1px solid #49424a;border-radius:11px;padding:13px 10px;min-width:0}
-#dtUserActivity .dt-ua-metric strong{font-size:clamp(20px,3vw,30px);font-weight:900;color:#fff;display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-#dtUserActivity .dt-ua-metric span{display:block;margin-top:5px;color:#bfc0c8;font-size:12px;line-height:1.35}
-#dtUserActivity .dt-ua-subtitle{color:#f6f6f6;margin:18px 0 11px;font-size:16px}
-#dtUserActivity .dt-ua-mode-row{display:flex;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid #333}
-#dtUserActivity .dt-ua-mode-label{flex:1;min-width:120px;color:#e6e6e9;font-size:13px;overflow-wrap:anywhere}
-#dtUserActivity .dt-ua-mode-track{flex:2;height:9px;background:#363136;border-radius:50px;overflow:hidden}
-#dtUserActivity .dt-ua-mode-fill{height:100%;background:linear-gradient(90deg,#a71520,#ff4343);border-radius:50px}
-#dtUserActivity .dt-ua-mode-count{width:50px;flex:none;text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
-#dtUserActivity .dt-ua-scroll{overflow-x:auto;border:1px solid #39363b;border-radius:10px}
-#dtUserActivity table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px;color:#eee}
-#dtUserActivity th{background:#252226;color:#cac8d0;text-align:left;font-size:12px;white-space:nowrap}
-#dtUserActivity td,#dtUserActivity th{border-bottom:1px solid #343137;padding:11px 9px;vertical-align:top}
-#dtUserActivity tbody tr:last-child td{border-bottom:0}
-#dtUserActivity td.dt-ua-number,#dtUserActivity th.dt-ua-number{text-align:right;white-space:nowrap}
-#dtUserActivity td.dt-ua-time{white-space:nowrap;color:#bbb}
-#dtUserActivity .dt-ua-small{font-size:12px;color:#bcb8c0;line-height:1.5}
-#dtUserActivity #dtUserActivityStatus{margin:10px 0;color:#c5b8bd}
-#dtUserActivity button{cursor:pointer}
-@media(max-width:720px){#dtUserActivity .dt-ua-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){
-#dtUserActivity table{min-width:0}
-#dtUserActivity thead{display:none}
-#dtUserActivity tbody{display:grid;gap:9px;padding:9px}
-#dtUserActivity tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px;background:#201e22;border:1px solid #403a41;border-radius:8px}
-#dtUserActivity td{display:block;white-space:normal!important;text-align:left!important;border:0;padding:3px 2px;overflow-wrap:anywhere;min-width:0}
-#dtUserActivity td::before{content:attr(data-label);display:block;font-size:10px;letter-spacing:.01em;color:#a5a0a8;margin-bottom:5px}
-}
-@media(max-width:390px){#dtUserActivity .dt-ua-metric{padding:12px 9px}#dtUserActivity .dt-ua-metric strong{font-size:22px}#dtUserActivity .dt-ua-mode-track{flex:1}}
-</style>
-<script id="darturnio-owner-user-activity">
-(()=>{
- 'use strict';
- const $=id=>document.getElementById(id);
- const owner=$('owner501Panel'),trigger=$('owner501Button');
- if(!owner||!trigger||$('dtUserActivity'))return;
- const section=document.createElement('section');
- section.id='dtUserActivity';section.className='owner501-content';
- section.innerHTML=`
-  <div class="dt-ua-head"><h3>Aktivita uživatelů</h3><button type="button" id="dtUserActivityRefresh" class="secondary">↻ Obnovit aktivitu</button></div>
-  <p id="dtUserActivityStatus" class="dt-ua-small" role="status" aria-live="polite">Přehled se načte po otevření správy.</p>
-  <div class="dt-ua-metrics">
-   <div class="dt-ua-metric"><strong id="dtUAMembers">—</strong><span>Registrované účty</span></div>
-   <div class="dt-ua-metric"><strong id="dtUAGames">—</strong><span>Dokončené hry a tréninky</span></div>
-   <div class="dt-ua-metric"><strong id="dtUADarts">—</strong><span>Celkem hozených šipek</span></div>
-   <div class="dt-ua-metric"><strong id="dtUA30Days">—</strong><span>Dokončené hry za 30 dní</span></div>
-  </div>
-  <h4 class="dt-ua-subtitle">Používané herní režimy</h4><div id="dtUAModes" aria-label="Počty dokončených her podle režimu"></div>
-  <h4 class="dt-ua-subtitle">Nejaktivnější registrovaní hráči</h4>
-  <div id="dtUAPlayers" class="dt-ua-scroll"></div>
-  <p class="dt-ua-small">Žebříček vychází z dokončených tréninků a samostatných her přiřazených účtu. Nevyhodnocuje jednotlivé účasti v turnajích.</p>
-  <h4 class="dt-ua-subtitle">Posledních 30 dokončených her</h4>
-  <div id="dtUARecent" class="dt-ua-scroll"></div>
-  <p class="dt-ua-small">Zobrazená jména jsou dostupná jen majiteli Darturnia. Anonymní hry nemají identifikovatelného hráče. U turnajů jsou uvedeny názvy turnajů místo jmen jednotlivých účastníků. Počet šipek konkrétního zápasu může chybět, pokud nebyly zadávány náhozy počítadlem. Tento přehled nesleduje právě rozehrané tréninky.</p>`;
- const ownerChart=$('owner501Chart')?.closest('.owner501-content');
- if(ownerChart)owner.insertBefore(section,ownerChart);else owner.appendChild(section);
- const num=v=>Number(v||0).toLocaleString('cs-CZ');
- const time=v=>{if(!v)return '—';const d=new Date(v);return Number.isNaN(d.valueOf())?'—':d.toLocaleString('cs-CZ',{timeZone:'Europe/Prague',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});};
- const textCell=(row,value,cls='',label='')=>{const td=document.createElement('td');td.textContent=value==null?'—':String(value);if(cls)td.className=cls;td.dataset.label=label;row.appendChild(td)};
- function table(target,columns,rows){
-  target.replaceChildren();
-  if(!rows.length){const p=document.createElement('p');p.className='dt-ua-small';p.style.padding='0 12px';p.textContent='Zatím nejsou uložené žádné výsledky.';target.appendChild(p);return;}
-  const t=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');
-  for(const [label,cls] of columns){const th=document.createElement('th');th.textContent=label;if(cls)th.className=cls;tr.appendChild(th)}
-  thead.appendChild(tr);const tb=document.createElement('tbody');
-  for(const cells of rows){const r=document.createElement('tr');cells.forEach(([value,cls],i)=>textCell(r,value,cls,columns[i]?.[0]||''));tb.appendChild(r)}
-  t.append(thead,tb);target.appendChild(t);
- }
- function display(payload){
-  const s=payload?.summary||{};
-  $('dtUAMembers').textContent=num(s.registered_accounts);
-  $('dtUAGames').textContent=num(s.completed_games);
-  $('dtUADarts').textContent=num(s.total_darts);
-  $('dtUA30Days').textContent=num(s.games_30d);
-  const modes=Array.isArray(payload?.modes)?payload.modes:[];
-  const wrap=$('dtUAModes');wrap.replaceChildren();
-  if(!modes.length)wrap.textContent='Zatím žádné dokončené hry.';
-  const maximum=Math.max(1,...modes.map(m=>Number(m.games)||0));
-  for(const m of modes){
-   const row=document.createElement('div');row.className='dt-ua-mode-row';
-   const label=document.createElement('span');label.className='dt-ua-mode-label';label.textContent=m.mode||'Neznámý režim';
-   const track=document.createElement('div');track.className='dt-ua-mode-track';
-   const fill=document.createElement('div');fill.className='dt-ua-mode-fill';fill.style.width=Math.max(0,Math.min(100,(Number(m.games)||0)/maximum*100))+'%';
-   track.append(fill);const count=document.createElement('strong');count.className='dt-ua-mode-count';count.textContent=num(m.games);
-   row.append(label,track,count);wrap.appendChild(row);
-  }
-  const players=Array.isArray(payload?.top_players)?payload.top_players:[];
-  table($('dtUAPlayers'),[['Hráč'],['Dokončené hry','dt-ua-number'],['Šipky','dt-ua-number']],
-   players.map(p=>[[p.player||'Registrovaný hráč'],[num(p.games),'dt-ua-number'],[num(p.darts),'dt-ua-number']]));
-  const recent=Array.isArray(payload?.recent)?payload.recent:[];
-  table($('dtUARecent'),[['Čas (ČR)'],['Hráč / turnaj'],['Hra'],['Šipky','dt-ua-number']],
-   recent.map(r=>[[time(r.time),'dt-ua-time'],[r.player||'—'],[r.mode||'—'],[r.darts==null?'—':num(r.darts),'dt-ua-number']]));
- }
- let loading=false,loaded=false;
- async function load(force=false){
-  if(owner.hidden||loading||(!force&&loaded))return;
-  loading=true;$('dtUserActivityRefresh').disabled=true;
-  $('dtUserActivityStatus').textContent='Načítám aktivitu z databáze…';
-  try{
-   const client=window.db||(typeof db!=='undefined'?db:null);
-   if(!client)throw Error('Spojení se Supabase není připravené.');
-   const auth=await client.auth.getUser();
-   if(auth.error||!auth.data?.user)throw Error('Nejdřív se přihlas.');
-   const result=await client.rpc('darturnio_owner_user_activity');
-   if(result.error)throw result.error;
-   if(owner.hidden)return;
-   display(result.data||{});loaded=true;
-   $('dtUserActivityStatus').textContent='Aktualizováno '+new Date().toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});
-  }catch(err){$('dtUserActivityStatus').textContent='Aktivitu se nepodařilo načíst: '+(err.message||String(err))+' · Zkontroluj nové SQL a přihlášení majitele.';}
-  finally{loading=false;$('dtUserActivityRefresh').disabled=false;}
- }
- trigger.addEventListener('click',()=>{load(false);});
- $('owner501Refresh')?.addEventListener('click',()=>load(true));
- $('dtUserActivityRefresh').addEventListener('click',()=>load(true));
- window.addEventListener('501live-login-success',()=>{loaded=false;});
 })();
 </script>
 <style id="501live-single-hero-home-v2">
