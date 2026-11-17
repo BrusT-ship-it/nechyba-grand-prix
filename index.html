@@ -1356,7 +1356,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <div class="hidden" id="tabletRoot">
 
 <div class="panel" id="tabletLogin">
-  <h2 style="margin:0 0 10px">Pro zápis chybí zabezpečený QR přístup</h2>
+  <h2 style="margin:0 0 10px">Přístup k počítadlu</h2>
   <p id="darturnioQrLoginNotice" style="line-height:1.5">Tento odkaz neobsahuje platný klíč pro zapisovatele. Požádej pořadatele, aby v <strong>Administrace → Tabletová počítadla</strong> zvolil <strong>Vydat QR přístup – terč</strong> a naskenuj nově vytvořený QR kód. Starší QR kódy bez klíče slouží jen k otevření přihlašovacího režimu.</p>
   <details style="margin-top:16px"><summary style="cursor:pointer;font-weight:700">Jsem pořadatel – přihlásit se heslem</summary>
     <div style="display:grid;gap:10px;margin-top:12px">
@@ -3595,6 +3595,55 @@ async function fetchAll(table,orderCols){
   }
   return {data:all,error:null};
 }
+// Samostatne rychle nacitani QR tabletu. Nacita jen jeden turnaj;
+// NEVOLÁ administrátorské statistiky a historii cele aplikace.
+async function darturnioQrRequest(operation,label,timeoutMs=14000){
+ let timer;
+ try{
+  return await Promise.race([
+   Promise.resolve(operation),
+   new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Vypršel čas při načítání: '+label+'. Zkontroluj připojení k internetu a Supabase.')),timeoutMs)})
+  ]);
+ }finally{clearTimeout(timer)}
+}
+function darturnioQrShowError(error,phase='Načtení počítadla'){
+ const message=String(error?.message||error||'Neznámá chyba').replace(/dtb_[0-9a-f]{64}/g,'[SKRYTÝ KLÍČ]');
+ console.error('Darturnio QR:',phase,message);
+ const app=$('tabletApp');
+ if(!app)return;
+ $('tabletRoot')?.classList.remove('hidden');
+ $('tabletLogin')?.classList.add('hidden');
+ app.classList.remove('hidden');
+ app.innerHTML='<div class="panel warning"><h2>Počítadlo se nepodařilo načíst</h2>'
+  +'<p><b>'+esc(phase)+'</b></p><p style="overflow-wrap:anywhere">'+esc(message)+'</p>'
+  +'<p class="small">QR klíč nesděluj nikomu mimo zapisovatele. Ověř Wi-Fi a aktuální testovací index.</p>'
+  +'<button type="button" class="action" onclick="location.reload()">Zkusit znovu</button></div>';
+}
+async function darturnioLoadQrTabletData(){
+ if(!db||!selectedTournament||!tabletBoard)throw new Error('V QR odkazu chybí číslo terče nebo turnaj.');
+ const results=await darturnioQrRequest(Promise.all([
+   db.from('tournaments').select('*').eq('id',selectedTournament).maybeSingle(),
+   db.from('tournament_entries').select('*').eq('tournament_id',selectedTournament),
+   db.from('matches').select('*').eq('tournament_id',selectedTournament)
+ ]),'turnaje a zápasy');
+ const [t,e,m]=results;
+ if(t.error)throw new Error('Turnaj: '+t.error.message);
+ if(e.error)throw new Error('Startovní listina: '+e.error.message);
+ if(m.error)throw new Error('Zápasy: '+m.error.message);
+ if(!t.data)throw new Error('Turnaj není pro nepřihlášené čitelný. Zkontroluj SELECT/RLS pro tournaments.');
+ // Pouze hráči startovní listiny otevřeného turnaje.
+ const playerIds=[...new Set((e.data||[]).map(x=>x.player_id).filter(Boolean))];
+ let p={data:[],error:null};
+ if(playerIds.length){
+  p=await darturnioQrRequest(db.from('players').select('id,name').in('id',playerIds),'jmen hráčů');
+  if(p.error)throw new Error('Jména hráčů: '+p.error.message);
+ }
+ tournaments=[t.data];entries=e.data||[];matches=m.data||[];players=p.data||[];
+ entryById=new Map(entries.map(x=>[x.id,x]));
+ playerById=new Map(players.map(x=>[x.id,x]));
+ lastLoadOk=Date.now();
+}
+
 function pickDefaultTournament(){
   const ordered=sortTournaments(tournaments);
   if(!ordered.length)return "";
@@ -3617,6 +3666,11 @@ function scheduleLoad(){
 }
 async function loadData(){
   if(!db)return;
+  if(darturnioQrTablet()&&!isAdmin){
+    try{await darturnioLoadQrTabletData();}
+    catch(error){darturnioQrShowError(error,'Načtení dat turnaje');throw error;}
+    return;
+  }
   const seq=++loadSeq;
   if(!lastLoadOk)setStatus("Načítám data…");
   let t,p,e,m,avg,matchAvg,visitDetails,seriesResponse;
@@ -4439,6 +4493,10 @@ async function renderTablet(localOnly=false){
   if(!match){
     tabletFastCache=null;
     const scheduled=scheduledMatches(tournamentMatches()).find(x=>Number(x.board)===tabletBoard);
+    if(darturnioQrTablet()&&!isAdmin){
+      app.innerHTML='<div class="panel" style="text-align:center;padding:35px 15px"><h2>Terč '+tabletBoard+' je připravený</h2><p>Zatím zde neběží žádný zápas.</p><p class="muted">Zápas musí nejprve spustit pořadatel v administraci. Tablet jej poté automaticky načte.</p></div>';
+      return;
+    }
     if(scheduled&&scheduled.match.id!==tabletAutoStartBlockedMatchId&&!tabletAutoStartInProgress){
       tabletAutoStartInProgress=true;
       app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Připravuji další zápas…</h2><p class="muted">Kontroluji dostupnost hráčů a zapisovatele.</p></div>';
@@ -4849,29 +4907,54 @@ document.addEventListener('click',async(event)=>{
 });
 
 async function init(){
-  if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(error=>console.warn("PWA service worker:",error));}
-  // Offline reload: do not wait for Supabase/auth before restoring confirmed scores.
-  if(tabletBoard && !navigator.onLine){tabletShowOfflineSnapshot();return;}
-  db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  // Bez ověření skutečného klíče v DB není QR relace platná.
-  if(darturnioQrTablet()){
-    const {data,error}=await db.rpc('darturnio_verify_board_token',{
-       p_tournament_id:selectedTournament,p_board_no:tabletBoard,p_token:darturnioBoardQrToken
-    });
-    if(error||data!==true){
-      darturnioDropQrToken();
-      darturnioQrProblem='QR klíč není platný, vypršel nebo byl zrušen. Požádej pořadatele o nový zabezpečený QR kód.';
-      notify(darturnioQrProblem);
-    }
-  }
-  if(tabletBoard&&darturnioQrProblem){
-    const notice=document.getElementById('darturnioQrLoginNotice');
-    if(notice)notice.textContent=darturnioQrProblem;
-  }
-  await syncClock();
-  await loadData();
-  if(darturnioQrTablet())await renderTablet();
-  // Obnovení přihlášení pořadatele po refreshi stránky
+   // QR tablety nefunguji spolehlive se starym service-worker HTML.
+   // Registrace PWA zustava pro bezne otevreni Darturnio.
+   if(!darturnioQrTablet()&&"serviceWorker" in navigator){
+     navigator.serviceWorker.register("/sw.js").catch(error=>console.warn("PWA service worker:",error));
+   }
+   if(tabletBoard && !navigator.onLine){tabletShowOfflineSnapshot();return;}
+   if(darturnioQrTablet()){
+     const app=$('tabletApp');
+     $('tabletLogin').classList.add('hidden');
+     app.classList.remove('hidden');
+     app.innerHTML='<div class="panel" style="text-align:center;padding:30px 15px"><h2>Ověřuji zabezpečený QR přístup…</h2><p class="muted">Kontroluji klíč terče.</p></div>';
+     try{
+       if(!window.supabase?.createClient)throw new Error('Nepodařilo se načíst knihovnu Supabase. Zkontroluj připojení.');
+       // QR ma VLASTNI anonymni spojeni, neprebira ulozene prihlaseni poradatele.
+       db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+         auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
+       });
+       const result=await darturnioQrRequest(db.rpc('darturnio_verify_board_token',{
+         p_tournament_id:selectedTournament,p_board_no:tabletBoard,p_token:darturnioBoardQrToken
+       }),'ověření QR klíče');
+       if(result.error)throw new Error('Ověření QR: '+result.error.message);
+       if(result.data!==true){
+         darturnioDropQrToken();
+         throw new Error('QR přístup není platný, vypršel nebo byl zrušen. Vydej nový QR klíč.');
+       }
+       app.innerHTML='<div class="panel" style="text-align:center;padding:30px 15px"><h2>QR přístup ověřen</h2><p class="muted">Načítám jen zápasy tohoto turnaje…</p></div>';
+       await darturnioLoadQrTabletData();
+       await darturnioQrRequest(renderTablet(),'zobrazení počítadla');
+       // QR nejde pres admin realtime, staci nezavisla pravidelna obnova.
+       let qrPolling=false;
+       setInterval(async()=>{
+         if(qrPolling||tabletBusy||cricketTournamentBusy||!darturnioQrTablet())return;
+         qrPolling=true;
+         try{await darturnioLoadQrTabletData();await renderTablet();}
+         catch(error){darturnioQrShowError(error,'Aktualizace stavu terče');}
+         finally{qrPolling=false;}
+       },12000);
+     }catch(error){darturnioQrShowError(error,'QR přístup / načtení');}
+     return;
+   }
+   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+   if(tabletBoard&&darturnioQrProblem){
+     const notice=document.getElementById('darturnioQrLoginNotice');
+     if(notice)notice.textContent=darturnioQrProblem;
+   }
+   await syncClock();
+   await loadData();
+   // Obnovení přihlášení pořadatele po refreshi stránky
   try{
     const {data}=await db.auth.getSession();
     if(data?.session&&await verifyAdmin()){setAdminUi(true);await loadData();if(tabletBoard)await renderTablet();}
@@ -4892,7 +4975,10 @@ async function init(){
     document.querySelectorAll(".timer[data-start],.elapsed[data-start]").forEach(el=>{el.textContent=formatDuration(el.dataset.start);});
   },1000);
 }
-init();
+ init().catch(error=>{
+   if(tabletBoard)darturnioQrShowError(error,'Spuštění Darturnio');
+   else console.error('Darturnio startup:',error);
+ });
 </script>
 <script id="501live-public-portal">
 (function(){
