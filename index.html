@@ -1627,6 +1627,52 @@ const tabletBoard = (()=>{
   const board=Number(q||m?.[1]||0);
   return Number.isInteger(board)&&board>=1&&board<=64?board:0;
 })();
+// Jednorazovy QR pristup k TERCI, ne globalni prihlaseni poradatele.
+// Tajny token je jen ve fragmentu (#dtb=...), nikdy v HTTP URL ani QR sluzbe.
+let darturnioBoardQrToken = (()=>{
+ if(!tabletBoard||!selectedTournament)return '';
+ const key='darturnio-board-qr-v1-'+selectedTournament+'-'+tabletBoard;
+ try{
+  const hash=new URLSearchParams(location.hash.replace(/^#/,''));
+  const incoming=hash.get('dtb')||'';
+  if(/^dtb_[0-9a-f]{64}$/.test(incoming)){
+   sessionStorage.setItem(key,incoming);
+   history.replaceState(history.state,'',location.pathname+location.search);
+   return incoming;
+  }
+  return sessionStorage.getItem(key)||'';
+ }catch(_){return ''}
+})();
+function darturnioQrTablet(){return !!(tabletBoard&&darturnioBoardQrToken)}
+function darturnioDropQrToken(){
+ try{sessionStorage.removeItem('darturnio-board-qr-v1-'+selectedTournament+'-'+tabletBoard)}catch(_){}
+ darturnioBoardQrToken='';
+}
+async function darturnioTabletRpc(name,args={}){
+ if(!darturnioQrTablet())return db.rpc(name,args);
+ const mapping={
+   start_match_leg:'darturnio_qr_start_match_leg',
+   record_dart_visit_with_double:'darturnio_qr_record_dart_visit_with_double',
+   record_cricket_visit_safe:'darturnio_qr_record_cricket_visit_safe',
+   undo_last_match_entry:'darturnio_qr_undo_last_match_entry',
+   undo_last_cricket_visit:'darturnio_qr_undo_last_cricket_visit',
+   get_cricket_leg_state:'darturnio_qr_get_cricket_leg_state'
+ };
+ if(!mapping[name])return {error:{message:'Tato spravni operace neni dostupna pres QR pristup.'}};
+ let payload={...args,p_token:darturnioBoardQrToken};
+ if(name==='record_dart_visit_with_double'){
+   payload={
+     p_request_id:args.p_request_id,p_leg_id:args.p_leg_id,
+     p_player_entry_id:args.p_player_entry_id,p_mode:args.p_mode,
+     p_darts:args.p_darts,p_checkout_dart:args.p_checkout_dart??null,
+     p_checkout_is_double:args.p_checkout_is_double??false,
+     p_bust_dart:args.p_bust_dart??null,
+     p_double_attempts:args.p_double_attempts??null,
+     p_token:darturnioBoardQrToken
+   };
+ }
+ return db.rpc(mapping[name],payload);
+}
 // Potvrzene informace o aktivnim legu drzime v pameti tabletu.
 // Vstup z klavesnice se nikdy nema cekat na sit (Supabase).
 let tabletFastCache=null;
@@ -1695,7 +1741,7 @@ async function darturnioShowFinishedSinglesResult(notice,app){
   if(legs.error)throw legs.error;
   if(cricket){
    // Cricket má vlastní model bodů a značek: nevydáváme je za 301/501 průměr.
-   const states=await Promise.all((legs.data||[]).map(x=>db.rpc('get_cricket_leg_state',{p_leg_id:x.id})));
+   const states=await Promise.all((legs.data||[]).map(x=>darturnioTabletRpc('get_cricket_leg_state',{p_leg_id:x.id})));
    const valid=states.filter(x=>!x.error&&x.data);
    if(valid.length){
     const visits=valid.reduce((n,x)=>n+(Number(x.data.visits)||0),0);
@@ -3550,7 +3596,7 @@ function updateConnectionStatus(){
 }
 function scheduleLoad(){
   clearTimeout(loadTimer);
-  loadTimer=setTimeout(async()=>{await loadData();if(tabletBoard&&isAdmin)await renderTablet();},300);
+  loadTimer=setTimeout(async()=>{await loadData();if(tabletBoard&&(isAdmin||darturnioQrTablet()))await renderTablet();},300);
 }
 async function loadData(){
   if(!db)return;
@@ -4260,7 +4306,7 @@ async function renderCricketTournament(match,leg,app,localOnly=false){
    // Pri kazdem jednotlivem stisku se score a znacky prepocitaji lokalne.
    state=cricketTournamentCurrent.state;
  }else{
-   const response=await db.rpc('get_cricket_leg_state',{p_leg_id:leg.id});
+   const response=await darturnioTabletRpc('get_cricket_leg_state',{p_leg_id:leg.id});
    if(response.error){app.innerHTML=`<div class="panel warning">Cricket nelze načíst: ${esc(response.error.message)}</div>`;return;}
    state=response.data;
  }
@@ -4297,15 +4343,15 @@ async function saveCricketTournamentVisit(){
   let pending=cricketPendingGet();
   if(pending&&pending.legId!==cur.legId)throw new Error('Na jiném legu čeká nepotvrzený nához. Nejprve ověř jeho stav.');
   if(!pending){pending={legId:cur.legId,args:{p_request_id:crypto.randomUUID(),p_leg_id:cur.legId,p_player_entry_id:cur.current,p_darts:[...cricketTournamentDraft]}};cricketPendingPut(pending);}
-  const {error}=await db.rpc('record_cricket_visit_safe',pending.args);
+  const {error}=await darturnioTabletRpc('record_cricket_visit_safe',pending.args);
   if(error)throw error;
   cricketPendingClear();
   cricketTournamentDraft=[];
   const {data:fm}=await db.from('matches').select('*').eq('id',cur.matchId).maybeSingle();
   if(fm?.status==='finished'){
    darturnioResultNotice.put(fm.tournament_id,tabletBoard,'singles',fm.id);
-   try{await createNextKnockoutRound(fm.tournament_id);}catch(e){notify('Výsledek uložen, ale další kolo se nepodařilo vytvořit: '+e.message);}
-   if(fm.stage==='playoff'){
+   if(!darturnioQrTablet())try{await createNextKnockoutRound(fm.tournament_id);}catch(e){notify('Výsledek uložen, ale další kolo se nepodařilo vytvořit: '+e.message);}
+   if(!darturnioQrTablet()&&fm.stage==='playoff'){
     const {data:all}=await db.from('matches').select('*').eq('tournament_id',fm.tournament_id);
     if(all)try{await saveAutomaticPlacements(fm.tournament_id,all);}catch(e){notify('Výsledek uložen, ale nepodařilo se přepočítat pořadí: '+e.message);}
    }
@@ -4323,7 +4369,7 @@ async function renderTablet(localOnly=false){
   // Rychla cesta: zadne fetch, zadne RPC, pouze stav jiz nacteneho legu.
   if(localOnly){
     const c=tabletFastCache;
-    if(!isAdmin||!c||c.tournamentId!==selectedTournament||c.leg?.status!=='live')return;
+    if(!(isAdmin||darturnioQrTablet())||!c||c.tournamentId!==selectedTournament||c.leg?.status!=='live')return;
     if(c.gameType===701){
       // Funkce bez await v lokalni vetvi vykresli synchronne.
       void renderCricketTournament(c.match,c.leg,$("tabletApp"),true);
@@ -4333,17 +4379,19 @@ async function renderTablet(localOnly=false){
     return;
   }
   $("tabletTitle").textContent=`DARTURNIO – TERČ ${tabletBoard}`;
-  $("tabletLogin").classList.toggle("hidden",isAdmin);
-  $("tabletApp").classList.toggle("hidden",!isAdmin);
+  const tabletAllowed=isAdmin||darturnioQrTablet();
+  $("tabletLogin").classList.toggle("hidden",tabletAllowed);
+  $("tabletApp").classList.toggle("hidden",!tabletAllowed);
   $("tabletLogoutBtn").classList.toggle("hidden",!isAdmin);
-  if(!isAdmin)return;
+  if(!tabletAllowed)return;
   const app=$("tabletApp");
   const tournamentSelect=$("tabletTournamentSelect");
   if(tournamentSelect){
     const previous=tournamentSelect.value;
     tournamentSelect.innerHTML=sortTournaments(tournaments).map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
-    tournamentSelect.value=tournaments.some(t=>t.id===previous)?previous:selectedTournament;
-    if(tournamentSelect.value)selectedTournament=tournamentSelect.value;
+    tournamentSelect.value=darturnioQrTablet()?selectedTournament:(tournaments.some(t=>t.id===previous)?previous:selectedTournament);
+    tournamentSelect.disabled=darturnioQrTablet();
+    if(tournamentSelect.value&&!darturnioQrTablet())selectedTournament=tournamentSelect.value;
   }
   if(!selectedTournament){tabletFastCache=null;app.innerHTML='<div class="panel">Není vybraný turnaj.</div>';return;}
   if(tabletBoard>darturnioBoardCount(selectedTournament)){
@@ -4352,6 +4400,7 @@ async function renderTablet(localOnly=false){
   }
   if(tournaments.find(t=>t.id===selectedTournament)?.participant_mode==='pairs'){
     tabletFastCache=null;
+    if(darturnioQrTablet()){app.innerHTML='<div class="panel warning">QR počítadlo dvojic připravujeme samostatně. Pro dvojice zatím použij přihlášení pořadatele.</div>';return;}
     const pairTournament=tournaments.find(t=>t.id===selectedTournament);
     if(pairTournament?.dart_type==='soft'||![301,501].includes(Number(pairTournament?.game_type))){
       app.innerHTML='<div class="panel"><h2>Turnaj dvojic</h2><p>Pro SOFT a Cricket zatím použij ruční zadávání výsledků v administraci. Tabletové počítadlo dvojic je připravené pro STEEL 301 a 501 Double Out.</p></div>';
@@ -4512,7 +4561,7 @@ function tabletPendingClear(){localStorage.removeItem(tabletPendingKey);}
 async function tabletPendingRetry(){
   const item=tabletPendingGet();if(!item)return true;
   if(!navigator.onLine){notify("OFFLINE: poslední nához je bezpečně uložen v tomto zařízení. Další zápis je dočasně pozastaven.");return false;}
-  const {error}=await db.rpc(item.rpc||"record_dart_visit_safe",item.args);
+  const {error}=await darturnioTabletRpc(item.rpc||"record_dart_visit_safe",item.args);
   if(error){notify("Čekající nához nebylo možné potvrdit: "+error.message+". Nepokračuj v zápisu, dokud stav neověříš.");return false;}
   tabletPendingClear();
   if(item.args?.p_leg_id){
@@ -4531,7 +4580,7 @@ window.addEventListener("online",async()=>{
   try{if(await tabletPendingRetry()){notify("Čekající nához byl potvrzen.");await loadData();await renderTablet();}}catch(err){notify("Synchronizace čekajícího náhozu selhala: "+err.message);}
 });
 async function submitTabletVisit(mode){
-  if(!isAdmin||tabletBusy)return;
+  if(!(isAdmin||darturnioQrTablet())||tabletBusy)return;
   tabletBusy=true;
   try{
     if(!(await tabletPendingRetry()))return;
@@ -4585,15 +4634,15 @@ async function submitTabletVisit(mode){
     args.p_request_id=crypto.randomUUID();
     // Ulož před odesláním: odpověď serveru se může ztratit i po úspěšném zápisu.
     tabletPendingPut({args,rpc:"record_dart_visit_with_double",created_at:new Date().toISOString()});
-    const {error:saveError}=await db.rpc("record_dart_visit_with_double",args);
+    const {error:saveError}=await darturnioTabletRpc("record_dart_visit_with_double",args);
     if(saveError)throw new Error(saveError.message);
     tabletPendingClear();
     const refreshedMatch=await db.from("matches").select("*").eq("id",active.data.id).maybeSingle();
     if(refreshedMatch.data?.status==="finished"){
       darturnioResultNotice.put(refreshedMatch.data.tournament_id,tabletBoard,'singles',refreshedMatch.data.id);
-      try{await createNextKnockoutRound(refreshedMatch.data.tournament_id);}
+      if(!darturnioQrTablet())try{await createNextKnockoutRound(refreshedMatch.data.tournament_id);}
       catch(err){notify(err.message||"Automatické vytvoření pavouka / dalšího kola se nepodařilo.");}
-      if(refreshedMatch.data.stage==="playoff"){
+      if(!darturnioQrTablet()&&refreshedMatch.data.stage==="playoff"){
         const fresh=await db.from("matches").select("*").eq("tournament_id",refreshedMatch.data.tournament_id);
         if(!fresh.error){try{await saveAutomaticPlacements(refreshedMatch.data.tournament_id,fresh.data||[]);}catch(err){notify("Zápas je dokončen, ale pořadí se nepodařilo přepočítat: "+err.message);}}
       }
@@ -4640,7 +4689,7 @@ if(tabletBoard){
        const matchId=resultUndo.dataset.dtResultUndo;
        const finished=await db.from('matches').select('id').eq('id',matchId).maybeSingle();
        if(finished.error){notify(finished.error.message);return;}
-       const {error}=await db.rpc('undo_last_match_entry',{p_match_id:matchId});
+       const {error}=await darturnioTabletRpc('undo_last_match_entry',{p_match_id:matchId});
        if(error){notify('Vrácení náhozu se nepodařilo: '+error.message);return;}
        darturnioResultNotice.clear(selectedTournament,tabletBoard);
        tabletResetPastVisitCache();tabletDraftLegId=null;cricketTournamentLegId=null;
@@ -4663,7 +4712,7 @@ if(tabletBoard){
        if(cricketTournamentDraft.length){cricketTournamentDraft=[];void renderTablet(true);return;}
        if(!confirm('Vrátit poslední potvrzený cricketový nához?'))return;
        cricketTournamentBusy=true;
-       try{const {error}=await db.rpc('undo_last_cricket_visit',{p_leg_id:cricketTournamentCurrent.legId});if(error)throw error;cricketTournamentDraft=[];await loadData();await renderTablet();}
+       try{const {error}=await darturnioTabletRpc('undo_last_cricket_visit',{p_leg_id:cricketTournamentCurrent.legId});if(error)throw error;cricketTournamentDraft=[];await loadData();await renderTablet();}
        catch(e){notify('Vrácení Cricketu se nezdařilo: '+(e.message||e));}
        finally{cricketTournamentBusy=false;}return;
      }
@@ -4672,7 +4721,7 @@ if(tabletBoard){
       await saveCricketTournamentVisit();return;
     }
      const ctUndoFinished=event.target.closest('[data-tcr-undo-finished]');
-     if(ctUndoFinished){if(cricketPendingGet())return;try{const {error}=await db.rpc('undo_last_cricket_visit',{p_leg_id:ctUndoFinished.dataset.tcrUndoFinished});if(error)throw error;cricketTournamentDraft=[];await loadData();await renderTablet();}catch(e){notify('Nelze vrátit poslední nához: '+e.message);}return;}
+     if(ctUndoFinished){if(cricketPendingGet())return;try{const {error}=await darturnioTabletRpc('undo_last_cricket_visit',{p_leg_id:ctUndoFinished.dataset.tcrUndoFinished});if(error)throw error;cricketTournamentDraft=[];await loadData();await renderTablet();}catch(e){notify('Nelze vrátit poslední nához: '+e.message);}return;}
 
     const digitBack=event.target.closest("[data-tablet-delete-digit]");if(digitBack){if(tabletBusy)return;if(tabletMode==="aggregate"){if(tabletSpecialType){tabletSpecialType="";tabletSpecialDart=0;}else{tabletAggregateValue=tabletAggregateValue.slice(0,-1);}void renderTablet(true);}return;}
     const doubleClear=event.target.closest("[data-tablet-double-clear]");
@@ -4688,7 +4737,7 @@ if(tabletBoard){
       tabletBusy=true;
       const matchId=undoMatch.dataset.tabletUndoMatch;
       try{
-        const {error}=await db.rpc("undo_last_match_entry",{p_match_id:matchId});
+        const {error}=await darturnioTabletRpc("undo_last_match_entry",{p_match_id:matchId});
         if(error)throw error;
         tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;
         tabletDraftLegId=null;
@@ -4703,7 +4752,7 @@ if(tabletBoard){
     if(start||next){
       const matchId=start?.dataset.tabletStartLeg||next?.dataset.tabletStartNext;
       const starter=start?.dataset.starter||null;
-      const {error}=await db.rpc("start_match_leg",{p_match_id:matchId,p_starting_entry_id:starter});
+      const {error}=await darturnioTabletRpc("start_match_leg",{p_match_id:matchId,p_starting_entry_id:starter});
       if(error)notify("Leg se nepodařilo zahájit: "+error.message);
       tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;await renderTablet();return;
     }
@@ -4740,10 +4789,12 @@ function renderDarturnioTabletLinks(count=darturnioBoardCount()){
   const signature=selectedTournament+':'+count;
   if(root.dataset.signature===signature)return;
   root.dataset.signature=signature;
+  const qrSinglesOnly=tournaments.find(t=>t.id===selectedTournament)?.participant_mode!=='pairs';
   root.innerHTML=Array.from({length:count},(_,i)=>i+1).map(board=>{
     const link='/?tablet='+board+'&turnaj='+encodeURIComponent(selectedTournament);
     return `<div class="tablet-counter-item">
-      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít počítadlo – terč ${board}</a>
+      ${qrSinglesOnly?`<button type="button" class="action" data-darturnio-issue-board="${board}">Vydat QR přístup – terč ${board}</button><div data-darturnio-board-secure></div>`:'<p class="small">QR zápis dvojic bez přihlášení připravujeme samostatně.</p>'}
+      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít počítadlo jako přihlášený pořadatel</a>
       <div class="tablet-qr-wrap">
         <img alt="QR kód – terč ${board}" class="tablet-qr" data-qr-path="${esc(link)}" width="180" height="180" loading="lazy" />
         <span class="small">Počítadlo terče ${board}</span>
@@ -4751,6 +4802,44 @@ function renderDarturnioTabletLinks(count=darturnioBoardCount()){
   }).join('');
   initTabletQrCodes(root);
 }
+// QR přístup se vydá pouze na výslovný pokyn pořadatele.
+// Zobrazený tajný odkaz se neposílá žádnému externímu QR API.
+document.addEventListener('click',async(event)=>{
+ const btn=event.target.closest('[data-darturnio-issue-board]');
+ if(!btn||!db)return;
+ event.preventDefault();
+ if(!isAdmin){notify('Přístup může vydat pouze pořadatel.');return;}
+ const board=Number(btn.dataset.darturnioIssueBoard);
+ if(!selectedTournament||!Number.isInteger(board))return;
+ if(!confirm('Vydat nový QR klíč pro terč '+board+'? Starý QR klíč tím přestane platit.'))return;
+ btn.disabled=true;
+ try{
+  const {data,error}=await db.rpc('darturnio_issue_board_token',{
+   p_tournament_id:selectedTournament,p_board_no:board
+  });
+  if(error)throw error;
+  if(!data?.token)throw new Error('Server nevrátil QR klíč.');
+  const target=new URL('/?tablet='+board+'&turnaj='+encodeURIComponent(selectedTournament),location.origin);
+  target.hash='dtb='+encodeURIComponent(data.token);
+  const card=btn.closest('.tablet-counter-item');
+  const host=card?.querySelector('[data-darturnio-board-secure]');
+  if(!host)return;
+  host.replaceChildren();
+  const link=document.createElement('a');link.className='action';link.href=target.href;
+  link.target='_blank';link.rel='noopener noreferrer';link.textContent='Otevřít zabezpečený terč '+board;
+  const note=document.createElement('p');note.className='small';note.textContent='Tento QR klíč umožňuje zapisovat pouze na terči '+board+'. Předej jej jen zapisovateli.';
+  const code=document.createElement('div');
+  code.style.cssText='background:white;display:inline-flex;padding:10px;margin:10px 0';
+  host.append(link,note,code);
+  if(typeof QRCode!=='undefined'){
+    new QRCode(code,{text:target.href,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
+  }else{
+    const msg=document.createElement('p');msg.className='small';msg.textContent='QR knihovna není dostupná. Použij zabezpečený odkaz výše.';
+    host.append(msg);
+  }
+ }catch(err){notify('QR klíč se nepodařilo vytvořit: '+(err.message||err));}
+ finally{btn.disabled=false;}
+});
 
 async function init(){
   initTabletQrCodes();
@@ -4758,8 +4847,16 @@ async function init(){
   // Offline reload: do not wait for Supabase/auth before restoring confirmed scores.
   if(tabletBoard && !navigator.onLine){tabletShowOfflineSnapshot();return;}
   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  // Bez ověření skutečného klíče v DB není QR relace platná.
+  if(darturnioQrTablet()){
+    const {data,error}=await db.rpc('darturnio_verify_board_token',{
+       p_tournament_id:selectedTournament,p_board_no:tabletBoard,p_token:darturnioBoardQrToken
+    });
+    if(error||data!==true){darturnioDropQrToken();notify('QR přístup je neplatný, vypršel nebo byl zrušen. Požádej pořadatele o nový QR kód.');}
+  }
   await syncClock();
   await loadData();
+  if(darturnioQrTablet())await renderTablet();
   // Obnovení přihlášení pořadatele po refreshi stránky
   try{
     const {data}=await db.auth.getSession();
