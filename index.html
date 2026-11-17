@@ -1198,13 +1198,14 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
       <p class="comp-step-desc">Vyber název a typ soutěže. Jednorázový turnaj nastavíš nejrychleji.</p>
       <label>Název turnaje nebo série<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open" autocomplete="off"></label>
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
+      <p id="competitionSeriesAvailabilityNote" class="small" hidden role="note">Placené série budou pro veřejnost dostupné po spuštění platební brány. Zatím je může zakládat pouze majitel při testování.</p>
       <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2)</option></select></label>
       <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Stejně jako u jednotlivců vybereš formát až při losování: skupiny, KO, DKO nebo každý s každým.</p>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
         <div id="competitionFinalFields" hidden><label for="competitionFinalists">Počet postupujících do finále<input id="competitionFinalists" type="number" min="2" max="128" step="1" value="8" inputmode="numeric" required></label><p class="small muted">Zadej libovolný celý počet 2–128. Pro dvě skupiny je potřeba alespoň 4 finalistů; 2–3 hráči mohou hrát KO, DKO nebo každý s každým.</p></div>
       </div>
-      <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span>Jeden turnaj můžeš vytvořit a odehrát samostatně. U série se jednotlivé večery založí společně.</span></div>
+      <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span>Jeden samostatný turnaj za kalendářní měsíc zdarma. Série se účtují podle celkového počtu hracích večerů (včetně finále); online platby zatím připravujeme.</span></div>
     </section>
     <section class="comp-wizard-step" data-comp-step="1" aria-label="Nastavení hry" hidden>
       <h4>Jak se bude hrát?</h4>
@@ -1224,13 +1225,13 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
     </section>
     <section class="comp-wizard-step" data-comp-step="3" aria-label="Kontrola" hidden>
       <h4>Všechno sedí?</h4>
-      <p class="comp-step-desc">Před potvrzením zkontroluj nastavení. Platbu zatím nevyžadujeme.</p>
+      <p class="comp-step-desc">Před potvrzením zkontroluj nastavení. Samostatný turnaj: 1× za kalendářní měsíc zdarma. Série: placené podle počtu hracích večerů; dokud nebude spuštěna platební brána, nové série mohou zakládat jen testovací účty majitele.</p>
       <div id="compWizardSummary" class="comp-summary" aria-live="polite"></div>
       <p class="comp-auth-note">K dokončení vytvoření turnaje musíš být přihlášený.</p>
       <button type="button" class="comp-login-shortcut" data-panel="accountPanel">Přihlásit se / vytvořit účet <span aria-hidden="true">↗</span></button>
     </section>
     <p id="compWizardError" class="comp-wizard-error" role="alert" aria-live="polite" hidden></p>
-    <p id="ownerUnlimitedInfo" class="hint" hidden>Účet majitele: neomezený počet turnajů.</p>
+    <p id="ownerUnlimitedInfo" class="hint" hidden>Majitelský účet: neomezené samostatné turnaje a možnost testovat série před zavedením plateb.</p>
     <p id="competitionFeedback" role="status" class="hint" aria-live="polite"></p>
     <div class="comp-wizard-actions">
       <button type="button" id="compWizardBack" class="comp-nav-secondary" hidden>← Zpět</button>
@@ -5556,6 +5557,7 @@ body{max-width:100%;overflow-x:hidden}
  function render(){
    const type=$('competitionType').value,series=type!=='single',n=series?Math.max(2,Math.min(30,Number($('competitionRounds').value)||2)):1;
    $('competitionSeriesFields').hidden=!series;$('competitionFinalFields').hidden=type!=='final';
+   if($('competitionSeriesAvailabilityNote'))$('competitionSeriesAvailabilityNote').hidden=!series;
    if($('competitionSeriesInfo'))$('competitionSeriesInfo').hidden=!series;
    const wrap=$('competitionDates');const old=[...wrap.querySelectorAll('input[type=date]')].map(x=>x.value);wrap.replaceChildren();
    const count=n+(type==='final'?1:0);
@@ -5594,79 +5596,54 @@ body{max-width:100%;overflow-x:hidden}
    const boards=Number($('competitionBoards').value),game=Number($('competitionGame').value),legs=Number($('competitionLegs').value);
    if(!name||dates.some(x=>!x)||!Number.isInteger(rounds)||rounds<1||rounds>30){msg.textContent='Zkontroluj název, data a počet kol.';return}
    if(type==='final'&&!Number.isInteger(Number($('competitionFinalists').value))||type==='final'&&!(Number($('competitionFinalists').value)>=2&&Number($('competitionFinalists').value)<=128)){msg.textContent='Počet finalistů musí být celé číslo od 2 do 128.';return}
-   button.disabled=true;button.textContent='UKLÁDÁM…';
-   try{
-     let seriesId=null,created=0;
-     const createdIds=[];
-     if(type!=='single'){
-       const {data,error}=await db.from('tournament_series').insert({name,organizer_id:user.id,series_type:type==='final'?'final':'series',planned_rounds:rounds,finalists_count:type==='final'?Number($('competitionFinalists').value):null}).select('id').single();
-       if(error)throw new Error('Sérii nelze založit: '+String(error.message||'neznámá chyba')+(error.code?' [kód '+error.code+']':''));seriesId=data.id;
-     }
-     for(let i=0;i<dates.length;i++){
-       const isFinal=type==='final'&&i===rounds;
-       const eventName=type==='single'?name:(isFinal?`${name} – finále`:`${name} – ${i+1}. večer`);
-       const createdAfter=new Date(Date.now()-5000).toISOString();
-        // Majitel: standardni overeny postup je prvni, vlastni RPC jen kdyz
-        // server nahlasi SKUTECNOU kvotu. Zvlastni RPC neni nahrazkou chybejiciho schematu.
-        const ownerUnlimited = String(user.email||'').trim().toLowerCase()==='brus.t@seznam.cz';
-        const createParams={
-          p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
-          p_game_format:null,p_target_legs:legs,
-          p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
-        };
-        const original=await db.rpc('create_501live_tournament',createParams);
-        let createError=original.error;
-        let errorContext='';
-        if(createError && ownerUnlimited){
-          const message=String(createError.message||'');
-          const quotaError=/(limit|quota|kv[oó]t|vy[cč]erp|p[rř]ekro[cč]en|povoleny? po[cč]et|p[rř][ií]li[sš] mnoho|maxim[aá]ln[ií] po[cč]et|too many tournaments)/i.test(message);
-          if(quotaError){
-            const fallback=await db.rpc('darturnio_owner_create_unlimited_tournament',createParams);
-            if(!fallback.error){
-              createError=null;
-            }else{
-              const e=fallback.error;
-              errorContext=' Majitelska funkce selhala: '+String(e.message||'neznama chyba')+
-                (e.code?' [kód '+e.code+']':'')+
-                (e.details?' – '+e.details:'')+
-                (e.code==='PGRST202'?' SQL majitelské funkce zřejmě v databázi chybí.':'');
-            }
-          }else{
-            errorContext=' Chyba není rozpoznána jako limit počtu turnajů; výjimka majitele nebyla použita.';
-          }
-        }
-        if(createError){
-          throw new Error('Vytvoření turnaje se nezdařilo: '+String(createError.message||'neznámá chyba')+
-            (createError.code?' [kód '+createError.code+']':'')+
-            (createError.details?' – '+createError.details:'')+
-            errorContext+` (${created} z ${dates.length} turnajů vytvořeno)`);
-        }
-        // Zaznam urcujeme vzdy, nikoli jen u dvojic/SOFT; nikdy neotevirat nahodny jiny turnaj.
-        const found=await db.from('tournaments').select('id,participant_mode,dart_type,created_at')
-          .eq('organizer_id',user.id).eq('name',eventName).eq('event_date',dates[i])
-          .gte('created_at',createdAfter).order('created_at',{ascending:false}).limit(2);
-        if(found.error)throw new Error('Turnaj vznikl, ale jeho ID se nepodařilo načíst: '+found.error.message+' Nezakládej ho znovu; najdeš ho v Moje pořádané turnaje.');
-        if(!found.data||found.data.length!==1)throw new Error('Turnaj byl založen, ale nelze jej bezpečně jednoznačně určit. Otevři jej v Moje pořádané turnaje; nezakládej další kopii.');
-        const newId=found.data[0].id;
-        createdIds.push(newId);
-        if(participantMode==='pairs'){
-          const saved=await db.rpc('darturnio_v2_set_pairs_mode',{p_tournament_id:newId});
-          if(saved.error)throw new Error('Turnaj vznikl, ale nepodařilo se zapnout dvojice: '+saved.error.message);
-        }
-        if(dartType==='soft'){
-          const saved=await db.rpc('darturnio_set_tournament_soft_mode',{p_tournament_id:newId});
-          if(saved.error)throw new Error('Turnaj vznikl, ale nepodařilo se nastavit SOFT: '+saved.error.message);
-        }
-        created++;
+    // Placenou serii nesmi prohlizec oznacit jako zaplacenou.
+    // Dokud neni pripojena platebni brana, server povoli novou serii
+    // pouze overenemu majiteli (testovaci provoz).
+    const isOwner=String(user.email||'').trim().toLowerCase()==='brus.t@seznam.cz';
+    if(type!=='single'&&!isOwner){
+      msg.style.color='#FFC078';
+      msg.textContent='Série jsou placené podle počtu hracích večerů. Platební bránu teprve připravujeme, proto zatím nemůžeš novou sérii založit. Jeden samostatný turnaj za kalendářní měsíc je zdarma.';
+      return;
+    }
+    button.disabled=true;button.textContent='UKLÁDÁM…';
+    try{
+      // Jedina atomicka databazova operace. Pri chybe se zadny
+      // castecny turnaj/serie neulozi a vrati se presne ID prvniho vecera.
+      const {data,error}=await db.rpc('darturnio_create_competition_v1',{
+        p_type:type,
+        p_name:name,
+        p_dates:dates,
+        p_rounds:rounds,
+        p_finalists_count:type==='final'?Number($('competitionFinalists').value):null,
+        p_board_count:boards,
+        p_game_type:game,
+        p_target_legs:legs,
+        p_participant_mode:participantMode,
+        p_dart_type:dartType
+      });
+      if(error){
+        const raw=String(error.message||'Neznámá databázová chyba');
+        const label=raw.includes('DT_MONTHLY_LIMIT')?
+          'Jeden samostatný turnaj za kalendářní měsíc zdarma už byl využit. '+raw.split('DT_MONTHLY_LIMIT:').pop().trim():
+          raw.includes('DT_SERIES_PAYMENT_REQUIRED')?
+          'Série zatím vyžadují platební systém. '+raw.split('DT_SERIES_PAYMENT_REQUIRED:').pop().trim():
+          error.code==='PGRST202'?
+          'Databáze ještě nemá novou funkci. Nejprve spusť SQL „Darturnio – měsíční turnaj a série“.':
+          raw;
+        throw new Error(label+(error.code?' [kód '+error.code+']':''));
       }
-      msg.textContent=type==='single'?'Turnaj založen. Otevírám jeho stránku…':'Série založena. Otevírám první turnaj…';
+      const newId=data?.first_tournament_id;
+      if(!newId)throw new Error('Databáze nevrátila ID nového turnaje. Ověř seznam turnajů před dalším pokusem.');
+      msg.textContent=type==='single'?'Turnaj založen. Otevírám jeho stránku…':'Celá série byla založena. Otevírám první večer…';
       msg.style.color='#82e6a0';
       form.reset();render();modeInfo();dartTypeInfo();
-      if(createdIds.length){
-        const target=new URL(window.location.href);
-        target.search='';target.hash='';target.searchParams.set('turnaj',createdIds[0]);
-        window.location.assign(target.toString());
-      }   }catch(err){msg.style.color='#FF4646';msg.textContent='Uložení se nezdařilo: '+err.message+' Pokud vznikla část série, před opakováním zkontroluj uložené turnaje.'}
+      const target=new URL(window.location.href);
+      target.search='';target.hash='';target.searchParams.set('turnaj',newId);
+      window.location.assign(target.toString());
+    }catch(err){
+      msg.style.color='#FF4646';
+      msg.textContent='Uložení se nezdařilo: '+String(err?.message||err);
+    }
    finally{button.disabled=false;button.textContent='VYTVOŘIT TURNAJ'}
  });
 })();
@@ -6376,7 +6353,8 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
   frag.append(row('Název',byId('competitionName').value.trim()||'—'));
   frag.append(row('Typ',typeLabel));
   frag.append(row('Účastníci',byId('competitionParticipantMode').selectedOptions[0]?.textContent||'Jednotlivci'));
-  if(type!=='single')frag.append(row('Počet večerů',byId('competitionRounds').value+(type==='final'?' + finále':'')));
+  if(type!=='single')frag.append(row('Počet večerů',String(Number(byId('competitionRounds').value)+(type==='final'?1:0))+' (celkem včetně finále)'));
+  frag.append(row('Cena / dostupnost',type==='single'?'1 samostatný turnaj za kalendářní měsíc ZDARMA':'Placená série podle počtu večerů – platby teprve připravujeme'));
   if(type==='final')frag.append(row('Postupujících',byId('competitionFinalists').value));
    frag.append(row('Terče / režim',byId('competitionDartType').selectedOptions[0]?.textContent||'STEEL'));
    frag.append(row('Hra',game));
@@ -6415,7 +6393,7 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
  // Preserve the wizard when returning from sign-in; reset only after a successful save.
  const observer=new MutationObserver(()=>{
   const status=byId('competitionFeedback').textContent||'';
-  if(status.startsWith('Turnaj byl vytvořen')||status==='Turnaj vytvořen')show(0);
+  if(status.startsWith('Turnaj založen')||status.startsWith('Celá série byla založena')||status.startsWith('Turnaj byl vytvořen')||status==='Turnaj vytvořen')show(0);
  });
  observer.observe(byId('competitionFeedback'),{childList:true,characterData:true,subtree:true});
  show(0);
