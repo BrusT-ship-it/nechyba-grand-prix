@@ -4857,54 +4857,13 @@ function renderDarturnioTabletLinks(count=darturnioBoardCount()){
   const signature=selectedTournament+':'+count;
   if(root.dataset.signature===signature)return;
   root.dataset.signature=signature;
-  const qrSinglesOnly=tournaments.find(t=>t.id===selectedTournament)?.participant_mode!=='pairs';
   root.innerHTML=Array.from({length:count},(_,i)=>i+1).map(board=>{
     const link='/?tablet='+board+'&turnaj='+encodeURIComponent(selectedTournament);
     return `<div class="tablet-counter-item">
-      ${qrSinglesOnly?`<p class="small"><strong>Bez přihlášení:</strong> klikni na tlačítko a naskenuj QR kód, který se zobrazí až po vydání klíče.</p><button type="button" class="action" data-darturnio-issue-board="${board}">Vydat zabezpečený QR přístup – terč ${board}</button><div data-darturnio-board-secure></div>`:'<p class="small">QR zápis dvojic bez přihlášení připravujeme samostatně.</p>'}
-      <p class="small" style="margin-top:12px">Alternativa: přístup s heslem pořadatele</p>
-      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít jako přihlášený pořadatel</a>
-      </div>`;
+      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít jako přihlášený pořadatel – terč ${board}</a>
+    </div>`;
   }).join('');
 }
-// QR přístup se vydá pouze na výslovný pokyn pořadatele.
-// Zobrazený tajný odkaz se neposílá žádnému externímu QR API.
-document.addEventListener('click',async(event)=>{
- const btn=event.target.closest('[data-darturnio-issue-board]');
- if(!btn||!db)return;
- event.preventDefault();
- if(!isAdmin){notify('Přístup může vydat pouze pořadatel.');return;}
- const board=Number(btn.dataset.darturnioIssueBoard);
- if(!selectedTournament||!Number.isInteger(board))return;
- if(!confirm('Vydat nový QR klíč pro terč '+board+'? Starý QR klíč tím přestane platit.'))return;
- btn.disabled=true;
- try{
-  const {data,error}=await db.rpc('darturnio_issue_board_token',{
-   p_tournament_id:selectedTournament,p_board_no:board
-  });
-  if(error)throw error;
-  if(!data?.token)throw new Error('Server nevrátil QR klíč.');
-  const target=new URL('/?tablet='+board+'&turnaj='+encodeURIComponent(selectedTournament),location.origin);
-  target.hash='dtb='+encodeURIComponent(data.token);
-  const card=btn.closest('.tablet-counter-item');
-  const host=card?.querySelector('[data-darturnio-board-secure]');
-  if(!host)return;
-  host.replaceChildren();
-  const link=document.createElement('a');link.className='action';link.href=target.href;
-  link.target='_blank';link.rel='noopener noreferrer';link.textContent='Otevřít zabezpečené počítadlo bez přihlášení – terč '+board;
-  const note=document.createElement('p');note.className='small';note.textContent='Naskenuj NOVÝ QR kód níže. Ten umožní zapisovat pouze na terči '+board+' bez hesla pořadatele. Předej jej jen zapisovateli.';
-  const code=document.createElement('div');
-  code.style.cssText='background:white;display:inline-flex;padding:10px;margin:10px 0';
-  host.append(link,note,code);
-  if(typeof QRCode!=='undefined'){
-    new QRCode(code,{text:target.href,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
-  }else{
-    const msg=document.createElement('p');msg.className='small';msg.textContent='QR knihovna není dostupná. Použij zabezpečený odkaz výše.';
-    host.append(msg);
-  }
- }catch(err){notify('QR klíč se nepodařilo vytvořit: '+(err.message||err));}
- finally{btn.disabled=false;}
-});
 
 async function init(){
    // QR tablety nefunguji spolehlive se starym service-worker HTML.
