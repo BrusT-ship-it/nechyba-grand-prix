@@ -2241,7 +2241,7 @@ function renderSeriesResults(){
     <h3>Průběžné pořadí vybrané série</h3>
     <p class="small">Body se sčítají pouze z turnajů patřících do stejné série (všech kvalifikačních večerů dané série). Večer bez uloženého umístění zatím přispívá 0 body. Při shodě rozhoduje počet 1. míst, potom 2. míst, 3. míst atd.; následně lepší umístění v posledním večeru, ve kterém má hráč zaznamenané umístění.</p>
     ${qualifying.length?`<div class="table-wrap"><table class="series-table"><tr><th>Poř.</th><th>Hráč</th>${headers}<th>Celkem</th></tr>${qualificationRows||`<tr><td colspan="${qualifying.length+3}">Zatím nejsou přihlášení hráči.</td></tr>`}</table></div>`:"V této sérii zatím nejsou kvalifikační turnaje."}
-    <div class="notice">Turnaje do 16 hráčů: nepostup ze skupiny = 1 bod, vyřazení v 1. kole pavouka = 2 body, v každém dalším kole o bod více, finalista a vítěz získají odpovídající vyšší počet bodů. U turnajů nad 16 hráčů zůstává dosavadní bodování oboustranného pavouka.</div>
+    <div class="notice">Bodování: nepostup ze skupiny = 1 bod. Vyřazení v 1. kole pavouka = 2 body, za každé další dosažené kolo o 1 bod více.</div>
     ${finalEvent?`<h3>Samostatné finále – ${esc(finalEvent.name)}</h3>`:""}
     <p class="small">Finálové výsledky se nezapočítávají do kvalifikační tabulky.</p>
     ${finalRows?`<div class="table-wrap"><table><tr><th>Umístění</th><th>Hráč</th></tr>${finalRows}</table></div>`:"Finálové výsledky zatím nejsou zaznamenány."}
