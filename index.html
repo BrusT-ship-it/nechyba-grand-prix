@@ -1227,6 +1227,86 @@ let cricketTournamentDraft=[];let cricketTournamentSegment=20;let cricketTournam
 let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;let tabletAggregateValue="";let tabletSpecialType="";let tabletSpecialDart=0;let tabletDoubleAttempts=null;
 // Souhrn predchozich legu nacteme pouze pri zmene legu, ne po kazdem stisku klavesy.
 let tabletPastVisitCache={key:null,visits:[]};
+// Výsledková obrazovka je lokální pro konkrétní tablet/terč. Nezastavuje jiné terče.
+const darturnioResultNotice={
+ key:(tid,board)=>'darturnio-result-x02-'+String(tid)+'-'+String(board),
+ get(tid,board){try{return JSON.parse(sessionStorage.getItem(this.key(tid,board))||'null')}catch(_){return null}},
+ put(tid,board,kind,matchId,sessionId=null){
+  if(!tid||!board||!matchId)return;
+  try{sessionStorage.setItem(this.key(tid,board),JSON.stringify({kind,matchId,sessionId}))}catch(_){/* soukromý režim */}
+ },
+ clear(tid,board){try{sessionStorage.removeItem(this.key(tid,board))}catch(_){}},
+ ack(tid,board,id){try{sessionStorage.setItem(this.key(tid,board)+'-ack',String(id))}catch(_){}},
+ wasAck(tid,board,id){try{return sessionStorage.getItem(this.key(tid,board)+'-ack')===String(id)}catch(_){return false}}
+};
+window.darturnioResultNotice=darturnioResultNotice;
+function darturnioMatchPlayerStats(visits){
+ const v=visits||[];
+ const sum=(predicate,field)=>v.filter(predicate).reduce((s,x)=>s+(Number(x[field])||0),0);
+ const darts=sum(()=>true,'darts_counted');
+ const points=sum(()=>true,'counted_points');
+ const checkout=x=>x.action==='checkout'||x.is_checkout===true;
+ const tracked=v.filter(x=>x.double_attempts!==null&&x.double_attempts!==undefined);
+ const attempts=tracked.reduce((sum,x)=>sum+(Number(x.double_attempts)||0),0);
+ const successes=tracked.filter(checkout).length;
+ const checkoutScores=v.filter(checkout).map(x=>Number(x.score_before)||0);
+ return {darts,points,visits:v.length,average:darts?(3*points/darts).toFixed(2).replace('.',','):'—',
+  maxVisit:Math.max(0,...v.map(x=>Number(x.counted_points)||0)),
+  maxCheckout:Math.max(0,...checkoutScores),
+  high100:v.filter(x=>Number(x.counted_points)>=100&&Number(x.counted_points)<140).length,
+  high140:v.filter(x=>Number(x.counted_points)>=140&&Number(x.counted_points)<180).length,
+  high180:v.filter(x=>Number(x.counted_points)===180).length,
+  checkoutCount:v.filter(checkout).length,
+  attempts,tracked:tracked.length,untracked:v.length-tracked.length,
+  rate:attempts?(100*successes/attempts).toFixed(1).replace('.',',')+' %':'—'};
+}
+function darturnioMatchStatsCard(name,wins,visits){
+ const s=darturnioMatchPlayerStats(visits);
+ const stat=(name,val)=>`<div><span>${name}</span><b>${esc(val)}</b></div>`;
+ return `<div class="local-result-player"><h4>${esc(name)}</h4><div class="local-stat-grid">
+ ${stat('Vyhrané legy',wins)}${stat('Průměr Ø3',s.average)}
+ ${stat('Hozené šipky',s.darts)}${stat('Nejvyšší nához',s.maxVisit)}
+ ${stat('Nejvyšší zavření',s.maxCheckout||'—')}
+ ${stat('Náhozy 100–139 / 140–179 / 180',s.high100+' / '+s.high140+' / '+s.high180)}
+ ${stat('Úspěšná zavření',s.checkoutCount)}
+ ${stat('Pokusy na double',s.untracked?'Částečně / nesledováno':s.attempts)}
+ ${stat('Úspěšnost double',s.rate)}
+ </div>${s.untracked?'<small>Pokusy na double nejsou zaznamenány u všech náhozů. Úspěšnost vychází jen ze sledovaných.</small>':''}</div>`;
+}
+async function darturnioShowFinishedSinglesResult(notice,app){
+ const result=await db.from('matches').select('*').eq('id',notice.matchId).eq('tournament_id',selectedTournament).maybeSingle();
+ if(result.error){app.innerHTML=`<div class="panel warning">Statistiky nelze načíst: ${esc(result.error.message)} <button class="secondary" data-dt-result-retry>Obnovit</button></div>`;return true;}
+ const match=result.data;
+ if(!match||match.status!=='finished'){
+  darturnioResultNotice.clear(selectedTournament,tabletBoard);return false;
+ }
+ const name1=playerName(match.player1_entry_id),name2=playerName(match.player2_entry_id);
+ const cricket=Number(tournaments.find(t=>t.id===selectedTournament)?.game_type)===701;
+ let details='';
+ try{
+  const legs=await db.from('match_legs').select('id,leg_no').eq('match_id',match.id).order('leg_no');
+  if(legs.error)throw legs.error;
+  if(cricket){
+   // Cricket má vlastní model bodů a značek: nevydáváme je za 301/501 průměr.
+   const states=await Promise.all((legs.data||[]).map(x=>db.rpc('get_cricket_leg_state',{p_leg_id:x.id})));
+   const valid=states.filter(x=>!x.error&&x.data);
+   if(valid.length){
+    const visits=valid.reduce((n,x)=>n+(Number(x.data.visits)||0),0);
+    const last=valid.at(-1).data;
+    details=`<div class="local-result-stats"><div class="local-result-player"><h4>${esc(name1)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${Number(match.legs1)||0}</b></div><div><span>Body v posledním legu</span><b>${Number(last.s1)||0}</b></div></div></div><div class="local-result-player"><h4>${esc(name2)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${Number(match.legs2)||0}</b></div><div><span>Body v posledním legu</span><b>${Number(last.s2)||0}</b></div></div></div></div><p class="dt-result-subtext">Cricket · ${visits} evidovaných náhozů v ${valid.length} legu/lezích. Body jsou z posledního legu, nejsou to průměry 301/501.</p>`;
+   }else details='<p class="dt-result-subtext">Podrobné statistiky Cricketu nejsou momentálně dostupné. Výsledek a vítěz jsou uloženi.</p>';
+  }else{
+   const ids=(legs.data||[]).map(x=>x.id);
+   const response=ids.length?await db.from('dart_visits').select('*').in('leg_id',ids):{data:[],error:null};
+   if(response.error)throw response.error;
+   const visits=response.data||[];
+   details=`<div class="local-result-stats">${darturnioMatchStatsCard(name1,match.legs1,visits.filter(v=>v.player_entry_id===match.player1_entry_id))}${darturnioMatchStatsCard(name2,match.legs2,visits.filter(v=>v.player_entry_id===match.player2_entry_id))}</div>`;
+  }
+ }catch(error){details=`<p class="warning">Podrobné statistiky se nepodařilo načíst: ${esc(error.message||error)}. Výsledek zápasu zůstal uložen.</p>`;}
+ app.innerHTML=`<div class="dt-result-panel"><div class="local-result-brow">TURNAJOVÝ ZÁPAS DOKONČEN</div><h2>${esc(name1)} × ${esc(name2)}</h2><div class="dt-result-score">${Number(match.legs1)||0} : ${Number(match.legs2)||0}</div><p class="dt-result-winner">Vítěz: ${esc(playerName(match.winner_entry_id))}</p>${details}<button type="button" class="action dt-result-next" data-dt-result-next>POKRAČOVAT NA DALŠÍ ZÁPAS</button><p class="dt-result-subtext">Výsledek a statistiky jsou uložené. Další zápas se na tomto terči připraví po stisknutí tlačítka.</p>${cricket?'':'<button type="button" class="secondary dt-result-retry" data-dt-result-undo="'+esc(match.id)+'">ZPĚT – OPRAVIT POSLEDNÍ NÁHOZ</button>'} </div>`;
+ return true;
+}
+
 async function tabletGetPastVisitsForMatch(matchId,currentLegId,currentLegNo){
   const key=matchId+":"+currentLegId;
   if(tabletPastVisitCache.key===key)return tabletPastVisitCache.visits;
@@ -3445,17 +3525,18 @@ async function saveCricketTournamentVisit(){
   if(error)throw error;
   cricketPendingClear();
   cricketTournamentDraft=[];
-  cricketTournamentBusy=false;
-  await loadData();
-  await renderTablet();
   const {data:fm}=await db.from('matches').select('*').eq('id',cur.matchId).maybeSingle();
   if(fm?.status==='finished'){
+   darturnioResultNotice.put(fm.tournament_id,tabletBoard,'singles',fm.id);
    try{await createNextKnockoutRound(fm.tournament_id);}catch(e){notify('Výsledek uložen, ale další kolo se nepodařilo vytvořit: '+e.message);}
    if(fm.stage==='playoff'){
     const {data:all}=await db.from('matches').select('*').eq('tournament_id',fm.tournament_id);
     if(all)try{await saveAutomaticPlacements(fm.tournament_id,all);}catch(e){notify('Výsledek uložen, ale nepodařilo se přepočítat pořadí: '+e.message);}
    }
   }
+  cricketTournamentBusy=false;
+  await loadData();
+  await renderTablet();
  }catch(e){notify('Cricketový nához není potvrzen: '+(e.message||e)+'. Pokud už byl přijat serverem, stiskni znovu POTVRDIT – opakujeme stejné ID a nic nezapočítáme dvakrát.');}
  finally{cricketTournamentBusy=false;void renderTablet(true);}
 }
@@ -3508,6 +3589,8 @@ async function renderTablet(localOnly=false){
   }
   if(darturnioSoftTournament()){tabletFastCache=null;app.innerHTML='<div class="panel"><h2>SOFT turnaj</h2><p>Na elektronických automatech se skóre zapisuje přímo na automatu. Výsledek zápasu po dohrání zadává pořadatel v administraci. Tabletové počítadlo není dostupné.</p></div>';return;}
   $("tabletTournament").textContent=tournaments.find(t=>t.id===selectedTournament)?.name||"";
+  const displayedNotice=darturnioResultNotice.get(selectedTournament,tabletBoard);
+  if(displayedNotice?.kind==='singles' && await darturnioShowFinishedSinglesResult(displayedNotice,app))return;
   const {data:active,error}=await db.from("matches").select("*").eq("tournament_id",selectedTournament).eq("board_no",tabletBoard).eq("status","live").limit(1);
   if(error){app.innerHTML=`<div class="panel warning">Chyba načítání terče: ${esc(error.message)}</div>`;return;}
   const match=active?.[0];
@@ -3525,11 +3608,9 @@ async function renderTablet(localOnly=false){
     if(!scheduled)tabletAutoStartBlockedMatchId=null;
     if(!scheduled){
       const {data:finished}=await db.from("matches").select("*").eq("tournament_id",selectedTournament).eq("board_no",tabletBoard).eq("status","finished").order("ended_at",{ascending:false}).limit(1);
-      if(finished?.[0]){
-        const fm=finished[0];
-        const {data:fl}=await db.from("match_legs").select("id,leg_no").eq("match_id",fm.id).order("leg_no",{ascending:false}).limit(1);
-        const lastLeg=fl?.[0];
-        app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${fm.legs1}:${fm.legs2}</div><h3>Vítěz: ${esc(playerName(fm.winner_entry_id))}</h3>${lastLeg?`<button class="secondary" data-tablet-undo-match="${esc(fm.id)}">ZPĚT</button>`:""}<p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+      if(finished?.[0]&&!darturnioResultNotice.wasAck(selectedTournament,tabletBoard,finished[0].id)){
+        darturnioResultNotice.put(selectedTournament,tabletBoard,'singles',finished[0].id);
+        if(await darturnioShowFinishedSinglesResult(darturnioResultNotice.get(selectedTournament,tabletBoard),app))return;
       }
     }
     app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Čekám na přidělení zápasu</h2><p class="muted">Jakmile bude na tomto terči volný vhodný zápas a zapisovatel, spustí se automaticky. Pokud se rozpis zasekne, stiskni Obnovit.</p></div>';return;
@@ -3657,7 +3738,17 @@ async function tabletPendingRetry(){
   if(!navigator.onLine){notify("OFFLINE: poslední nához je bezpečně uložen v tomto zařízení. Další zápis je dočasně pozastaven.");return false;}
   const {error}=await db.rpc(item.rpc||"record_dart_visit_safe",item.args);
   if(error){notify("Čekající nához nebylo možné potvrdit: "+error.message+". Nepokračuj v zápisu, dokud stav neověříš.");return false;}
-  tabletPendingClear();return true;
+  tabletPendingClear();
+  if(item.args?.p_leg_id){
+   try{
+    const leg=await db.from('match_legs').select('match_id').eq('id',item.args.p_leg_id).maybeSingle();
+    if(leg.data?.match_id){
+     const finished=await db.from('matches').select('id,tournament_id,status').eq('id',leg.data.match_id).maybeSingle();
+     if(finished.data?.status==='finished')darturnioResultNotice.put(finished.data.tournament_id,tabletBoard,'singles',finished.data.id);
+    }
+   }catch(err){console.warn('Obnova statistik po opakovaném náhozu:',err.message||err)}
+  }
+  return true;
 }
 window.addEventListener("online",async()=>{
   if(!tabletPendingGet())return;
@@ -3723,6 +3814,7 @@ async function submitTabletVisit(mode){
     tabletPendingClear();
     const refreshedMatch=await db.from("matches").select("*").eq("id",active.data.id).maybeSingle();
     if(refreshedMatch.data?.status==="finished"){
+      darturnioResultNotice.put(refreshedMatch.data.tournament_id,tabletBoard,'singles',refreshedMatch.data.id);
       try{await createNextKnockoutRound(refreshedMatch.data.tournament_id);}
       catch(err){notify(err.message||"Automatické vytvoření pavouka / dalšího kola se nepodařilo.");}
       if(refreshedMatch.data.stage==="playoff"){
@@ -3757,6 +3849,27 @@ if(tabletBoard){
   ["tabletEmail","tabletPassword"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter")$("tabletLoginBtn").click();}));
   $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletFastCache=null;cricketTournamentCurrent=null;cricketTournamentDraft=[];cricketTournamentLegId=null;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;tabletResetPastVisitCache();renderTablet();});
    $("tabletApp").addEventListener("click",async event=>{
+     if(event.target.closest('[data-dt-result-next]')){
+       const completed=darturnioResultNotice.get(selectedTournament,tabletBoard);
+       if(completed?.matchId)darturnioResultNotice.ack(selectedTournament,tabletBoard,completed.matchId);
+       darturnioResultNotice.clear(selectedTournament,tabletBoard);
+       tabletAutoStartBlockedMatchId=null;
+       await loadData();await renderTablet();return;
+     }
+     if(event.target.closest('[data-dt-result-retry]')){await renderTablet();return;}
+     const resultUndo=event.target.closest('[data-dt-result-undo]');
+     if(resultUndo){
+       if(tabletPendingGet()||cricketPendingGet()){notify('Nejdřív ověř čekající nához.');return;}
+       if(!confirm('Vrátit poslední uložený nához tohoto zápasu?'))return;
+       const matchId=resultUndo.dataset.dtResultUndo;
+       const finished=await db.from('matches').select('id').eq('id',matchId).maybeSingle();
+       if(finished.error){notify(finished.error.message);return;}
+       const {error}=await db.rpc('undo_last_match_entry',{p_match_id:matchId});
+       if(error){notify('Vrácení náhozu se nepodařilo: '+error.message);return;}
+       darturnioResultNotice.clear(selectedTournament,tabletBoard);
+       tabletResetPastVisitCache();tabletDraftLegId=null;cricketTournamentLegId=null;
+       await loadData();await renderTablet();return;
+     }
      const ctTarget=event.target.closest('[data-tcr-target]');
      if(ctTarget&&!cricketPendingGet()&&!cricketTournamentBusy){cricketTournamentSegment=Number(ctTarget.dataset.tcrTarget);void renderTablet(true);return;}
      const ctMult=event.target.closest('[data-tcr-mult]');
@@ -7000,6 +7113,19 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   if(!s||!m){app().innerHTML=toolbar()+'<div class="panel"><h2>Čekám na zápas dvojic</h2><p>Rozlosuj KO v administraci, případně stiskni Obnovit.</p></div>';return}
   const names=pairName(m.pair1_id)+' × '+pairName(m.pair2_id);
   const matchScore=(state.legHistory.filter(x=>x.status==='finished'&&x.winner_pair_id===m.pair1_id).length)+':'+(state.legHistory.filter(x=>x.status==='finished'&&x.winner_pair_id===m.pair2_id).length);
+  if(s.status==='finished'&&m.status==='finished'){
+   const all=state.history.concat(state.visits);
+   const buildTeam=id=>{const p=pairById(id);if(!p)return '';
+    const members=[p.player1_id,p.player2_id];
+    const rows=members.map(pid=>{
+      const x=darturnioMatchPlayerStats(all.filter(v=>v.player_id===pid));
+      return '<tr><td>'+escHtml(nameOf(pid))+'</td><td>'+x.darts+'</td><td>'+x.average+'</td><td>'+x.maxVisit+'</td><td>'+x.maxCheckout+'</td><td>'+x.high100+' / '+x.high140+' / '+x.high180+'</td><td>'+x.checkoutCount+'</td><td>'+(x.untracked?'Nesledováno / částečně':x.attempts)+'</td><td>'+x.rate+'</td></tr>';
+    }).join('');
+    return '<div class="local-result-player"><h4>'+escHtml(pairName(id))+'</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>'+(id===m.pair1_id?m.legs1:m.legs2)+'</b></div><div><span>Hozené šipky</span><b>'+members.reduce((n,pid)=>n+darturnioMatchPlayerStats(all.filter(v=>v.player_id===pid)).darts,0)+'</b></div></div><div style="overflow-x:auto"><table class="dt-pair-stats"><thead><tr><th>Hráč</th><th>Šipky</th><th>Ø3</th><th>Max. nához</th><th>Max. zavření</th><th>100–139 / 140–179 / 180</th><th>Zavření</th><th>Double pokusy</th><th>Double úspěšnost</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+   };
+   app().innerHTML=toolbar()+'<section class="dt-result-panel"><div class="local-result-brow">TURNAJOVÝ ZÁPAS DVOJIC DOKONČEN</div><h2>'+escHtml(names)+'</h2><div class="dt-result-score">'+m.legs1+' : '+m.legs2+'</div><p class="dt-result-winner">Vítěz: '+escHtml(pairName(m.winner_pair_id))+'</p><div class="local-result-stats">'+buildTeam(m.pair1_id)+buildTeam(m.pair2_id)+'</div><p class="dt-result-subtext">Průměr každého hráče vychází z jeho vlastních hozených šipek a započtených bodů.</p><button class="action dt-result-next" type="button" data-dtp-continue>POKRAČOVAT NA DALŠÍ ZÁPAS</button></section>';
+   return;
+  }
   if(!l||l.status==='finished'){
    const nextNo=l?Number(l.leg_no)+1:1;
    const lastStarter=l?.starting_pair_id;
@@ -7037,6 +7163,13 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   let {data:session,error:e}=await database.from('darturnio_pair_sessions').select('*').eq('tournament_id',tid).eq('board_no',board).eq('status','live').limit(1);
   if(e)throw new Error('Nejdříve spusť SQL pro počítadlo dvojic: '+e.message);
   let s=session?.[0];
+  const notice=window.darturnioResultNotice?.get(tid,board);
+  if(notice?.kind==='pairs'&&notice.sessionId){
+   const old=await database.from('darturnio_pair_sessions').select('*').eq('id',notice.sessionId).eq('tournament_id',tid).eq('board_no',board).maybeSingle();
+   if(old.error)throw old.error;
+   if(old.data?.status==='finished'){s=old.data}
+   else window.darturnioResultNotice?.clear(tid,board);
+  }
   if(!s){const claim=await database.rpc('darturnio_v2_claim_pair_match',{p_tournament_id:tid,p_board_no:board});if(claim.error)throw claim.error;if(claim.data){const q=await database.from('darturnio_pair_sessions').select('*').eq('id',claim.data).single();if(q.error)throw q.error;s=q.data}}
   if(!s)return {session:null,match:null,leg:null,visits:[],history:[],pairs:[],players:new Map()};
   const [mr,pr,lr]=await Promise.all([
@@ -7051,7 +7184,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   const l=lr.data?.[0]||null;
   const visits=l?await database.from('darturnio_pair_visits').select('*').eq('leg_id',l.id).order('visit_no'):{data:[]};if(visits.error)throw visits.error;
   const priorIds=(legs.data||[]).filter(x=>x.id!==l?.id).map(x=>x.id);
-  const history=priorIds.length?await database.from('darturnio_pair_visits').select('pair_id,player_id,counted_points,darts_counted').in('leg_id',priorIds):{data:[]};if(history.error)throw history.error;
+  const history=priorIds.length?await database.from('darturnio_pair_visits').select('pair_id,player_id,counted_points,darts_counted,score_before,action,double_attempts').in('leg_id',priorIds):{data:[]};if(history.error)throw history.error;
   return {session:s,match:mr.data,leg:l,visits:visits.data||[],history:history.data||[],pairs:pr.data||[],players:new Map((names.data||[]).map(p=>[p.id,p.name])),legHistory:legs.data||[]};
  }
  async function refresh(tid=state.tid,board=state.board){
@@ -7074,7 +7207,13 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  };
  const rpc=async(name,args)=>{const result=await getDb().rpc(name,args);if(result.error)throw result.error;return result.data};
  async function retry(){const x=getPending();if(!x)return true;if(!navigator.onLine)throw new Error('Není internet, zápis zůstává uzamčený.');
-  await rpc('darturnio_v2_pair_visit',x);clearPending();return true;
+  const saved=await rpc('darturnio_v2_pair_visit',x);clearPending();
+  if(saved?.match_closed)window.darturnioResultNotice?.put(state.tid,state.board,'pairs',state.match?.id,state.session?.id);
+  else if(state.session?.id){
+   const r=await getDb().from('darturnio_pair_sessions').select('status').eq('id',state.session.id).maybeSingle();
+   if(!r.error&&r.data?.status==='finished')window.darturnioResultNotice?.put(state.tid,state.board,'pairs',state.match?.id,state.session.id);
+  }
+  return true;
  }
  async function submitVisit(){
   if(state.busy)return;state.busy=true;
@@ -7098,15 +7237,22 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    if(!state.special&&state.mode==='per_dart'&&state.attempts!==null&&state.attempts>state.darts.length)throw new Error('Pokusy na double nemohou překročit počet hozených šipek.');
    if(args.p_action==='checkout'&&!confirm('Potvrdit zavření '+turn.remaining+' bodů '+args.p_darts_count+'. šipkou pro '+nameOf(turn.player)+'?'))return;
    setPending(args);
-   await rpc('darturnio_v2_pair_visit',args);clearPending();resetDraft();await refresh();
+   const saved=await rpc('darturnio_v2_pair_visit',args);clearPending();
+   if(saved?.match_closed)window.darturnioResultNotice?.put(state.tid,state.board,'pairs',state.match.id,state.session.id);
+   resetDraft();await refresh();
   }catch(e){state.loadError='Nepodařilo se bezpečně zapsat nához: '+e.message;renderLocal()}
   finally{state.busy=false;renderLocal()}
  }
  async function action(fn){if(state.busy)return;state.busy=true;try{await fn();state.loadError='';resetDraft();await refresh()}catch(e){state.loadError=e.message||String(e);renderLocal()}finally{state.busy=false}}
  document.addEventListener('click',e=>{
-  const target=e.target.closest('[data-dtp-refresh],[data-dtp-start],[data-dtp-save],[data-dtp-undo],[data-dtp-retry],[data-dtp-discard],[data-dtp-mode],[data-dtp-digit],[data-dtp-erase],[data-dtp-base],[data-dtp-mult],[data-dtp-pop],[data-dtp-special],[data-dtp-attempt]');
+  const target=e.target.closest('[data-dtp-continue],[data-dtp-refresh],[data-dtp-start],[data-dtp-save],[data-dtp-undo],[data-dtp-retry],[data-dtp-discard],[data-dtp-mode],[data-dtp-digit],[data-dtp-erase],[data-dtp-base],[data-dtp-mult],[data-dtp-pop],[data-dtp-special],[data-dtp-attempt]');
   if(!target||!app()?.contains(target)||!document.body.classList.contains('tablet-mode'))return;
   e.preventDefault();e.stopPropagation();
+  if(target.hasAttribute('data-dtp-continue')){
+   window.darturnioResultNotice?.clear(state.tid,state.board);
+   state.session=null;state.match=null;state.leg=null;state.legHistory=[];
+   void refresh();return;
+  }
   if(target.hasAttribute('data-dtp-refresh')){void refresh();return}
   if(target.hasAttribute('data-dtp-retry')){void action(async()=>{await retry()});return}
   if(target.hasAttribute('data-dtp-discard')){
@@ -7165,4 +7311,30 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
 })();
 
 </script>
+<style id="darturnio-x02-result-style">
+/* DARTURNIO X02 – červené potvrzení a statistiky po turnajovém zápasu. */
+#localDuelPanel .tablet-counter-actions button[data-local-submit],
+#trainingPanel .tablet-counter-actions button[data-local-submit],
+body.tablet-mode #tabletApp .tablet-counter-actions button[data-tablet-submit],
+body.tablet-mode #tabletApp .tablet-counter-actions button[data-dtp-save],
+body.tablet-mode #tabletApp button[data-tcr-save]{
+ background:#e11d1d!important;color:#fff!important;border:1px solid #ff5050!important;
+}
+#localDuelPanel .tablet-counter-actions button[data-local-submit]:disabled,
+#trainingPanel .tablet-counter-actions button[data-local-submit]:disabled,
+body.tablet-mode #tabletApp .tablet-counter-actions button[data-tablet-submit]:disabled,
+body.tablet-mode #tabletApp .tablet-counter-actions button[data-dtp-save]:disabled,
+body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
+#tabletApp .dt-result-panel{max-width:850px;margin:12px auto;padding:clamp(14px,3vw,24px);border:1px solid #45454d;border-top:4px solid #e11d1d;border-radius:15px;background:#18191d;text-align:center}
+#tabletApp .dt-result-panel h2{font-size:clamp(24px,5vw,35px);margin:10px 0}
+#tabletApp .dt-result-panel .dt-result-winner{font-weight:850;font-size:clamp(18px,3.5vw,25px);color:#fff}
+#tabletApp .dt-result-panel .dt-result-score{font-size:clamp(40px,11vw,73px);line-height:1.25;font-weight:950;color:#39d477;font-variant-numeric:tabular-nums;margin:8px 0}
+#tabletApp .dt-result-panel .local-result-stats{margin:16px 0}
+#tabletApp .dt-result-panel .local-result-player{text-align:left}
+#tabletApp .dt-result-panel .local-stat-grid b{font-variant-numeric:tabular-nums}
+#tabletApp .dt-result-next{width:100%;min-height:64px;margin:12px 0 4px!important;background:#e11d1d!important;border:1px solid #ff5b5b!important;color:white!important;font-size:clamp(17px,3vw,21px)!important;font-weight:900!important;border-radius:10px!important}
+#tabletApp .dt-result-panel .dt-result-subtext{color:#bdbdc3;font-size:12px;line-height:1.4}
+#tabletApp .dt-result-panel .dt-result-retry{margin:6px 0}
+@media(max-width:580px){#tabletApp .dt-result-panel .local-result-stats{grid-template-columns:1fr}}
+</style>
 </body></html>
