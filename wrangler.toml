@@ -1,4 +1,8 @@
-name = "nechyba-grand-prix-web"
-compatibility_date = "2026-11-09"
+name = "nechyba-grand-prix"
+compatibility_date = "2026-11-10"
 
-assets = { directory = "." }
+[assets]
+directory = "."
+not_found_handling = "single-page-application"
+
+[previews]

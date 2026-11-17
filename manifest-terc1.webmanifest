@@ -1,0 +1,20 @@
+{
+  "name": "NECHYBA – TERČ 1",
+  "short_name": "TERČ 1",
+  "description": "Počítadlo turnaje NECHYBA GRAND PRIX – terč 1.",
+  "lang": "cs-CZ",
+  "start_url": "/tablet/terc1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111111",
+  "theme_color": "#d71920",
+  "icons": [
+    {
+      "src": "/icons/app.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
