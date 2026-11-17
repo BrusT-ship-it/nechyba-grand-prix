@@ -4715,6 +4715,7 @@ body{max-width:100%;overflow-x:hidden}
    button.disabled=true;button.textContent='UKLÁDÁM…';
    try{
      let seriesId=null,created=0;
+     const createdIds=[];
      if(type!=='single'){
        const {data,error}=await db.from('tournament_series').insert({name,organizer_id:user.id,series_type:type==='final'?'final':'series',planned_rounds:rounds,finalists_count:type==='final'?Number($('competitionFinalists').value):null}).select('id').single();
        if(error)throw error;seriesId=data.id;
@@ -4723,36 +4724,38 @@ body{max-width:100%;overflow-x:hidden}
        const isFinal=type==='final'&&i===rounds;
        const eventName=type==='single'?name:(isFinal?`${name} – finále`:`${name} – ${i+1}. večer`);
        const createdAfter=new Date(Date.now()-5000).toISOString();
-       const {error}=await db.rpc('create_501live_tournament',{
-         p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
-         p_game_format:null,p_target_legs:legs,
-         p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
-       });
-       if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
-       // The original RPC still creates the tournament; set the new mode on that
-       // specific, freshly-created event belonging to the current organizer.
-       // Never silently mark an unrelated historic tournament.
-        if(participantMode==='pairs'||dartType==='soft'){
-          const found=await db.from('tournaments').select('id,participant_mode,dart_type,created_at')
-           .eq('organizer_id',user.id).eq('name',eventName)
-           .gte('created_at',createdAfter).order('created_at',{ascending:false}).limit(2);
-          if(found.error)throw new Error('Turnaj byl založen, ale nastavení typu selhalo: '+found.error.message);
-          if(!found.data||found.data.length!==1)throw new Error('Turnaj byl založen, ale nelze bezpečně určit jeho záznam pro nastavení režimu. Zkontroluj seznam turnajů, nový nevytvářej znovu.');
-          if(participantMode==='pairs'){
-            const saved=await db.rpc('darturnio_v2_set_pairs_mode',{p_tournament_id:found.data[0].id});
-            if(saved.error)throw new Error('Turnaj byl založen, ale nepodařilo se zapnout režim dvojic: '+saved.error.message);
-          }
-          if(dartType==='soft'){
-            const saved=await db.rpc('darturnio_set_tournament_soft_mode',{p_tournament_id:found.data[0].id});
-            if(saved.error)throw new Error('Turnaj byl založen, ale nepodařilo se nastavit SOFT: '+saved.error.message);
-          }
-       }
-       created++;
-     }
-     msg.textContent=type==='single'?'Turnaj byl vytvořen v Supabase.':'Turnaj vytvořen';
-     msg.style.color='#82e6a0';
+        const {error}=await db.rpc('create_501live_tournament',{
+          p_name:eventName,p_event_date:dates[i],p_board_count:boards,p_game_type:game,
+          p_game_format:null,p_target_legs:legs,
+          p_series_id:seriesId,p_event_no:i+1,p_is_final:isFinal
+        });
+        if(error)throw new Error(`${error.message} (${created} z ${dates.length} turnajů vytvořeno)`);
+        // Zaznam urcujeme vzdy, nikoli jen u dvojic/SOFT; nikdy neotevirat nahodny jiny turnaj.
+        const found=await db.from('tournaments').select('id,participant_mode,dart_type,created_at')
+          .eq('organizer_id',user.id).eq('name',eventName).eq('event_date',dates[i])
+          .gte('created_at',createdAfter).order('created_at',{ascending:false}).limit(2);
+        if(found.error)throw new Error('Turnaj vznikl, ale jeho ID se nepodařilo načíst: '+found.error.message+' Nezakládej ho znovu; najdeš ho v Moje pořádané turnaje.');
+        if(!found.data||found.data.length!==1)throw new Error('Turnaj byl založen, ale nelze jej bezpečně jednoznačně určit. Otevři jej v Moje pořádané turnaje; nezakládej další kopii.');
+        const newId=found.data[0].id;
+        createdIds.push(newId);
+        if(participantMode==='pairs'){
+          const saved=await db.rpc('darturnio_v2_set_pairs_mode',{p_tournament_id:newId});
+          if(saved.error)throw new Error('Turnaj vznikl, ale nepodařilo se zapnout dvojice: '+saved.error.message);
+        }
+        if(dartType==='soft'){
+          const saved=await db.rpc('darturnio_set_tournament_soft_mode',{p_tournament_id:newId});
+          if(saved.error)throw new Error('Turnaj vznikl, ale nepodařilo se nastavit SOFT: '+saved.error.message);
+        }
+        created++;
+      }
+      msg.textContent=type==='single'?'Turnaj založen. Otevírám jeho stránku…':'Série založena. Otevírám první turnaj…';
+      msg.style.color='#82e6a0';
       form.reset();render();modeInfo();dartTypeInfo();
-   }catch(err){msg.style.color='#FF4646';msg.textContent='Uložení se nezdařilo: '+err.message+' Pokud vznikla část série, před opakováním zkontroluj uložené turnaje.'}
+      if(createdIds.length){
+        const target=new URL(window.location.href);
+        target.search='';target.hash='';target.searchParams.set('turnaj',createdIds[0]);
+        window.location.assign(target.toString());
+      }   }catch(err){msg.style.color='#FF4646';msg.textContent='Uložení se nezdařilo: '+err.message+' Pokud vznikla část série, před opakováním zkontroluj uložené turnaje.'}
    finally{button.disabled=false;button.textContent='VYTVOŘIT TURNAJ'}
  });
 })();
@@ -4774,6 +4777,9 @@ body{max-width:100%;overflow-x:hidden}
   panel.id = 'ownedCompetitions';
   panel.hidden = true;
   panel.innerHTML = '<h3>MOJE POŘÁDANÉ TURNAJE</h3>' +
+    '<p class="owned-warning">Mazání je <strong>trvalé</strong> včetně zápasů, výsledků a turnajových statistik. Hráčské účty a ostatní turnaje zůstanou zachované. Doporučujeme zálohu.</p>' +
+    '<div class="owned-management"><label><input type="checkbox" id="ownedSelectAll"> Označit všechny na této stránce</label><button id="ownedDeleteSelected" class="danger" type="button" disabled>SMAZAT VYBRANÉ (0)</button></div>' +
+    '<p id="ownedDeleteStatus" role="status" aria-live="polite" class="small"></p>' +
     '<div id="ownedCompetitionsList" aria-live="polite">Načítám…</div>' +
     '<button type="button" id="ownedCompetitionsBack" class="secondary">← ZPĚT NA DOMOVSKOU STRÁNKU</button>';
   parent.append(panel);
@@ -4845,9 +4851,26 @@ body{max-width:100%;overflow-x:hidden}
         list.textContent = 'Zatím nemáš založený žádný turnaj.';
         return;
       }
+      const selected=new Map();
+      const selectionStatus=()=>{
+        const n=selected.size;
+        const del=$('ownedDeleteSelected');
+        del.disabled=n===0;
+        del.textContent='SMAZAT VYBRANÉ ('+n+')';
+        const all=$('ownedSelectAll');
+        all.checked=!!data.length&&n===data.length;
+        all.indeterminate=n>0&&n<data.length;
+      };
+      $('ownedSelectAll').checked=false;
+      $('ownedDeleteSelected').disabled=true;
+      $('ownedDeleteSelected').textContent='SMAZAT VYBRANÉ (0)';
       for (const tournament of data) {
         const row = document.createElement('div');
         row.className = 'owned-row';
+        const tick=document.createElement('input');
+        tick.type='checkbox';tick.className='owned-tick';
+        tick.setAttribute('aria-label','Označit turnaj '+(tournament.name||'Turnaj'));
+        tick.addEventListener('change',()=>{if(tick.checked)selected.set(tournament.id,tournament);else selected.delete(tournament.id);selectionStatus();});
         const info = document.createElement('span');
         const name = document.createElement('strong');
         name.textContent = tournament.name || 'Turnaj';
@@ -4864,9 +4887,39 @@ body{max-width:100%;overflow-x:hidden}
         url.searchParams.set('turnaj', tournament.id);
         link.href = url.toString();
         link.textContent = 'OTEVŘÍT';
-        row.append(info, link);
+        row.append(tick, info, link);
         list.append(row);
       }
+      $('ownedSelectAll').onchange=()=>{
+        const checked=$('ownedSelectAll').checked;
+        list.querySelectorAll('.owned-tick').forEach((el,index)=>{
+          el.checked=checked;
+          const t=data[index];if(checked)selected.set(t.id,t);else selected.delete(t.id);
+        });
+        selectionStatus();
+      };
+      $('ownedDeleteSelected').onclick=async()=>{
+        const targets=[...selected.values()];if(!targets.length)return;
+        const question=targets.length===1
+          ?`Opravdu TRVALE smazat turnaj „${targets[0].name}“ včetně výsledků? Pro potvrzení napiš SMAZAT 1.`
+          :`Opravdu TRVALE smazat ${targets.length} turnajů včetně výsledků? Pro potvrzení napiš SMAZAT ${targets.length}.`;
+        if(window.prompt(question)!=='SMAZAT '+targets.length)return;
+        const del=$('ownedDeleteSelected'),message=$('ownedDeleteStatus');
+        del.disabled=true;message.textContent='Mažu vybrané turnaje…';
+        let completed=0;const errors=[];
+        for(const item of targets){
+          try{
+            const {data:result,error:deleteError}=await client.rpc('darturnio_delete_owned_tournament',{p_tournament_id:item.id,p_confirm_name:item.name});
+            if(deleteError)throw deleteError;
+            if(result!==true)throw new Error('Databáze nepotvrdila odstranění.');
+            completed++;
+          }catch(error){errors.push(item.name+': '+(error?.message||String(error)));}
+        }
+        message.textContent=`Smazáno ${completed} z ${targets.length}.`+(errors.length?' Chyby: '+errors.join(' | '):'');
+        // Precteme aktualni seznam z DB: nikdy nezobrazujeme neoverene mazani.
+        if(!panel.hidden)await showOwned();
+        const fresh=$('ownedDeleteStatus');if(fresh)fresh.textContent=message.textContent;
+      };
     } catch (error) {
       if (serial === loadSerial && !panel.hidden) {
         list.textContent = 'Nepodařilo se načíst turnaje: ' + (error?.message || String(error));
@@ -5455,6 +5508,28 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
 .owner501-actions button{min-height:42px}
 @media(max-width:560px){.owner501-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.owner501-chart{gap:4px}.owner501-tournament{flex-wrap:wrap}}
 </style>
+<style id="darturnio-owner-v3-style">
+#ownedCompetitions{max-width:1000px}
+#ownedCompetitions .owned-warning{color:#f0c9c9;background:#332022;border:1px solid #734043;padding:12px 14px;border-radius:10px;line-height:1.5}
+#ownedCompetitions .owned-management{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0}
+#ownedCompetitions .owned-management label{display:flex;align-items:center;gap:8px;cursor:pointer}
+#ownedCompetitions .owned-row{gap:12px}
+#ownedCompetitions .owned-row span{flex:1;min-width:0;overflow-wrap:anywhere}
+#ownedCompetitions .owned-row .owned-tick{width:20px;height:20px;flex:none;accent-color:#E11D1D}
+#ownedCompetitions #ownedDeleteSelected{background:#ad1e27;color:#fff;border:1px solid #eb464d;border-radius:8px;padding:11px 15px;font-weight:800}
+#ownedCompetitions #ownedDeleteSelected:disabled{opacity:.4;cursor:not-allowed}
+#owner501Panel .owner-v3-chart{display:flex;align-items:end;gap:8px;border-bottom:1px solid #4c4d54;min-height:145px;padding:14px 0 2px}
+#owner501Panel .owner-v3-month{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;gap:6px;min-width:0}
+#owner501Panel .owner-v3-bar{width:100%;max-width:38px;background:linear-gradient(#ed393e,#9f161e);border-radius:6px 6px 0 0;min-height:3px}
+#owner501Panel .owner-v3-month small{font-size:10px;color:#b5b4ba}
+#owner501Panel .owner-v3-organizer{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #35353c;padding:10px 2px}
+#owner501Panel .owner-v3-organizer strong{color:#f8f8fa;font-size:14px;overflow-wrap:anywhere}
+#owner501Panel .owner-v3-organizer span{color:#d2a6a9;font-variant-numeric:tabular-nums;font-size:13px}
+#owner501Panel .owner-v3-chips{display:flex;gap:8px;flex-wrap:wrap}
+#owner501Panel .owner-v3-chip{padding:10px 12px;background:#29262b;border:1px solid #494148;border-radius:10px;color:#dfdfe1;flex:1;min-width:130px}
+#owner501Panel .owner-v3-chip strong{color:#fff;font-size:19px;display:block}
+@media(max-width:520px){#ownedCompetitions .owned-management{align-items:stretch}#ownedCompetitions .owned-row{flex-wrap:wrap}#ownedCompetitions .owned-row span{flex-basis:calc(100% - 48px)}#owner501Panel .owner-v3-chart{gap:4px}#owner501Panel .owner-v3-month small{font-size:8px}}
+</style>
 <script id="501live-platform-owner-controller">
 (()=>{
  const byId=id=>document.getElementById(id);
@@ -5477,6 +5552,19 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
    <article><strong id="owner501Today">—</strong><span>Návštěvy dnes</span></article>
  </div>
  <section class="owner501-content"><h3>Návštěvnost za 14 dní</h3><div class="owner501-chart" id="owner501Chart" aria-label="Návštěvnost za posledních 14 dní"></div><p class="owner501-hint" id="owner501TrafficNote">Návštěva znamená jednu relaci prohlížeče, nikoli jedinečného člověka. Měří se až od nasazení.</p></section>
+ <section class="owner501-content" id="darturnioOwnerInsights" hidden>
+  <h3>Aktivita platformy</h3>
+  <div class="owner-v3-chips">
+   <div class="owner-v3-chip"><strong id="ownerV3Organizers">—</strong>Pořadatelé celkem</div>
+   <div class="owner-v3-chip"><strong id="ownerV3ActiveOrganizers">—</strong>Pořadatelé za 30 dní</div>
+   <div class="owner-v3-chip"><strong id="ownerV3NewTournaments">—</strong>Turnaje za 30 dní</div>
+   <div class="owner-v3-chip"><strong id="ownerV3LiveMatches">—</strong>Právě hrané zápasy</div>
+  </div>
+  <p class="owner501-hint" id="ownerV3ModeSplit"></p>
+  <h3>Nové turnaje za posledních 12 měsíců</h3><div class="owner-v3-chart" id="ownerV3Months"></div>
+  <h3 style="margin-top:24px">Nejaktivnější pořadatelé</h3><div id="ownerV3TopOrganizers"></div>
+  <p class="owner501-hint">Statistiky vycházejí z aktuálně uložených dat; po smazání testovacích turnajů se přepočítají. Nejde o finanční výsledky.</p>
+ </section>
  <section class="owner501-content"><h3>Všechny založené turnaje</h3><div class="owner501-tournaments" id="owner501TourList"></div><div class="owner501-actions" style="margin-top:14px"><button type="button" class="secondary" id="owner501More" hidden>Načíst další turnaje</button></div></section>`;
  profile.appendChild(area);
  let offset=0,loaded=false,busy=false;
@@ -5517,16 +5605,51 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
    offset+=items.length;
    byId('owner501More').hidden=items.length<40;
  }
+ function displayOwnerInsights(d){
+   byId('darturnioOwnerInsights').hidden=false;
+   const values={ownerV3Organizers:d.organizers_total,ownerV3ActiveOrganizers:d.organizers_30d,ownerV3NewTournaments:d.tournaments_30d,ownerV3LiveMatches:d.matches_live};
+   for(const [id,value] of Object.entries(values))byId(id).textContent=format(value);
+   byId('ownerV3ModeSplit').textContent=`STEEL ${format(d.steel_total)} · SOFT ${format(d.soft_total)} · Jednotlivci ${format(d.singles_total)} · Dvojice ${format(d.pairs_total)}`;
+   const chart=byId('ownerV3Months');chart.replaceChildren();
+   const months=Array.isArray(d.months)?d.months:[],peak=Math.max(1,...months.map(x=>Number(x.count)||0));
+   for(const month of months){
+     const box=document.createElement('div');box.className='owner-v3-month';
+     const fill=document.createElement('div');fill.className='owner-v3-bar';fill.style.height=Math.max(3,Math.round(105*(Number(month.count)||0)/peak))+'px';
+     fill.title=month.month+': '+format(month.count)+' turnajů';
+     const label=document.createElement('small');label.textContent=String(month.month||'').slice(5);
+     box.append(fill,label);chart.append(box);
+   }
+   const leaders=byId('ownerV3TopOrganizers');leaders.replaceChildren();
+   const organizers=Array.isArray(d.top_organizers)?d.top_organizers:[];
+   if(!organizers.length)leaders.textContent='Zatím nejsou dostupná data o pořadatelích.';
+   for(const org of organizers){
+     const row=document.createElement('div');row.className='owner-v3-organizer';
+     const name=document.createElement('strong');name.textContent=org.display_name||'Pořadatel';
+     const count=document.createElement('span');count.textContent=`${format(org.tournaments)} turnajů · ${format(org.last_30d)} za 30 dní`;
+     row.append(name,count);leaders.append(row);
+   }
+ }
  async function refresh(){
    if(busy)return;busy=true;status('Načítám statistiky…');
    byId('owner501Refresh').disabled=true;byId('owner501More').disabled=true;
    try{
-     const {data,error}=await getDb().rpc('get_501live_owner_overview');
-     if(error)throw error;
-     displayOverview(data||{});
-     await loadTournaments(true);
-     loaded=true;status('Aktualizováno '+new Date().toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}));
-   }catch(error){status('Statistiky se nepodařilo načíst: '+(error?.message||error));}
+     const client=getDb();
+     const {data:insights,error:insightError}=await client.rpc('darturnio_owner_insights');
+     if(insightError)throw insightError;
+     displayOwnerInsights(insights||{});
+     const old=await client.rpc('get_501live_owner_overview');
+     if(!old.error)displayOverview(old.data||{});
+     else {
+       byId('owner501Accounts').textContent=format(insights.registered_accounts);
+       byId('owner501Players').textContent=format(insights.players_total);
+       byId('owner501Tournaments').textContent=format(insights.tournaments_total);
+       byId('owner501Matches').textContent=format(insights.finished_matches);
+       status('Nové statistiky jsou dostupné, původní návštěvnost nikoli: '+old.error.message);
+     }
+     try{await loadTournaments(true)}catch(listError){status('Přehled načten, seznam všech turnajů není dostupný: '+listError.message)}
+     loaded=true;
+     if(!old.error)status('Aktualizováno '+new Date().toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}));
+   }catch(error){status('Majitelské statistiky nejsou dostupné: '+(error?.message||error)+' — nejprve spusť nové SQL.');}
    finally{busy=false;byId('owner501Refresh').disabled=false;byId('owner501More').disabled=false;}
  }
  trigger.onclick=()=>{
@@ -5551,10 +5674,10 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
    // Tlačítko se ukáže až PO úspěšném ověření chráněným RPC.
    trigger.hidden=true;
    if(!matches||authError){area.hidden=true;loaded=false;return true;}
-   const {error:ownerError}=await client.rpc('get_501live_owner_overview');
-   if(ownerError){area.hidden=true;loaded=false;return true;}
+   const {error:ownerError}=await client.rpc('darturnio_owner_insights');
+   if(ownerError){area.hidden=true;loaded=false;byId('portalOwner')&&(byId('portalOwner').hidden=true);return true;}
    const {data:{user:verifiedUser}={}}=await client.auth.getUser();
-   if(verifiedUser?.id===user.id)trigger.hidden=false;
+   if(verifiedUser?.id===user.id){trigger.hidden=false;const link=byId('portalOwner');if(link)link.hidden=false;}
    return true;
  }
  window.addEventListener('501live-login-success',()=>{loaded=false;checkOwner()});
