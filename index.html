@@ -5075,6 +5075,7 @@ function submit(kind){
  g.events.push({type:'visit',visit:v});clearEntry(g);render(kind);
  // Turnajové zápisy zůstávají beze změn. Lokální hra se odešle do veřejného součtu až po dokončení.
  if(model(g).gameDone){
+  window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:g.dartSessionId,mode:kind+'_'+g.initial,action:'finished'}}));
   const after=model(g),darts=after.stats.reduce((sum,player)=>sum+player.darts,0);
   if(kind==='duel'||!window._501liveIsLoggedIn?.()){
    window.dispatchEvent(new CustomEvent('darturnio-darts-local-finished',{
@@ -5088,9 +5089,18 @@ function submit(kind){
   }
  }
 }
-function reset(kind,options){sessions[kind]=createGame(kind,options.score,options.names,options.legs);render(kind);}
+function reset(kind,options){
+ const prior=sessions[kind];
+ if(prior&&!model(prior).gameDone)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:prior.dartSessionId,mode:prior.kind+'_'+prior.initial,action:'abandoned'}}));
+ sessions[kind]=createGame(kind,options.score,options.names,options.legs);
+ const fresh=sessions[kind];
+ window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:fresh.dartSessionId,mode:kind+'_'+fresh.initial,action:'start',players:kind==='duel'?2:1}}));
+ render(kind);
+}
 function confirmExit(kind){const g=sessions[kind];if(g?.events.length&&!model(g).gameDone&&!window.confirm('Opravdu ukončit rozehranou hru? Neuložené výsledky zmizí.'))return false;return true;}
 function exit(kind){if(!confirmExit(kind))return;
+ const prior=sessions[kind];
+ if(prior&&!model(prior).gameDone)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:prior.dartSessionId,mode:kind+'_'+prior.initial,action:'abandoned'}}));
  sessions[kind]=null;
  if(kind==='solo'){$('trainingChoice').hidden=false;$('trainingCounter').hidden=true;}
  else {$('localDuelSetup').hidden=false;$('localDuelCounter').hidden=true;}
@@ -5113,7 +5123,7 @@ $('localDuelExit').addEventListener('click',()=>exit('duel'));
 for(const kind of ['solo','duel'])rootFor(kind)?.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
  const g=sessions[kind];if(!g)return;const d=b.dataset;
- if('localUndo' in d){if(!g.events.length)return;g.events.pop();clearEntry(g);render(kind);return;}
+ if('localUndo' in d){if(!g.events.length)return;const wasFinished=model(g).gameDone;g.events.pop();clearEntry(g);render(kind);if(wasFinished)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:g.dartSessionId,mode:kind+'_'+g.initial,action:'reopen',players:kind==='duel'?2:1}}));return;}
  if('localNext' in d){const m=model(g);if(m.legDone&&!m.gameDone){g.events.push({type:'next'});clearEntry(g);render(kind);}return;}
  if('localExit' in d){exit(kind);return;}
  if('localReset' in d){reset(kind,{score:g.initial,names:g.names,legs:g.target});return;}
@@ -6629,6 +6639,163 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
 </style>
 
 
+
+<style id="darturnio-owner-simple-stats-style">
+/* Clean owner home; details are hidden until a tile is opened. */
+#owner501Panel .owner501-tiles{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:15px}
+#owner501Panel .owner501-tiles article{background:#1d1e22;padding:14px}
+#owner501Panel .owner501-content:not(.dt-owner-open){display:none!important}
+#owner501Panel .dt-owner-menu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:5px 0 18px}
+#owner501Panel .dt-owner-menu button{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;min-height:66px;text-align:left;font-size:14px;line-height:1.3;font-weight:800;background:#1b1c21;color:#f4f4f6;border:1px solid #42424a;border-radius:11px;padding:15px 16px;cursor:pointer}
+#owner501Panel .dt-owner-menu button:hover,#owner501Panel .dt-owner-menu button.dt-owner-selected{border-color:#ed3e47;background:#2c2025;color:#fff}
+#owner501Panel .dt-owner-menu button:focus-visible{outline:2px solid #ed3e47;outline-offset:2px}
+#owner501Panel .dt-owner-menu button .dt-owner-arrow{font-size:19px;color:#f0525a;flex:none}
+#owner501Panel .dt-owner-visitor-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:15px}
+#owner501Panel .dt-owner-visitor-tiles article{background:#27252a;border:1px solid #3c3942;border-radius:10px;padding:13px}
+#owner501Panel .dt-owner-visitor-tiles strong{display:block;color:#fff;font-size:26px}
+#owner501Panel .dt-owner-visitor-tiles span{display:block;color:#bfc0c8;font-size:12px;margin-top:5px}
+#owner501Panel .dt-games-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:15px 0}
+#owner501Panel .dt-games-tabs button{border:1px solid #45444c;background:#24252b;color:#ddd;min-height:38px;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+#owner501Panel .dt-games-tabs button.dt-selected{color:#fff;background:#a21b25;border-color:#ef444e;font-weight:800}
+#owner501Panel .dt-games-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0 21px}
+#owner501Panel .dt-games-stat{border:1px solid #413f48;border-radius:11px;background:#232329;padding:13px 10px}
+#owner501Panel .dt-games-stat strong{display:block;font-size:clamp(21px,3vw,29px);font-variant-numeric:tabular-nums;color:#fff}
+#owner501Panel .dt-games-stat span{display:block;color:#bcbcc4;font-size:12px;margin-top:5px}
+#owner501Panel .dt-games-live{color:#60d1a4!important}
+#owner501Panel .dt-games-head{font-weight:800;color:#fff;margin:18px 0 9px;font-size:16px}
+#owner501Panel .dt-games-list{display:grid;gap:8px}
+#owner501Panel .dt-games-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;border:1px solid #34353c;border-radius:9px;background:#202126}
+#owner501Panel .dt-games-row strong{color:#f7f7f8;font-size:14px}
+#owner501Panel .dt-games-row span{color:#b7b7c0;font-size:12px}
+#owner501Panel .dt-games-modes-header{display:grid;grid-template-columns:1fr 76px 76px 76px 66px;gap:6px;padding:8px 11px;color:#a9abb4;font-size:11px}
+#owner501Panel .dt-games-mode-row{display:grid;grid-template-columns:1fr 76px 76px 76px 66px;gap:6px;padding:11px;border-bottom:1px solid #38383e;font-size:13px;align-items:center}
+#owner501Panel .dt-games-mode-row span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+#owner501Panel .dt-games-mode-row span:first-child{overflow-wrap:anywhere;color:#eee}
+#owner501Panel .dt-games-caption{color:#aeb0b8;font-size:12px;line-height:1.55;margin:11px 0 2px}
+#owner501Panel .dt-games-error{color:#f3b5b5}
+@media(max-width:760px){#owner501Panel .dt-owner-menu{grid-template-columns:repeat(2,minmax(0,1fr))}#owner501Panel .owner501-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:570px){#owner501Panel .dt-games-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#owner501Panel .dt-games-modes-header,#owner501Panel .dt-games-mode-row{grid-template-columns:1fr repeat(4,47px);gap:3px;font-size:11px;padding:10px 3px}#owner501Panel .dt-games-modes-header{font-size:9px}#owner501Panel .dt-owner-menu button{font-size:12px;min-height:60px;padding:12px 10px}}
+</style>
+<script id="darturnio-owner-simple-stats-controller">
+(()=>{
+ 'use strict';
+ const $=id=>document.getElementById(id), owner=$('owner501Panel');
+ if(!owner||$('dtOwnerGames'))return;
+ const tiles=owner.querySelector('.owner501-tiles');
+ const visitor=owner.querySelector('#owner501Chart')?.closest('.owner501-content');
+ const insights=$('darturnioOwnerInsights');
+ const devices=$('dtDeviceDays')?.closest('.owner501-content');
+ const messages=$('dtOwnerMessages')?.closest('.owner501-content');
+ const tournaments=$('owner501TourList')?.closest('.owner501-content');
+ if(!tiles||!visitor||!insights||!devices||!messages||!tournaments)return;
+ const gamePanel=document.createElement('section');
+ gamePanel.id='dtOwnerGames';gamePanel.className='owner501-content';
+ gamePanel.innerHTML=`<h3>Statistiky her</h3>
+ <p class="dt-games-caption">Anonymní souhrn skutečně spuštěných her a turnajových zápasů.</p>
+ <div class="dt-games-tabs" role="group" aria-label="Období statistik">
+ <button type="button" data-dt-range="today" class="dt-selected">Dnes</button><button type="button" data-dt-range="7d">7 dní</button><button type="button" data-dt-range="30d">30 dní</button><button type="button" data-dt-range="all">Celkem</button></div>
+ <div class="dt-games-summary">
+ <div class="dt-games-stat"><strong id="dtGamesStarted">—</strong><span>Zahájené</span></div>
+ <div class="dt-games-stat"><strong id="dtGamesFinished">—</strong><span>Dokončené</span></div>
+ <div class="dt-games-stat"><strong id="dtGamesAbandoned">—</strong><span>Nedokončené</span></div>
+ <div class="dt-games-stat"><strong class="dt-games-live" id="dtGamesOnline">—</strong><span>Právě online</span></div></div>
+ <h4 class="dt-games-head">Kolikrát se co hrálo</h4>
+ <div class="dt-games-modes-header"><span>Herní režim</span><span>Zahájeno</span><span>Dohráno</span><span>Nedokon.</span><span>Online</span></div>
+ <div id="dtGamesModes" class="dt-games-list"></div>
+ <h4 class="dt-games-head">Právě probíhající hry</h4>
+ <div id="dtGamesLive" class="dt-games-list"></div>
+ <p id="dtGamesStatus" class="dt-games-caption" role="status" aria-live="polite">Statistiky se načtou po otevření.</p>
+ <details class="dt-games-caption"><summary>Jak se statistiky počítají?</summary><p>Zahájené = dokončené + nedokončené + právě aktivní. Opuštěná samostatná hra se po 3 minutách neaktivity počítá jako nedokončená. U turnajových zápasů bez výsledku je limit 4 hodiny. Období se určuje podle zahájení (český čas). Měření samostatných her začíná nasazením této verze.</p></details>`;
+ const visitorCards=document.createElement('div');visitorCards.className='dt-owner-visitor-tiles';
+ [...tiles.querySelectorAll('article')].slice(4).forEach(x=>visitorCards.appendChild(x));
+ visitor.insertBefore(visitorCards,visitor.firstChild.nextSibling||visitor.firstChild);
+ const sections=[
+  ['games','Statistiky her',gamePanel],
+  ['traffic','Návštěvnost',visitor],
+  ['devices','Zařízení a zobrazení',devices],
+  ['activity','Aktivita platformy',insights],
+  ['messages','Zprávy',messages],
+  ['tournaments','Seznam turnajů',tournaments]
+ ];
+ const menu=document.createElement('nav');menu.className='dt-owner-menu';menu.setAttribute('aria-label','Přehled majitele – sekce');
+ for(const [key,label,section] of sections){
+   section.classList.remove('dt-owner-open');section.dataset.ownerSection=key;
+   const b=document.createElement('button');b.type='button';b.dataset.ownerMenu=key;
+   const name=document.createElement('span');name.textContent=label;
+   const arrow=document.createElement('span');arrow.className='dt-owner-arrow';arrow.textContent='›';arrow.setAttribute('aria-hidden','true');
+   b.append(name,arrow);b.setAttribute('aria-expanded','false');menu.appendChild(b);
+ }
+ tiles.insertAdjacentElement('afterend',menu);
+ menu.insertAdjacentElement('afterend',gamePanel);
+ let active=null,period='today',busy=false;
+ const fmt=v=>Number(v||0).toLocaleString('cs-CZ');
+ const labels={solo_170:'170 – samostatná hra',solo_301:'301 – samostatná hra',solo_501:'501 – samostatná hra',duel_170:'170 – dva hráči',duel_301:'301 – dva hráči',duel_501:'501 – dva hráči',cricket_local:'Cricket',segment:'Trénink Segment',checkout:'Trénink Checkout',cricket_drill:'Trénink Cricket Drill',tournament:'Turnaj – jednotlivci',tournament_pairs:'Turnaj – dvojice'};
+ const modeText=k=>labels[k]||String(k||'Ostatní režim');
+ function open(key){
+   active=active===key?null:key;
+   for(const [id,,section] of sections){
+     const isOpen=id===active;
+     section.classList.toggle('dt-owner-open',isOpen);
+     if(isOpen)section.hidden=false;
+     const b=menu.querySelector('[data-owner-menu="'+id+'"]');
+     b.classList.toggle('dt-owner-selected',isOpen);b.setAttribute('aria-expanded',String(isOpen));
+   }
+   if(active==='games')void load(true);
+ }
+ menu.addEventListener('click',e=>{const button=e.target.closest('[data-owner-menu]');if(button)open(button.dataset.ownerMenu);});
+ function setData(d){
+   const total=d?.totals||{};
+   for(const [id,key] of [['dtGamesStarted','started'],['dtGamesFinished','finished'],['dtGamesAbandoned','abandoned'],['dtGamesOnline','active']])$(id).textContent=fmt(total[key]);
+   const modes=$('dtGamesModes');modes.replaceChildren();
+   const rows=Array.isArray(d?.modes)?d.modes:[];
+   if(!rows.length){const e=document.createElement('p');e.className='dt-games-caption';e.textContent='Zatím nebyla zaznamenána žádná hra.';modes.appendChild(e);}
+   for(const item of rows){
+     const line=document.createElement('div');line.className='dt-games-mode-row';
+     for(const v of [modeText(item.mode),fmt(item.started),fmt(item.finished),fmt(item.abandoned),fmt(item.active)]){
+       const cell=document.createElement('span');cell.textContent=v;line.appendChild(cell);
+     }
+     modes.appendChild(line);
+   }
+   const live=$('dtGamesLive');live.replaceChildren();
+   const games=Array.isArray(d?.live)?d.live:[];
+   if(!games.length){const x=document.createElement('p');x.className='dt-games-caption';x.textContent='Momentálně nikdo nehraje.';live.appendChild(x);}
+   for(const x of games){
+     const line=document.createElement('div');line.className='dt-games-row';
+     const title=document.createElement('strong');title.textContent=modeText(x.mode);
+     const detail=document.createElement('span');
+     const since=Date.parse(x.started_at||'');const min=Number.isFinite(since)?Math.max(0,Math.floor((Date.now()-since)/60000)):0;
+     detail.textContent='Hraje se '+min+' min'+(Number(x.players)>0?' · '+x.players+' hráčů':'');
+     line.append(title,detail);live.appendChild(line);
+   }
+   const count=Number(total.active||0);
+   if(count>games.length){const p=document.createElement('p');p.className='dt-games-caption';p.textContent='Další aktivní hry: '+fmt(count-games.length);live.appendChild(p);}
+ }
+ async function load(force=false){
+   if(active!=='games'||busy)return;
+   busy=true;$('dtGamesStatus').textContent='Načítám skutečné statistiky…';
+   try{
+     const client=window.db||(typeof db!=='undefined'?db:null);
+     if(!client)throw Error('Nepodařilo se připojit k Supabase.');
+     const {data,error}=await client.rpc('darturnio_owner_game_statistics',{p_period:period});
+     if(error)throw error;
+     if(active==='games'){
+       setData(data||{});
+       $('dtGamesStatus').textContent='Aktualizováno '+new Date().toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})+' · živé hry se obnovují automaticky.';
+     }
+   }catch(e){$('dtGamesStatus').textContent='Statistiky nejsou dostupné: '+(e?.message||e)+' · Nejdříve spusť přiložené SQL.';$('dtGamesStatus').classList.add('dt-games-error');}
+   finally{busy=false;}
+ }
+ gamePanel.querySelector('.dt-games-tabs').addEventListener('click',e=>{
+   const b=e.target.closest('[data-dt-range]');if(!b)return;
+   period=b.dataset.dtRange;
+   gamePanel.querySelectorAll('[data-dt-range]').forEach(t=>t.classList.toggle('dt-selected',t===b));
+   $('dtGamesStatus').classList.remove('dt-games-error');void load(true);
+ });
+ $('owner501Refresh')?.addEventListener('click',()=>{if(active==='games')void load(true);});
+ setInterval(()=>{if(active==='games'&&!owner.hidden&&document.visibilityState==='visible')void load();},20000);
+})();
+</script>
+
 <script id="501live-segment-training-controller">
 (()=>{
  'use strict';
@@ -6664,16 +6831,20 @@ body:has(#profileStatistics:not([hidden])) #appBrandFooter{position:static!impor
  }
  function goBack(){
    if(game && game.throws.length<game.limit && game.throws.length && !window.confirm('Ukončit rozehraný trénink SEGMENT? Nedokončené šipky se neuloží.'))return;
+   if(game&&game.throws.length!==game.limit)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'segment',action:'abandoned'}}));
    game=null;area.hidden=true;$('segmentSetup').hidden=false;$('segmentPlay').hidden=true;choose.hidden=false;
  }
  function start(){
+   if(game&&game.throws.length!==game.limit)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'segment',action:'abandoned'}}));
    game={id:makeId(),segment:selectedNumber,limit:selectedLimit,throws:[],saveState:'',saveMessage:''};
+   window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'segment',action:'start',players:1}}));
    $('segmentSetup').hidden=true;$('segmentPlay').hidden=false;
    render();
  }
  function submitSave(){
    if(!game||game.throws.length!==game.limit)return;
    const s=stats();
+   window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'segment',action:'finished'}}));
    window.dispatchEvent(new CustomEvent('501live-segment-finished',{detail:{
      id:game.id,target_segment:game.segment,darts_target:game.limit,
      singles:s.singles,doubles:s.doubles,triples:s.triples,misses:s.misses
@@ -6796,9 +6967,9 @@ const stats=()=>{
  let streak=0,best=0;for(const r of session.results){streak=r.success?streak+1:0;best=Math.max(best,streak);}
  return {total,successes,best,darts:session.results.reduce((sum,r)=>sum+(Number(r.darts)||0),0)};
 };
-function back(){if(!session)return; if(!session.done&&session.results.length&&!confirm('Ukončit rozehraný CHECKOUT? Dosavadní odpovědi se neuloží.'))return;session=null;root.hidden=true;choice.hidden=false;$('checkoutGame').hidden=true;$('checkoutStartScreen').hidden=false;}
-function start(){session={id:uid(),current:number(null),results:[],done:false,saveStatus:'',saveState:''};choice.hidden=true;root.hidden=false;$('checkoutStartScreen').hidden=true;$('checkoutGame').hidden=false;render();}
-function finish(){if(!session||session.done)return;if(!session.results.length){back();return;}session.done=true;render();save();}
+function back(){if(!session)return; if(!session.done&&session.results.length&&!confirm('Ukončit rozehraný CHECKOUT? Dosavadní odpovědi se neuloží.'))return;if(!session.done)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:session.id,mode:'checkout',action:'abandoned'}}));session=null;root.hidden=true;choice.hidden=false;$('checkoutGame').hidden=true;$('checkoutStartScreen').hidden=false;}
+function start(){if(session&&!session.done)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:session.id,mode:'checkout',action:'abandoned'}}));session={id:uid(),current:number(null),results:[],done:false,saveStatus:'',saveState:''};window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:session.id,mode:'checkout',action:'start',players:1}}));choice.hidden=true;root.hidden=false;$('checkoutStartScreen').hidden=true;$('checkoutGame').hidden=false;render();}
+function finish(){if(!session||session.done)return;if(!session.results.length){back();return;}session.done=true;window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:session.id,mode:'checkout',action:'finished'}}));render();save();}
 function save(){if(!session||!session.done)return;const s=stats();window.dispatchEvent(new CustomEvent('501live-checkout-finished',{detail:{id:session.id,attempts:s.total,successes:s.successes,best_streak:s.best,darts_used:s.darts}}));}
 function render(){if(!session)return;const s=stats();const metrics=`<div class="checkout-metrics"><div><strong>${s.total}</strong><span>Pokusy</span></div><div><strong>${s.successes}</strong><span>Body / zavření</span></div><div><strong>${pct(s.successes,s.total)}</strong><span>Úspěšnost</span></div></div>`;
  $('checkoutBoard').innerHTML=session.done?`<div class="checkout-result"><h3>Trénink dokončen</h3><div class="checkout-points">${s.successes} bodů</div><p>${s.successes} zavření z ${s.total} pokusů · úspěšnost ${pct(s.successes,s.total)}</p>${metrics}<p>Nejdelší série úspěšných zavření: <strong>${s.best}</strong></p><p class="checkout-message" id="checkoutSaveMessage">${session.saveStatus||'Ukládám statistiky, pokud jsi přihlášený…'}</p><div class="checkout-result-actions"><button type="button" class="primary" data-co-again>HRÁT ZNOVU</button><button type="button" data-co-exit>VÝBĚR HER</button>${session.saveState==='error'?'<button type="button" data-co-retry>ZNOVU ULOŽIT</button>':''}</div></div>`:
@@ -6992,9 +7163,9 @@ function render(){
  }
  board.innerHTML=`${metrics}${targets}<div class="cd-main"><small>AKTUÁLNÍ SEGMENT · ${3-s.remain[s.target]}/3 SPLNĚNO</small><div class="cd-current">${label(s.target)}</div><small>V TOMTO KOLE ALESPOŇ 2 ZÁSAHY ZE 3 ŠIPEK</small><div class="cd-slots">${[0,1,2].map((_,i)=>`<div class="cd-slot ${i<s.current.length?(s.current[i]?'hit':'miss'):''}">${i<s.current.length?(s.current[i]?'✓':'✕'):'–'}</div>`).join('')}</div></div><div class="cd-actions"><button class="cd-hit" data-cd-hit="1">✓ ZÁSAH</button><button class="cd-miss" data-cd-hit="0">✕ MIMO</button></div><button type="button" class="cd-secondary cd-undo" data-cd-undo ${s.darts?'':'disabled'}>← 1 ŠIPKA ZPĚT</button><p class="cd-note">Po každých 3 šipkách automaticky přejdeš na další nesplněný segment. Úspěšné kolo odečte 1, neúspěšné nic. Tři zásahy v kole stále znamenají jen jedno splnění.</p>`;
 }
-function save(){if(!game||!compute().done)return;const s=compute();window.dispatchEvent(new CustomEvent('501live-cricket-drill-finished',{detail:{id:game.id,rounds:s.rounds,darts:s.darts,hits:s.hits}}));}
-function start(){game={id:uid(),throws:[],message:'',saveState:''};$('cricketDrillIntro').hidden=true;$('cricketDrillPlay').hidden=false;render();}
-function back(){if(game&&!compute().done&&game.throws.length&&!confirm('Opravdu opustit rozehraný Cricket Drill? Dosavadní pokusy se neuloží.'))return;game=null;area.hidden=true;choice.hidden=false;$('cricketDrillIntro').hidden=false;$('cricketDrillPlay').hidden=true;}
+function save(){if(!game||!compute().done)return;const s=compute();window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'cricket_drill',action:'finished'}}));window.dispatchEvent(new CustomEvent('501live-cricket-drill-finished',{detail:{id:game.id,rounds:s.rounds,darts:s.darts,hits:s.hits}}));}
+function start(){if(game&&!compute().done)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'cricket_drill',action:'abandoned'}}));game={id:uid(),throws:[],message:'',saveState:''};window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'cricket_drill',action:'start',players:1}}));$('cricketDrillIntro').hidden=true;$('cricketDrillPlay').hidden=false;render();}
+function back(){if(game&&!compute().done&&game.throws.length&&!confirm('Opravdu opustit rozehraný Cricket Drill? Dosavadní pokusy se neuloží.'))return;if(game&&!compute().done)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:game.id,mode:'cricket_drill',action:'abandoned'}}));game=null;area.hidden=true;choice.hidden=false;$('cricketDrillIntro').hidden=false;$('cricketDrillPlay').hidden=true;}
 $('cricketDrillOpen').addEventListener('click',()=>{choice.hidden=true;$('trainingCounter').hidden=true;area.hidden=false;$('cricketDrillIntro').hidden=false;$('cricketDrillPlay').hidden=true;});
 $('cdIntroBack').addEventListener('click',back);
 $('cdBack').addEventListener('click',back);
@@ -7042,6 +7213,7 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
    e.preventDefault(); const n=Number($('ctCount').value);
    const names=Array.from({length:n},(_,i)=>$('ctName'+i).value.trim()||'Hráč '+(i+1));
    state={dartSessionId:crypto.randomUUID(),players:names.map(player),targetLegs:Number($('ctLegs').value),leg:1,active:0,turnStarter:0,visitDarts:0,visitRecords:[],phase:'playing',lastWinner:null,history:[]};
+   window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:state.dartSessionId,mode:'cricket_local',action:'start',players:n}}));
    newLeg(); $('ctSetup').hidden=true;$('ctGame').hidden=false;render();
  }
  function allClosed(p){return nums.every(n=>p.marks[n]===3);}
@@ -7073,6 +7245,7 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
      state.visitDarts=0;
      state.visitRecords=[];
      if(state.phase==='finished'){
+      window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:state.dartSessionId,mode:'cricket_local',action:'finished'}}));
       window.dispatchEvent(new CustomEvent('darturnio-darts-local-finished',{
        detail:{id:state.dartSessionId,mode:'cricket_local',darts:state.players.reduce((sum,x)=>sum+x.totalDarts,0)}
       }));
@@ -7096,7 +7269,9 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
  function undo(){
    if(!history.length||!state)return;
    // Restore only the action's pre-state; a finished leg can be rolled back too.
+   const wasFinished=state.phase==='finished';
    state=history.pop();
+   if(wasFinished)window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:state.dartSessionId,mode:'cricket_local',action:'reopen',players:state.players.length}}));
    lastTurnStart=history.length;
    for(let i=history.length-1;i>=0;i--){
      if(history[i].active!==state.active || history[i].leg!==state.leg){lastTurnStart=i+1;break;}
@@ -7173,6 +7348,7 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
  $('ctSetup').addEventListener('submit',start);
  $('ctExit').addEventListener('click',()=>{
    if(state&&state.phase==='playing'&&state.players.some(p=>p.darts>0)&&!confirm('Ukončit rozehranou hru? Výsledky se neukládají.'))return;
+   if(state&&state.phase!=='finished')window.dispatchEvent(new CustomEvent('darturnio-game-lifecycle',{detail:{id:state.dartSessionId,mode:'cricket_local',action:'abandoned'}}));
    state=null;history=[];$('ctGame').hidden=true;$('ctSetup').hidden=false;
  });
  $('ctUndo').addEventListener('click',undo);
@@ -8432,4 +8608,59 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
  window.addEventListener('focus',()=>refresh(true));
 })();
 </script>
+<script id="darturnio-anonymous-game-activity-tracker">
+(()=>{
+ 'use strict';
+ const active=new Map(),queue=[];let flushing=false,retry=null;
+ const client=()=>window.db||(typeof db!=='undefined'?db:null);
+ const looksUuid=x=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(x||''));
+ const names=new Set(['solo_170','solo_301','solo_501','duel_170','duel_301','duel_501','cricket_local','segment','checkout','cricket_drill']);
+ const selector=mode=>mode.startsWith('solo_')?'#trainingCounter':mode.startsWith('duel_')?'#localDuelCounter':({cricket_local:'#ctGame',segment:'#segmentPlay',checkout:'#checkoutGame',cricket_drill:'#cricketDrillPlay'}[mode]);
+ const visible=mode=>{const el=document.querySelector(selector(mode));return !!el&&el.getClientRects().length>0;};
+ function enqueue(data){
+   queue.push(data);
+   if(queue.length>400)queue.splice(0,queue.length-400);
+   void flush();
+ }
+ async function flush(){
+   if(flushing||!queue.length)return;
+   const db=client();if(!db)return;
+   flushing=true;
+   try{
+     while(queue.length){
+       const d=queue[0];
+       const {error}=await db.rpc('darturnio_game_session_event',{
+         p_id:d.id,p_mode:d.mode,p_action:d.action,p_players:d.players||null
+       });
+       if(error){console.warn('Darturnio měření her:',error.message);break;}
+       queue.shift();
+     }
+   }catch(error){console.warn('Darturnio měření her:',error?.message||error);}
+   finally{flushing=false;}
+ }
+ window.addEventListener('darturnio-game-lifecycle',e=>{
+   const d=e.detail||{};
+   if(!looksUuid(d.id)||!names.has(d.mode)||!['start','ping','finished','abandoned','reopen'].includes(d.action))return;
+   const players=Math.max(1,Math.min(8,Number(d.players)||(active.get(d.id)?.players)||(d.mode.startsWith('duel_')?2:1)));
+   if(['start','reopen'].includes(d.action))active.set(d.id,{mode:d.mode,players});
+   if(['finished','abandoned'].includes(d.action))active.delete(d.id);
+   enqueue({id:d.id,mode:d.mode,action:d.action,players});
+ });
+ setInterval(()=>{
+   if(document.visibilityState!=='visible'){void flush();return;}
+   for(const [id,d] of active){
+     if(!visible(d.mode)){
+       active.delete(id);enqueue({id,mode:d.mode,action:'abandoned',players:d.players});
+     }else enqueue({id,mode:d.mode,action:'ping',players:d.players});
+   }
+   void flush();
+ },25000);
+ // If an open tab is closed before the last request can finish, stale sessions expire in SQL.
+ window.addEventListener('pagehide',()=>{
+   for(const [id,d] of active)enqueue({id,mode:d.mode,action:'abandoned',players:d.players});
+   active.clear();
+ });
+})();
+</script>
+
 </body></html>
