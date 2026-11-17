@@ -687,7 +687,12 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
 #admin501StartSection #darturnioNewPlayerEntry button{display:block;min-height:48px;margin:6px 0}
 @media(max-width:650px){#admin501StartSection #darturnioNewPlayerEntry button{width:100%;font-size:14px}}
 </style>
-<style id="darturnio-soft-ui">#admin501TabletSection[hidden]{display:none!important}#newCompetitionForm #competitionDartType{border-color:#A12121!important}</style><style id="501live-dko-unified-v2">
+<style id="darturnio-soft-ui">#admin501TabletSection[hidden]{display:none!important}#newCompetitionForm #competitionDartType{border-color:#A12121!important}</style></style>
+<style id="darturnio-group-advance-style">
+#darturnioDrawSettings .dt-advance-setting input{width:100%;min-width:0}
+#dtDrawAdvancersHint{padding:9px 12px;background:#24242a;border-left:3px solid #e11d1d;border-radius:6px;color:#e3e3e7}
+</style>
+<style id="501live-dko-unified-v2">
 .dko-unified{background:#141416;border:1px solid #444;border-radius:12px;padding:12px;margin:12px 0}
 .dko-legend{display:flex;justify-content:space-between;gap:12px;font-size:12px;font-weight:800;color:#ddd;text-align:center}
 .dko-legend strong{color:#f04444}.dko-tools{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:12px 0}.dko-tools span{color:#aaa;font-size:12px;margin-left:auto}
@@ -1491,7 +1496,9 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <label>Pravidlo legů<select id="dtDrawLegRule"><option value="first_to">Na vítězné legy (bez remízy)</option><option value="fixed">Pevný počet legů (remíza povolena)</option></select></label>
 <label id="dtDrawLegCaption">Počet vítězných legů<input type="number" id="dtDrawLegs" min="1" max="21" value="2" inputmode="numeric"></label>
 <label>Počet skupin<input type="number" id="dtDrawGroups" min="1" max="8" value="2" inputmode="numeric"></label>
+<label class="dt-advance-setting">Postupujících z každé skupiny<input type="number" id="dtDrawAdvancers" min="1" max="128" step="1" value="4" inputmode="numeric" aria-describedby="dtDrawAdvancersHint"></label>
 </div>
+<p class="small" id="dtDrawAdvancersHint" aria-live="polite">Při 2 skupinách a 4 postupujících z každé skupiny vznikne pavouk pro 8 účastníků. Platí pro skupiny + KO i skupiny + DKO.</p>
 <p class="small" id="dtDrawHelp">Vyber formát níže. Remíza je možná jen pro skupiny a každý s každým. KO/DKO vyžaduje vítěze.</p>
 </div>
 <div class="format-draw-buttons" id="formatDrawButtons">
@@ -1516,7 +1523,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <summary>Pořadí a body</summary>
 <div class="panel">
 <strong>Automatické pořadí a body</strong>
-<p class="small">Do pavouka postupuje nejvýše 8 hráčů: při dvou skupinách první 4 z každé skupiny, při jedné skupině nejlepší 8 (nebo všichni, pokud jich je méně). Ostatní mají 1 bod. Vyřazení v 1. kole pavouka mají 2 body, v každém dalším kole o bod více.</p>
+<p class="small">Počet postupujících z každé skupiny nastavíš před losováním. Nastavení se uloží k turnaji a platí pro KO i DKO. Ostatní mají 1 bod. Vyřazení v 1. kole pavouka mají 2 body, v každém dalším kole o bod více.</p>
 <div class="muted" id="automaticPlacementsStatus">Pořadí se dopočítá po dokončení všech zápasů pavouka.</div>
 </div>
 <div class="panel">
@@ -1957,6 +1964,28 @@ function orderGroupStandings(rows,groupMatches){
  const lookup=new Map(rows.map(r=>[r.entry.id,r]));
  return order.map(r=>({...lookup.get(r.id),...r}));
 }
+// Jedno nastavení platí pro oba typy skupinového play-off. Starým turnajům
+// bez uloženého počtu zachováme dosavadní nasazení nejvýše osmi účastníků.
+function darturnioGroupAdvanceCount(tournamentId, groupedStandings, entriesCount){
+  const tournament=tournaments.find(t=>t.id===tournamentId);
+  const each=Number(tournament?.draw_qualifiers_per_group);
+  if(Number.isInteger(each)&&each>=1&&each<=128){
+    if(groupedStandings.some(g=>g.length<each))return 0;
+    return each*groupedStandings.length;
+  }
+  return Math.min(8,entriesCount);
+}
+function darturnioSeedGroupQualifiers(tournamentId,groups,entriesCount){
+  const count=darturnioGroupAdvanceCount(tournamentId,groups,entriesCount);
+  if(count<2)return [];
+  const selected=[];
+  for(let rank=0;selected.length<count&&rank<entriesCount;rank++){
+    for(const group of groups){
+      if(group[rank]&&selected.length<count)selected.push(group[rank].entry);
+    }
+  }
+  return selected;
+}
 const creatingGroupTiebreaks = new Set();
 async function ensureGroupTiebreaks(groupName, members, groupMatches){
   if(!isAdmin)return;
@@ -1970,8 +1999,11 @@ async function ensureGroupTiebreaks(groupName, members, groupMatches){
   const allGroups=[...new Set(entries.filter(e=>e.tournament_id===selectedTournament).map(e=>e.group_name).filter(Boolean))].sort();
   const groupIndex=allGroups.indexOf(groupName);
   const totalEntries=entries.filter(e=>e.tournament_id===selectedTournament).length;
+  const perGroup=Number(tournaments.find(t=>t.id===selectedTournament)?.draw_qualifiers_per_group);
   const qualifiers=Math.min(8,totalEntries);
-  const seats=Math.floor(qualifiers/allGroups.length)+(groupIndex<qualifiers%allGroups.length?1:0);
+  const seats=Number.isInteger(perGroup)&&perGroup>=1&&perGroup<=128
+    ?perGroup
+    :Math.floor(qualifiers/allGroups.length)+(groupIndex<qualifiers%allGroups.length?1:0);
   if(seats<1||seats>=ordered.length)return;
   const key=darturnioRankingKey(ordered[seats-1]);
   if(key!==darturnioRankingKey(ordered[seats]))return;
@@ -2069,7 +2101,7 @@ function seriesStandings(){
       const place=entry.final_place==null?null:Number(entry.final_place);
       const eventPlayerCount=entries.filter(e=>e.tournament_id===t.id).length;
       const points=entry.series_points!=null?Number(entry.series_points):
-        (place!=null&&Number.isFinite(place)?pointsForFinalPlace(place,eventPlayerCount):null);
+        (place!=null&&Number.isFinite(place)?pointsForFinalPlace(place,eventPlayerCount,t):null);
       return {tournament:t,entry,place:Number.isFinite(place)?place:null,points:Number.isFinite(points)?points:null};
     });
     const placementCounts={};
@@ -2237,13 +2269,17 @@ async function seedKnockoutBracket(){
   if(groupNames.length>16)return notify("Pro tento turnaj je podporováno nejvýše 16 skupin.");
   if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)||groupMatches.some(m=>m.group_name===g&&m.status!=="finished")))return notify("Ne všechny skupiny mají dokončené zápasy.");
   const grouped=groupNames.map(g=>groupStandingsFor(g,es,groupMatches));
-  const limit=Math.min(8,es.length);
-  const seededEntries=[];
-  for(let rank=0;seededEntries.length<limit&&rank<es.length;rank++){
-    for(const standings of grouped)if(standings[rank]&&seededEntries.length<limit)seededEntries.push(standings[rank].entry);
-  }
+  const seededEntries=darturnioSeedGroupQualifiers(tournamentId,grouped,es.length);
   const seededIds=seededEntries.map(e=>e.id);
-  const expectedQualifiers=Math.min(8,es.length);
+  const expectedQualifiers=darturnioGroupAdvanceCount(tournamentId,grouped,es.length);
+  if(expectedQualifiers<2)return notify('Pro pavouk musí postoupit alespoň 2 účastníci a každá skupina musí mít dostatek hráčů.');
+  const unstable=grouped.some(standings=>{
+    const admitted=standings.filter(r=>seededIds.includes(r.entry.id));
+    const excluded=standings.filter(r=>!seededIds.includes(r.entry.id));
+    if(!admitted.length||!excluded.length)return false;
+    return darturnioRankingKey(admitted[admitted.length-1])===darturnioRankingKey(excluded[0]);
+  });
+  if(unstable)return notify('Na hranici postupu je shoda. Nejdříve odehraj rozhodovací leg.');
   if(seededEntries.length!==expectedQualifiers||new Set(seededIds).size!==expectedQualifiers){
     return notify("Losování bylo zastaveno: nepodařilo se správně vybrat postupující hráče. Žádný pavouk nebyl vytvořen.");
   }
@@ -2634,13 +2670,9 @@ async function createNextKnockoutRound(tournamentId){
     if((es||[]).length<2||(es||[]).length>128||!groupNames.length||groupNames.length>16||(es||[]).some(e=>!e.group_name))return;
     if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)))return;
     const groupStandings=groupNames.map(g=>groupStandingsFor(g,es,groupMatches));
-    const count=Math.min(8,es.length);
-    let seededEntries=[];
-    for(let rank=0;seededEntries.length<count&&rank<es.length;rank++){
-      for(const standings of groupStandings){
-        if(standings[rank]&&seededEntries.length<count)seededEntries.push(standings[rank].entry);
-      }
-    }
+    const count=darturnioGroupAdvanceCount(tournamentId,groupStandings,es.length);
+    if(count<2)return;
+    const seededEntries=darturnioSeedGroupQualifiers(tournamentId,groupStandings,es.length);
     // Nepostupovat, pokud hranici postupu nelze spolehlivě rozhodnout.
     const unstable=groupStandings.some(standings=>{
       const admitted=standings.filter(r=>seededEntries.some(e=>e.id===r.entry.id));
@@ -3078,15 +3110,19 @@ function renderAutomaticPlacementsStatus(){
     `<p class="good">Konečné pořadí je automaticky vypočítané a uložené.</p><ol>${rows.map(e=>`<li>${esc(players.find(p=>p.id===e.player_id)?.name||"—")} – ${e.final_place}. místo${e.series_points!=null?` · ${e.series_points} b.`:""}</li>`).join("")}</ol>`:
     `<p class="muted">${bracket.length?"Pořadí se uloží po dohrání všech zápasů pavouka.":"Pavouk zatím není dokončen."}</p>`;
 }
-function pointsForFinalPlace(place,totalPlayers){
+function pointsForFinalPlace(place,totalPlayers,tournament=null){
   const position=Math.max(1,Number(place)||1);
   const count=Math.max(2,Number(totalPlayers)||2);
   // Turnaje do 16 hráčů: skupinově vyřazení mají 1 bod,
   // vyřazení v 1. kole pavouka 2 body a každé další kolo přidá bod.
   // U pavouka nad 16 hráčů zachováváme dosavadní bodování.
   if(count<=16){
-    if(position>8)return 1;
-    const playoffRounds=Math.ceil(Math.log2(Math.min(8,count)));
+    const per=Number(tournament?.draw_qualifiers_per_group);
+    const groups=Number(tournament?.draw_group_count);
+    const configured=(Number.isInteger(per)&&per>0&&Number.isInteger(groups)&&groups>0)?per*groups:8;
+    const bracketSize=Math.min(configured,count);
+    if(position>bracketSize)return 1;
+    const playoffRounds=Math.ceil(Math.log2(Math.max(2,bracketSize)));
     const eliminationLevel=Math.ceil(Math.log2(position));
     return Math.max(2,playoffRounds+2-eliminationLevel);
   }
@@ -3099,6 +3135,8 @@ function pointsForElimination(entryId, eventEntries, eventMatches, finalPlace){
   const playoff=eventMatches.filter(m=>m.stage==="playoff"&&m.status==="finished"&&m.winner_entry_id);
   const double=playoff.some(m=>String(m.group_name||"").startsWith("DE:"));
   if(double){
+    const entered=new Set(playoff.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]).filter(Boolean));
+    if(eventMatches.some(m=>m.stage==='group')&&!entered.has(entryId))return 1;
     const finals=playoff.filter(m=>String(m.group_name||"").startsWith("DE:GF:"))
       .sort((a,b)=>(Number(a.round_no)||0)-(Number(b.round_no)||0));
     const lb=playoff.filter(m=>String(m.group_name||"").startsWith("DE:LB:"));
@@ -3110,7 +3148,7 @@ function pointsForElimination(entryId, eventEntries, eventMatches, finalPlace){
     const eliminated=lb.filter(m=>m.player1_entry_id!==m.player2_entry_id&&matchLoser(m)===entryId)
       .sort((a,b)=>(Number(b.round_no)||0)-(Number(a.round_no)||0));
     if(!eliminated.length)return null;
-    return phases.indexOf(Number(eliminated[0].round_no)||0)+1;
+    return phases.indexOf(Number(eliminated[0].round_no)||0)+(eventMatches.some(m=>m.stage==='group')?2:1);
   }
   const groupGames=eventMatches.some(m=>m.stage==="group");
   const played=playoff.filter(m=>m.player1_entry_id!==m.player2_entry_id);
@@ -3144,13 +3182,24 @@ function calculateFinalPlacements(tournamentId, eventEntries, eventMatches){
       const loser=loserOf(m);if(!losses.has(loser))losses.set(loser,[]);
       losses.get(loser).push({round:Number(m.round_no)||0,losingLegs:m.winner_entry_id===m.player1_entry_id?Number(m.legs2)||0:Number(m.legs1)||0,margin:Math.abs((Number(m.legs1)||0)-(Number(m.legs2)||0)),name:players.find(p=>p.id===eventEntries.find(e=>e.id===loser)?.player_id)?.name||""});
     });
-    const eliminated=eventEntries.filter(e=>e.id!==champion&&e.id!==runner).map(e=>{
+    const bracketPlayers=new Set(bracket.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]).filter(Boolean));
+    const eliminated=eventEntries.filter(e=>bracketPlayers.has(e.id)&&e.id!==champion&&e.id!==runner).map(e=>{
       const records=losses.get(e.id)||[];
       return {id:e.id,lossCount:records.length,last:records.sort((a,b)=>b.round-a.round)[0]||{round:0,losingLegs:0,margin:0,name:players.find(p=>p.id===e.player_id)?.name||""}};
     });
     if(eliminated.some(x=>x.lossCount<2))return null;
     eliminated.sort((a,b)=>b.last.round-a.last.round||b.last.losingLegs-a.last.losingLegs||a.last.margin-b.last.margin||a.last.name.localeCompare(b.last.name,"cs"));
     const ordered=[champion,runner,...eliminated.map(x=>x.id)];
+    // DKO po skupinách: nepostupující nesmějí být chybně vyhodnoceni
+    // jako hráči DKO bez dvou porážek.
+    const nonQualifiers=eventEntries.filter(e=>!bracketPlayers.has(e.id)).map(entry=>{
+      const group=entry.group_name||'';
+      const standings=groupStandingsFor(group,eventEntries,eventMatches);
+      const rank=standings.findIndex(r=>r.entry.id===entry.id);
+      const name=players.find(p=>p.id===entry.player_id)?.name||'';
+      return {entry,rank:rank<0?999:rank,group,name};
+    }).sort((a,b)=>a.rank-b.rank||a.group.localeCompare(b.group,'cs')||a.name.localeCompare(b.name,'cs'));
+    ordered.push(...nonQualifiers.map(x=>x.entry.id));
     if(ordered.length!==eventEntries.length||new Set(ordered).size!==eventEntries.length)return null;
     return ordered.map((entryId,index)=>({entryId,place:index+1}));
   }
@@ -3308,6 +3357,7 @@ async function loadData(){
   $("entryTournament").value=(entryOld&&tournaments.some(x=>x.id===entryOld))?entryOld:selectedTournament;
   try{renderAll();}
   catch(error){console.error(error);setStatus("Chyba zobrazení: "+error.message);return;}
+  darturnioAdvanceSettingInfo(true);
   lastLoadOk=Date.now();
   updateConnectionStatus();
 }
@@ -3610,14 +3660,43 @@ function chooseGroupCount(n){
   const requested=Number(document.getElementById('dtDrawGroups')?.value)||2;
   return Math.min(Math.max(1,requested),8,Math.floor(n/2));
 }
+let darturnioAdvanceLoadedTournament=null;
+function darturnioAdvanceSettingInfo(reloadSaved=false){
+  const field=document.getElementById('dtDrawAdvancers');
+  const hint=document.getElementById('dtDrawAdvancersHint');
+  if(!field||!hint)return;
+  const tournamentId=document.getElementById('entryTournament')?.value||selectedTournament;
+  const tournament=tournaments.find(t=>t.id===tournamentId);
+  const count=Number(document.getElementById('dtDrawGroups')?.value)||2;
+  const participantCount=(tournament?.participant_mode==='pairs')
+    ?null:entries.filter(e=>e.tournament_id===tournamentId).length;
+  const max=participantCount==null?128:Math.max(1,Math.floor(participantCount/count));
+  if(reloadSaved&&darturnioAdvanceLoadedTournament!==tournamentId){
+    const stored=Number(tournament?.draw_qualifiers_per_group);
+    field.value=Number.isInteger(stored)&&stored>=1&&stored<=128?stored:Math.min(4,max);
+    darturnioAdvanceLoadedTournament=tournamentId;
+  }
+  const per=Number(field.value)||0;
+  hint.textContent=`${count} skupin × ${per} postupující = ${count*per} účastníků pavouka. `+
+    (participantCount==null?'U dvojic se počet ověří při losování.':participantCount===0?'Nejdřív přidej hráče na startovní listinu. ':`V nejmenší skupině bude nejméně ${Math.floor(participantCount/count)} hráčů. `)+
+    'Platí pro skupiny + KO i skupiny + DKO.'+
+    (participantCount!=null&&participantCount>0&&per>max?' Pozor: více postupujících než hráčů ve skupině.':'');
+}
+document.getElementById('dtDrawAdvancers')?.addEventListener('input',()=>darturnioAdvanceSettingInfo());
+document.getElementById('dtDrawGroups')?.addEventListener('input',()=>darturnioAdvanceSettingInfo());
+document.getElementById('entryTournament')?.addEventListener('change',()=>darturnioAdvanceSettingInfo(true));
+darturnioAdvanceSettingInfo(true);
 function darturnioDrawSettings(format){
   const rule=document.getElementById('dtDrawLegRule')?.value||'first_to';
   const legs=Number(document.getElementById('dtDrawLegs')?.value);
   const groups=Number(document.getElementById('dtDrawGroups')?.value)||2;
+  const qualifiers=Number(document.getElementById('dtDrawAdvancers')?.value);
+  if(['groups','groups_dko'].includes(format)&&(!Number.isInteger(qualifiers)||qualifiers<1||qualifiers>128))
+    throw new Error('Počet postupujících z každé skupiny musí být 1 až 128.');
   if(!Number.isInteger(legs)||legs<1||legs>21)throw new Error('Počet legů musí být 1–21.');
   if(rule==='fixed'&&(!['groups','groups_dko','round_robin'].includes(format)||legs<2))
     throw new Error('Remíza je možná jen pro skupiny nebo KK (nejméně 2 legy).');
-  return {rule,legs,groups};
+  return {rule,legs,groups,qualifiers};
 }
 function createRoundRobin(entryIds){
   let list=[...entryIds];
@@ -3690,11 +3769,13 @@ async function drawGroups(playoffFormat="groups"){
   }
   let config;try{config=darturnioDrawSettings(playoffFormat)}catch(e){return notify(e.message)}
   const groupCount=chooseGroupCount(es.length);
-  if(!confirm(`Rozlosovat ${es.length} hráčů do ${groupCount} skupin a následně ${playoffFormat==='groups_dko'?'DKO':'KO'} pavouk? ${config.rule==='fixed'?'Pevně '+config.legs+' legů, remíza možná':'Na '+config.legs+' vítězných legů, bez remízy'}.`))return;
+  if(config.qualifiers>Math.floor(es.length/groupCount))return notify(`V nejmenší skupině bude jen ${Math.floor(es.length/groupCount)} hráčů. Sniž počet postupujících z každé skupiny.`);
+  if(config.qualifiers*groupCount<2)return notify('Do pavouka musí postoupit alespoň 2 hráči.');
+  if(!confirm(`Rozlosovat ${es.length} hráčů do ${groupCount} skupin; z každé postoupí ${config.qualifiers} (celkem ${groupCount*config.qualifiers}) do ${playoffFormat==='groups_dko'?'DKO':'KO'} pavouka? ${config.rule==='fixed'?'Pevně '+config.legs+' legů, remíza možná':'Na '+config.legs+' vítězných legů, bez remízy'}.`))return;
   const shuffled=shuffle(es);
   const groups=Array.from({length:groupCount},()=>[]);
   shuffled.forEach((entry,i)=>groups[i%groupCount].push(entry));
-  const {error:settingsError}=await db.from('tournaments').update({target_legs:config.legs,draw_format:playoffFormat,draw_group_count:groupCount}).eq('id',tournament_id);
+  const {error:settingsError}=await db.from('tournaments').update({target_legs:config.legs,draw_format:playoffFormat,draw_group_count:groupCount,draw_qualifiers_per_group:config.qualifiers}).eq('id',tournament_id);
   if(settingsError)return notify('Nastavení losování nelze uložit: '+settingsError.message);
   for(let i=0;i<groups.length;i++){
     const ids=groups[i].map(e=>e.id);
@@ -3706,7 +3787,7 @@ async function drawGroups(playoffFormat="groups"){
   const {error}=await db.from("matches").insert(rows);
   if(error)return notify("Skupiny byly uloženy, ale zápasy se nepodařilo vytvořit: "+error.message);
   selectedTournament=tournament_id;await loadData();
-  notify(`Hotovo! ${es.length} hráčů rozděleno do ${groupCount} skupin. Po dohrání se podle pořadí vyberou postupující do ${playoffFormat==='groups_dko'?'DKO':'KO'}.`);
+  notify(`Hotovo! ${es.length} hráčů v ${groupCount} skupinách. Z každé postoupí ${config.qualifiers} (celkem ${config.qualifiers*groupCount}) do ${playoffFormat==='groups_dko'?'DKO':'KO'}.`);
 }
 guardClick("drawGroupsBtn",()=>drawGroups("groups"));
 guardClick("drawGroupsDkoBtn",()=>drawGroups("groups_dko"));
@@ -3720,7 +3801,7 @@ async function drawDirectFormat(format){
   let config;try{config=darturnioDrawSettings(format)}catch(e){return notify(e.message)}
   if(!confirm(`Vytvořit ${labels[format]} pro ${es.length} hráčů? ${config.rule==='fixed'?'Pevně '+config.legs+' legů s možností remízy':'Na '+config.legs+' vítězných legů'}.`))return;
   const targetLegs=config.legs;
-  const {error:settingsError}=await db.from('tournaments').update({target_legs:targetLegs,draw_format:format,draw_group_count:null}).eq('id',tournament_id);
+  const {error:settingsError}=await db.from('tournaments').update({target_legs:targetLegs,draw_format:format,draw_group_count:null,draw_qualifiers_per_group:null}).eq('id',tournament_id);
   if(settingsError)return notify('Nastavení losování se nepodařilo uložit: '+settingsError.message);
   const shuffled=shuffle(es);
   let rows;
@@ -8234,12 +8315,14 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
  const status=(message,err=false)=>{info.textContent=message;info.style.color=err?'#ff9696':'#a0e3b8'};
  const elem=(tag,klass,text)=>{const n=document.createElement(tag);if(klass)n.className=klass;if(text!==undefined)n.textContent=String(text);return n};
  const config=format=>{
-   const rule=$('dtDrawLegRule')?.value||'first_to',legs=Number($('dtDrawLegs')?.value),groups=Number($('dtDrawGroups')?.value);
+   const rule=$('dtDrawLegRule')?.value||'first_to',legs=Number($('dtDrawLegs')?.value),groups=Number($('dtDrawGroups')?.value),qualifiers=Number($('dtDrawAdvancers')?.value);
    if(!Number.isInteger(legs)||legs<1||legs>21)throw new Error('Počet legů musí být mezi 1–21.');
    if(rule==='fixed'&&(!['groups','groups_dko','round_robin'].includes(format)||legs<2))throw new Error('Remíza je povolena pouze ve skupinách nebo KK, nejméně na 2 legy.');
    if(['groups','groups_dko'].includes(format)&&(!Number.isInteger(groups)||groups<1||groups>8||groups>Math.floor(teams.length/2)))
      throw new Error('Skupin může být 1–8, alespoň dvě dvojice v každé.');
-   return {rule,legs,groups};
+   if(['groups','groups_dko'].includes(format)&&(!Number.isInteger(qualifiers)||qualifiers<1||qualifiers>Math.floor(teams.length/groups)))
+     throw new Error(`Z každé skupiny může postoupit 1 až ${Math.floor(teams.length/groups)} dvojic.`);
+   return {rule,legs,groups,qualifiers};
  };
  function number(node,graph){
    if(node.side==='middle')return node.position;
@@ -8355,7 +8438,7 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
    const tid=field.value,request=++seq;active=tid;out.replaceChildren();isPair=false;rows=[];teams=[];teamNames=new Map();
    if(!tid){root.hidden=true;document.body.classList.remove('darturnio-pairs-selected');return}
    const db=dbClient();if(!db)return;
-   const mode=await db.from('tournaments').select('participant_mode,draw_format').eq('id',tid).maybeSingle();
+   const mode=await db.from('tournaments').select('participant_mode,draw_format,draw_qualifiers_per_group').eq('id',tid).maybeSingle();
    if(request!==seq||tid!==field.value)return;
    isPair=mode.data?.participant_mode==='pairs';
    document.body.classList.toggle('darturnio-pairs-selected',isPair);
@@ -8396,11 +8479,20 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
    if(['groups','groups_dko'].includes(currentFormat)&&!rows.some(m=>m.slot_no!==null||m.stage==='double_ko')&&rows.some(m=>m.stage==='group')&&rows.filter(m=>m.stage==='group').every(m=>m.status==='finished')){
      const orderedGroups=[...new Set(teams.map(t=>t.group_name))].sort();
      const standingsBy=orderedGroups.map(g=>standings(rows.filter(m=>m.group_name===g),teams.filter(t=>t.group_name===g).map(t=>t.id)));
-     const count=Math.min(8,teams.length),qualifiers=[];
-     for(let rank=0;qualifiers.length<count&&rank<teams.length;rank++){
-       for(const g of standingsBy)if(g[rank]&&qualifiers.length<count)qualifiers.push(g[rank].id);
+     const perGroup=Number(mode.data?.draw_qualifiers_per_group);
+     const perGroupValid=Number.isInteger(perGroup)&&perGroup>=1&&perGroup<=128;
+     const count=perGroupValid?perGroup*standingsBy.length:Math.min(8,teams.length);
+     const qualifiers=[];
+     if(!perGroupValid||standingsBy.every(g=>g.length>=perGroup)){
+       for(let rank=0;qualifiers.length<count&&rank<teams.length;rank++){
+         for(const g of standingsBy)if(g[rank]&&qualifiers.length<count)qualifiers.push(g[rank].id);
+       }
      }
      const needs=[];
+     if(qualifiers.length!==count||count<2){
+       out.prepend(elem('p','warning','Nesprávně nastavený počet postupujících. Zkontroluj uložení nastavení a skupiny.'));
+       return;
+     }
      for(let i=0;i<standingsBy.length;i++){
        const ordered=standingsBy[i],cut=ordered.filter(r=>qualifiers.includes(r.id)).length;
        if(cut>0&&cut<ordered.length&&tieKey(ordered[cut-1])===tieKey(ordered[cut])){
@@ -8464,13 +8556,18 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
    if(rows.length){status('Turnaj už má vytvořené zápasy. Nejprve bezpečně zruš losování.',true);return}
    try{
      const c=config(format),labels={groups:'SKUPINY + KO',groups_dko:'SKUPINY + DKO',single_ko:'KO',double_ko:'DKO',round_robin:'KAŽDÝ S KAŽDÝM'};
-     if(!confirm(`Rozlosovat ${teams.length} dvojic · ${labels[format]} · ${c.rule==='fixed'?c.legs+' pevných legů':'na '+c.legs+' vítězných legů'}${['groups','groups_dko'].includes(format)?' · '+c.groups+' skupin':''}?`))return;
+     if(!confirm(`Rozlosovat ${teams.length} dvojic · ${labels[format]} · ${c.rule==='fixed'?c.legs+' pevných legů':'na '+c.legs+' vítězných legů'}${['groups','groups_dko'].includes(format)?' · '+c.groups+' skupin · '+c.qualifiers+' postupujících z každé skupiny (celkem '+(c.qualifiers*c.groups)+')':''}?`))return;
      pending=true;
      const {error}=await db.rpc('darturnio_v4_draw_pairs',{
        p_tournament_id:tid,p_format:format==='groups_dko'?'groups':format,p_rule:c.rule,p_legs:c.legs,p_groups:c.groups,
        p_dko_nodes:format==='double_ko'?dkoNodes(teams.length):[]
      });if(error)throw error;
-     if(format==='groups_dko'){const {error:settingError}=await db.from('tournaments').update({draw_format:'groups_dko'}).eq('id',tid);if(settingError)throw settingError;}
+     if(['groups','groups_dko'].includes(format)){
+       const patch={draw_qualifiers_per_group:c.qualifiers};
+       if(format==='groups_dko')patch.draw_format='groups_dko';
+       const {error:settingError}=await db.from('tournaments').update(patch).eq('id',tid);
+       if(settingError)throw new Error('Losování vzniklo, ale nepodařilo se uložit počet postupujících: '+settingError.message);
+     }
      status('Dvojice úspěšně rozlosovány.');await refresh();
    }catch(err){status('Losování se nepodařilo: '+err.message,true)}finally{pending=false}
  },true);
