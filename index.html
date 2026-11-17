@@ -775,8 +775,8 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
       <p class="comp-step-desc">Vyber název a typ soutěže. Jednorázový turnaj nastavíš nejrychleji.</p>
       <label>Název turnaje nebo série<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open" autocomplete="off"></label>
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
-      <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2) – příprava týmů</option></select></label>
-      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Zatím podporujeme testovací KO s ručními výsledky; počítadla dvojic připravujeme.</p>
+      <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2) – KO</option></select></label>
+      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Dvojice lze rozlosovat do KO a hrát na STEEL tabletech (301/501). Pro SOFT lze výsledky zadávat ručně.</p>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
         <div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
@@ -1064,7 +1064,7 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
 </div>
 <div class="darturnio-pairs-panel" id="darturnioPairsPanel" hidden>
   <h3>Turnaj dvojic – sestavení týmů</h3>
-  <p class="small">Příprava turnaje 2 proti 2: vyber dva různé hráče. Každý hráč může být v daném turnaji jen v jedné dvojici. KO pavouk dvojic lze nyní zkušebně rozlosovat. Počítadla dvojic a další turnajové formáty doplníme v dalších etapách.</p>
+  <p class="small">Vyber dva různé hráče do týmu. Každý hráč může být jen v jedné dvojici. KO je připravené pro STEEL 301/501 s tabletovým počítadlem; SOFT lze zapisovat ručně. Skupiny a DKO dvojic zatím nejsou zapnuté.</p>
   <div class="darturnio-pairs-fields">
     <label>První hráč<select id="darturnioPairPlayer1" aria-label="První hráč dvojice"></select></label>
     <label>Druhý hráč<select id="darturnioPairPlayer2" aria-label="Druhý hráč dvojice"></select></label>
@@ -1073,8 +1073,8 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
   <p class="small" role="status" aria-live="polite" id="darturnioPairStatus"></p>
   <div id="darturnioPairList"></div>
   <section id="darturnioPairKnockout" class="darturnio-pair-ko">
-    <h3>KO pavouk dvojic – testovací režim</h3>
-    <p class="small">Dvojice hrají jako tým. V této etapě zadává výsledek pořadatel ručně; tabletové počítadlo ani individuální statistiky se pro dvojice zatím nepoužívají.</p>
+    <h3>KO pavouk dvojic</h3>
+    <p class="small">Dvojice hrají jako tým. U STEEL 301/501 lze výsledek zapisovat tabletovým počítadlem, které automaticky střídá hráče. Ruční výsledek lze zadat jen u zápasu, který není rozehraný na tabletu.</p>
     <button type="button" class="action" id="darturnioDrawPairKo">ROZLOSOVAT DVOJICE – KO</button>
     <button type="button" class="secondary" id="darturnioResetPairKo" hidden>Zrušit KO rozlosování dvojic</button>
     <p class="small" id="darturnioPairKoFeedback" role="status" aria-live="polite"></p>
@@ -3426,6 +3426,7 @@ async function saveCricketTournamentVisit(){
 
 async function renderTablet(localOnly=false){
   if(!tabletBoard)return;
+  if(localOnly && tournaments.find(t=>t.id===selectedTournament)?.participant_mode==='pairs')return;
   // Rychla cesta: zadne fetch, zadne RPC, pouze stav jiz nacteneho legu.
   if(localOnly){
     const c=tabletFastCache;
@@ -3454,6 +3455,19 @@ async function renderTablet(localOnly=false){
   if(!selectedTournament){tabletFastCache=null;app.innerHTML='<div class="panel">Není vybraný turnaj.</div>';return;}
   if(tabletBoard>darturnioBoardCount(selectedTournament)){
     app.innerHTML=`<div class="panel warning">Terč ${tabletBoard} není v tomto turnaji zapnutý. Turnaj má nastaveno ${darturnioBoardCount(selectedTournament)} terčů. Vyber jiný turnaj nebo otevři správný odkaz.</div>`;
+    return;
+  }
+  if(tournaments.find(t=>t.id===selectedTournament)?.participant_mode==='pairs'){
+    tabletFastCache=null;
+    const pairTournament=tournaments.find(t=>t.id===selectedTournament);
+    if(pairTournament?.dart_type==='soft'||![301,501].includes(Number(pairTournament?.game_type))){
+      app.innerHTML='<div class="panel"><h2>Turnaj dvojic</h2><p>Pro SOFT a Cricket zatím použij ruční zadávání výsledků v administraci. Tabletové počítadlo dvojic je připravené pro STEEL 301 a 501 Double Out.</p></div>';
+      return;
+    }
+    if(typeof window.darturnioPairsTabletRender!=='function'){
+      app.innerHTML='<div class="panel warning">Počítadlo dvojic není načtené. Obnov stránku.</div>';return;
+    }
+    await window.darturnioPairsTabletRender(selectedTournament,tabletBoard);
     return;
   }
   if(darturnioSoftTournament()){tabletFastCache=null;app.innerHTML='<div class="panel"><h2>SOFT turnaj</h2><p>Na elektronických automatech se skóre zapisuje přímo na automatu. Výsledek zápasu po dohrání zadává pořadatel v administraci. Tabletové počítadlo není dostupné.</p></div>';return;}
@@ -4535,7 +4549,7 @@ body{max-width:100%;overflow-x:hidden}
           if(found.error)throw new Error('Turnaj byl založen, ale nastavení typu selhalo: '+found.error.message);
           if(!found.data||found.data.length!==1)throw new Error('Turnaj byl založen, ale nelze bezpečně určit jeho záznam pro nastavení režimu. Zkontroluj seznam turnajů, nový nevytvářej znovu.');
           if(participantMode==='pairs'){
-            const saved=await db.rpc('darturnio_set_tournament_pairs_mode',{p_tournament_id:found.data[0].id});
+            const saved=await db.rpc('darturnio_v2_set_pairs_mode',{p_tournament_id:found.data[0].id});
             if(saved.error)throw new Error('Turnaj byl založen, ale nepodařilo se zapnout režim dvojic: '+saved.error.message);
           }
           if(dartType==='soft'){
@@ -6644,10 +6658,11 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   say('Načítám stav KO pavouka dvojic…');
   if(!tid){root.hidden=true;return;}
   const db=client();if(!db){say('Databáze není připojena.',true);return}
-  const [mode,pairs,matches]=await Promise.all([
+  const [mode,pairs,matches,sessions]=await Promise.all([
    db.from('tournaments').select('participant_mode,target_legs').eq('id',tid).maybeSingle(),
    db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid),
-   db.from('darturnio_pair_matches').select('id,round_no,match_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no')
+   db.from('darturnio_pair_matches').select('id,round_no,match_no,slot_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no'),
+   db.from('darturnio_pair_sessions').select('match_id,board_no').eq('tournament_id',tid).eq('status','live')
   ]);
   if(request!==sequence||tidField.value!==tid)return;
   if(mode.error){
@@ -6667,8 +6682,10 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   if(request!==sequence||tidField.value!==tid)return;
   const playerMap=new Map((playerLookup.data||[]).map(p=>[p.id,p.name]));
   const pairNames=new Map((pairs.data||[]).map(p=>[p.id,`${playerMap.get(p.player1_id)||'Hráč 1'} + ${playerMap.get(p.player2_id)||'Hráč 2'}`]));
+  const activeByMatch=new Map((sessions?.data||[]).map(x=>[x.match_id,x.board_no]));
   const rows=matches.data||[];drawn=rows.length>0;draw.hidden=drawn;reset.hidden=!drawn;draw.disabled=drawn||(pairs.data||[]).length<2;
   if(!drawn){say((pairs.data||[]).length<2?'Sestav alespoň dvě dvojice.':'Připraveno k rozlosování KO dvojic.');return}
+  if(rows.some(m=>m.slot_no==null)){say('Starší rozlosování dvojic není kompatibilní s novým počítadlem. Pro nový test nejdříve zruš KO rozlosování a vytvoř nové.',true);return}
   const rounds=[...new Set(rows.map(r=>r.round_no))];
   for(const round of rounds){
    const section=node('section','pair-ko-round');section.append(node('h4','',round===rounds[rounds.length-1]?'Finále':`${round}. kolo`));
@@ -6677,6 +6694,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
     card.append(node('div','pair-ko-teams',`${name1}  ×  ${name2}`));
     if(m.status==='finished')card.append(node('div','pair-ko-note',m.pair2_id?`Výsledek ${m.legs1}:${m.legs2} · Vítěz: ${pairNames.get(m.winner_pair_id)||'–'}`:'Volný los – automatický postup'));
     else if(m.status==='pending')card.append(node('div','pair-ko-note','Čeká se na soupeře z předchozího kola'));
+    else if(activeByMatch.has(m.id))card.append(node('div','pair-ko-note','Právě se hraje na terči '+activeByMatch.get(m.id)+' · výsledek se přenáší z tabletu'));
     else{
       const controls=node('div','pair-ko-score');const x=node('input');x.type='number';x.min='0';x.max=String(m.target_legs);x.value=String(m.target_legs);x.setAttribute('aria-label','Legy první dvojice');
       const sep=node('strong','',':');const y=node('input');y.type='number';y.min='0';y.max=String(m.target_legs);y.value='0';y.setAttribute('aria-label','Legy druhé dvojice');
@@ -6685,7 +6703,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
        if(!Number.isInteger(a)||!Number.isInteger(b)||Math.max(a,b)!==t||Math.min(a,b)<0||Math.min(a,b)>=t){say(`Vítěz musí získat přesně ${t} legů.`,true);return}
        if(!window.confirm(`Potvrdit výsledek ${name1} ${a}:${b} ${name2}?`))return;
        save.disabled=true;
-       try{const {error}=await db.rpc('darturnio_submit_pair_result',{p_match_id:m.id,p_legs1:a,p_legs2:b});if(error)throw error;say('Výsledek uložen. Vítěz automaticky postupuje.');await render()}
+       try{const {error}=await db.rpc('darturnio_v2_submit_pair_result',{p_match_id:m.id,p_legs1:a,p_legs2:b});if(error)throw error;say('Výsledek uložen. Vítěz automaticky postupuje.');await render()}
        catch(e){say('Výsledek se nepodařilo zapsat: '+e.message,true);save.disabled=false}
       });controls.append(x,sep,y,save);card.append(controls);
     }
@@ -6695,21 +6713,30 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   }
   const last=rows.find(r=>r.round_no===rounds[rounds.length-1]);
   if(last?.status==='finished'&&last.winner_pair_id)say('Turnaj dvojic dokončen. Vítěz: '+(pairNames.get(last.winner_pair_id)||'–'));
-  else say('KO pavouk dvojic je aktivní. Výsledky zapisuje pořadatel.');
+  else say('KO pavouk dvojic je aktivní. Výsledky zapisuje pořadatel nebo tablet.');
+  const statsResponse=await db.rpc('darturnio_v2_pair_player_stats',{p_tournament_id:tid});
+  if(request!==sequence||tidField.value!==tid)return;
+  if(!statsResponse.error&&(statsResponse.data||[]).length){
+    const section=node('section','pair-ko-round');section.append(node('h4','','Statistiky jednotlivých hráčů dvojic'));
+    const wrapper=node('div','table-wrap');const table=node('table','');
+    const tr=document.createElement('tr');['Hráč','Náhozy','Šipky','Ø / 3 šipky','Zavření'].forEach(v=>{const th=document.createElement('th');th.textContent=v;tr.append(th)});table.append(tr);
+    for(const row of statsResponse.data){const r=document.createElement('tr');[row.player_name,row.visits,row.darts,row.average_3dart??'—',row.checkouts].forEach(v=>{const td=document.createElement('td');td.textContent=String(v);r.append(td)});table.append(r)}
+    wrapper.append(table);section.append(wrapper);out.append(section);
+  }
  }
  draw.addEventListener('click',async()=>{
   if(pending||drawn)return;
   const tid=tidField.value;const db=client();if(!tid||!db)return;
-  if(!confirm('Rozlosovat KO pavouk dvojic? Zápasy se uloží do Supabase. V této etapě se výsledky zadávají ručně.'))return;
+  if(!confirm('Rozlosovat KO pavouk dvojic? Zápasy se uloží do Supabase. STEEL 301/501 můžeš hrát na tabletu.'))return;
   pending=true;draw.disabled=true;
-  try{const {error}=await db.rpc('darturnio_draw_pairs_ko',{p_tournament_id:tid});if(error)throw error;say('Dvojice byly rozlosovány.');await render()}
+  try{const {error}=await db.rpc('darturnio_v2_draw_pairs_ko',{p_tournament_id:tid});if(error)throw error;say('Dvojice byly rozlosovány.');await render()}
   catch(e){say('Losování se nezdařilo: '+e.message,true);draw.disabled=false}finally{pending=false}
  });
  reset.addEventListener('click',async()=>{
   const tid=tidField.value,db=client();if(!tid||!db||pending)return;
   if(!window.confirm('Opravdu zrušit KO pavouk dvojic? Vymažou se všechny jeho výsledky a postupy. Sestavené dvojice i hráči na startovní listině zůstanou.'))return;
   pending=true;reset.disabled=true;
-  try{const {error}=await db.rpc('darturnio_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;await render();say('KO rozlosování dvojic bylo zrušeno.')}
+  try{const {error}=await db.rpc('darturnio_v2_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;await render();say('KO rozlosování dvojic bylo zrušeno.')}
   catch(e){say('Nepodařilo se zrušit rozlosování: '+e.message,true)}finally{pending=false;reset.disabled=false}
  });
  tidField.addEventListener('change',render);
@@ -6782,7 +6809,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   if(!force&&tid===lastId&&Date.now()-lastFetch<5000)return;
   const seq=++requestId;lastId=tid;loading=true;lastFetch=Date.now();
   try{
-   const {data,error}=await client.rpc('darturnio_public_pair_bracket',{p_tournament_id:tid});
+   const {data,error}=await client.rpc('darturnio_v2_public_pair_bracket',{p_tournament_id:tid});
    if(seq!==requestId||tid!==tournamentId()||!isVisible())return;
    if(error)throw error;
    if(data===null||data===undefined){return} // Turnaj jednotlivcu: puvodni pavouk zustava.
@@ -6807,5 +6834,246 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  setInterval(()=>{if(isVisible())refresh(false)},12000);
  setTimeout(()=>refresh(true),150);
 })();
+</script>
+<style id="darturnio-pairs-tablet-style">
+#tabletApp .dt-pair-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}
+#tabletApp .dt-pair-digits button,#tabletApp .dt-pair-bases button,#tabletApp .dt-pair-special button,#tabletApp .dt-pair-double button,#tabletApp .dt-pair-mults button{background:#28282c;color:#fff;border:1px solid #55565d;border-radius:8px}
+#tabletApp .dt-pair-scorecards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+#tabletApp .dt-pair-card{background:#19191b;border:2px solid #414146;padding:12px;border-radius:12px;text-align:center;min-width:0}
+#tabletApp .dt-pair-card.playing{border-color:#e11d1d;background:#25191b}
+#tabletApp .dt-pair-cardname{font-weight:800;font-size:clamp(16px,2.5vw,25px);overflow-wrap:anywhere}
+#tabletApp .dt-pair-bigscore{font-weight:950;color:#36dd75;font-size:clamp(54px,12vw,108px);line-height:1.25;font-variant-numeric:tabular-nums}
+#tabletApp .dt-pair-cardlabel{font-weight:800;font-size:clamp(13px,2.2vw,20px);color:#fff;min-height:2em}
+#tabletApp .dt-pair-active{text-align:center;color:#fae4e4;background:#4c1e20;padding:12px;border-radius:9px;font-weight:900;font-size:clamp(18px,3.5vw,29px)}
+#tabletApp .dt-pair-start label{display:block;font-weight:800;margin:15px 0}
+#tabletApp .dt-pair-start select{width:100%;font-size:18px;min-height:52px}
+#tabletApp .dt-pair-aggval{font-size:40px;text-align:center;font-weight:900;letter-spacing:2px;margin:12px 0}
+#tabletApp .dt-pair-digits{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-width:620px;margin:auto}
+#tabletApp .dt-pair-digits button{font-size:clamp(22px,4vw,31px);min-height:58px;font-weight:900}
+#tabletApp .dt-pair-digits button:last-child{grid-column:span 2}
+#tabletApp .dt-pair-special{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+#tabletApp .dt-pair-special>div{background:#19191b;border:1px solid #48484d;padding:9px;border-radius:8px;text-align:center}
+#tabletApp .dt-pair-specialrow{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}
+#tabletApp .dt-pair-special button{min-height:47px;font-weight:900}
+#tabletApp .dt-pair-special button.selected,#tabletApp .dt-pair-double button.selected,#tabletApp .dt-pair-mults button.selected{background:#b51b22;border-color:#fa6464}
+#tabletApp .dt-pair-double{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+#tabletApp .dt-pair-double button{min-width:48px;min-height:44px}
+#tabletApp .dt-pair-darts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:10px 0}
+#tabletApp .dt-pair-darts>div{text-align:center;font-size:30px;font-weight:900;border:1px solid #444;padding:10px;border-radius:9px}
+#tabletApp .dt-pair-bases{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:9px 0}
+#tabletApp .dt-pair-bases button{min-width:0;min-height:55px;font-weight:800;font-size:clamp(16px,3vw,24px);padding:3px}
+#tabletApp .dt-pair-mults{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+#tabletApp .dt-pair-mults button{min-height:58px;font-size:clamp(15px,3vw,22px);font-weight:900;padding:4px}
+#tabletApp .dt-pair-stats{width:100%;margin-top:10px}
+#tabletApp .dt-pair-panel h3{text-align:center}
+@media(max-width:520px){#tabletApp .dt-pair-card{padding:7px}#tabletApp .dt-pair-bases button{min-height:46px}#tabletApp .dt-pair-special{gap:4px}#tabletApp .dt-pair-special>div{padding:5px}}
+</style>
+<script id="darturnio-pairs-tablet-controller">
+(()=>{'use strict';
+ const $=id=>document.getElementById(id);
+ const getDb=()=>typeof db!=='undefined'?db:window.db;
+ const escHtml=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+ const state={tid:'',board:0,session:null,match:null,leg:null,visits:[],pairs:[],players:new Map(),history:[],legHistory:[],busy:false,mode:'aggregate',total:'',darts:[],mult:1,special:null,specialCount:3,attempts:null,draftLeg:'',loadNumber:0,loadError:''};
+ const pendingKey='darturnio-pair-pending-v1';
+ const getPending=()=>{try{return JSON.parse(localStorage.getItem(pendingKey)||'null')}catch{return null}};
+ const setPending=o=>localStorage.setItem(pendingKey,JSON.stringify(o));
+ const clearPending=()=>localStorage.removeItem(pendingKey);
+ const pairById=id=>state.pairs.find(p=>p.id===id);
+ const nameOf=id=>state.players.get(id)||'Hráč';
+ const pairName=id=>{const p=pairById(id);return p?nameOf(p.player1_id)+' + '+nameOf(p.player2_id):'Čeká na dvojici'};
+ const resetDraft=()=>{state.total='';state.darts=[];state.mult=1;state.special=null;state.specialCount=3;state.attempts=null};
+ const app=()=>$("tabletApp");
+ const twoPairs=()=>state.match?[state.match.pair1_id,state.match.pair2_id]:[];
+ function score(pairId){
+  const last=[...state.visits].reverse().find(v=>v.pair_id===pairId);
+  const type=Number((typeof tournaments!=='undefined'?tournaments:[]).find(t=>t.id===state.tid)?.game_type)||501;
+  return Number(last?.score_after??type);
+ }
+ function activeTurn(){
+  const l=state.leg,m=state.match;if(!l||!m||l.status!=='live')return null;
+  const own=state.visits.length;
+  const pairId=own%2===0?l.starting_pair_id:(l.starting_pair_id===m.pair1_id?m.pair2_id:m.pair1_id);
+  const p=pairById(pairId);if(!p)return null;
+  const prior=state.visits.filter(v=>v.pair_id===pairId).length;
+  const first=pairId===m.pair1_id?l.pair1_first_player_id:l.pair2_first_player_id;
+  const player=prior%2===0?first:(first===p.player1_id?p.player2_id:p.player1_id);
+  return {pairId,player,remaining:score(pairId),visitNo:own+1};
+ }
+ function draftPreview(before){
+  if(state.special==='checkout')return {action:'checkout',remaining:0};
+  if(state.special==='bust')return {action:'bust',remaining:before};
+  if(state.mode==='aggregate'){
+   if(state.total==='')return {action:'',remaining:before};
+   const after=before-Number(state.total);
+   return {action:after<=1?'needs_special':'score',remaining:after};
+  }
+  let remaining=before,action='score';
+  for(const d of state.darts){
+   remaining-=d.segment*d.multiplier;
+   if(remaining===0&&d.multiplier===2){action='checkout';break}
+   if(remaining<=1){action='bust';remaining=before;break}
+  }
+  return {action,remaining};
+ }
+ function toolbar(){return '<div class="dt-pair-toolbar"><button type="button" class="secondary" data-dtp-refresh>Obnovit</button><strong>Terč '+state.board+' · turnaj dvojic</strong></div>'}
+ function renderLocal(){
+  if(!app())return;
+  if(state.loadError){app().innerHTML=toolbar()+'<div class="panel warning">'+escHtml(state.loadError)+(getPending()?'<div><button data-dtp-retry>OVĚŘIT ZÁPIS</button> <button class="secondary" data-dtp-discard>VYŘEŠIT CHYBNÝ ZÁPIS</button></div>':'')+'</div>';return}
+  const m=state.match,s=state.session,l=state.leg;
+  if(!s||!m){app().innerHTML=toolbar()+'<div class="panel"><h2>Čekám na zápas dvojic</h2><p>Rozlosuj KO v administraci, případně stiskni Obnovit.</p></div>';return}
+  const names=pairName(m.pair1_id)+' × '+pairName(m.pair2_id);
+  const matchScore=(state.legHistory.filter(x=>x.status==='finished'&&x.winner_pair_id===m.pair1_id).length)+':'+(state.legHistory.filter(x=>x.status==='finished'&&x.winner_pair_id===m.pair2_id).length);
+  if(!l||l.status==='finished'){
+   const nextNo=l?Number(l.leg_no)+1:1;
+   const lastStarter=l?.starting_pair_id;
+   const defaultStart=lastStarter==m.pair1_id?m.pair2_id:m.pair1_id;
+   const optPair=(id)=>'<option value="'+escHtml(id)+'"'+(id===defaultStart?' selected':'')+'>'+escHtml(pairName(id))+'</option>';
+   const members=(pid,field)=>{const p=pairById(pid);return '<select data-dtp-choice="'+field+'"><option value="">Vyber prvního hráče</option>'+[p?.player1_id,p?.player2_id].filter(Boolean).map(id=>'<option value="'+escHtml(id)+'">'+escHtml(nameOf(id))+'</option>').join('')+'</select>'};
+   app().innerHTML=toolbar()+'<div class="panel dt-pair-start"><h2>'+escHtml(names)+'</h2><p>Stav legů: '+escHtml(matchScore)+' · začíná '+nextNo+'. leg</p>'+(!l?'':'<p class="small">Předchozí leg: '+escHtml(pairName(l.winner_pair_id))+' zavřela.</p>')+'<h3>Pořadí na začátku legu</h3><label>Začínající dvojice<select data-dtp-choice="pair">'+[m.pair1_id,m.pair2_id].map(optPair).join('')+'</select></label><label>První hráč z dvojice 1'+members(m.pair1_id,'first1')+'</label><label>První hráč z dvojice 2'+members(m.pair2_id,'first2')+'</label><p class="small">Po zahájení se hráči každé dvojice povinně střídají po jednom náhozu. Pořadí nelze během legu měnit.</p><button class="action tablet-primary" data-dtp-start>ZAHÁJIT '+nextNo+'. LEG</button></div>';
+   return;
+  }
+  const turn=activeTurn();if(!turn){app().innerHTML=toolbar()+'<div class="panel warning">Chybná sestava dvojic. Obnov stav.</div>';return}
+  if(state.draftLeg!==l.id){state.draftLeg=l.id;resetDraft()}
+  const p=draftPreview(turn.remaining);
+  const card=(pairId)=>'<div class="dt-pair-card '+(pairId===turn.pairId?'playing':'')+'"><div class="dt-pair-cardname">'+escHtml(pairName(pairId))+'</div><div class="dt-pair-bigscore">'+(pairId===turn.pairId?escHtml(p.remaining):escHtml(score(pairId)))+'</div><div class="dt-pair-cardlabel">'+(pairId===turn.pairId?'HÁZÍ: '+escHtml(nameOf(turn.player)):'Čeká na nához')+'</div></div>';
+  const stats=state.history.concat(state.visits).reduce((acc,v)=>{const k=v.player_id;if(!acc[k])acc[k]={points:0,darts:0,visits:0};acc[k].points+=Number(v.counted_points)||0;acc[k].darts+=Number(v.darts_counted)||0;acc[k].visits++;return acc},{});
+  const statRows=[...new Set(state.pairs.flatMap(x=>[x.player1_id,x.player2_id]))].map(id=>{const v=stats[id]||{points:0,darts:0,visits:0};return '<tr><td>'+escHtml(nameOf(id))+'</td><td>'+v.visits+'</td><td>'+v.darts+'</td><td>'+(v.darts?(3*v.points/v.darts).toFixed(2):'—')+'</td></tr>'}).join('');
+  const modeButtons='<div class="tablet-mode-switch"><button data-dtp-mode="aggregate" class="'+(state.mode==='aggregate'?'action':'secondary')+'">Součet 3 šipek</button><button data-dtp-mode="per_dart" class="'+(state.mode==='per_dart'?'action':'secondary')+'">Po 1 šipce</button></div>';
+  const chooseSpecial=(type)=>[1,2,3].map(n=>'<button data-dtp-special="'+type+'" data-dtp-n="'+n+'" class="'+(state.special===type&&state.specialCount===n?'selected':'')+'">'+n+'.</button>').join('');
+  const special='<div class="dt-pair-special"><div><strong>ZAVŘENO – šipka</strong><div class="dt-pair-specialrow">'+chooseSpecial('checkout')+'</div></div><div><strong>PŘEHOZENO – šipka</strong><div class="dt-pair-specialrow">'+chooseSpecial('bust')+'</div></div></div>';
+  const digits='<div class="dt-pair-digits">'+[1,2,3,4,5,6,7,8,9,0].map(n=>'<button data-dtp-digit="'+n+'">'+n+'</button>').join('')+'<button data-dtp-erase class="secondary">SMAZAT</button></div>';
+  const bases=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,0].map(n=>'<button data-dtp-base="'+n+'">'+n+'</button>').join('');
+  const dartInput='<div class="dt-pair-darts">'+[0,1,2].map(i=>'<div>'+(state.darts[i]?state.darts[i].segment*state.darts[i].multiplier:'—')+'</div>').join('')+'</div><div class="dt-pair-bases">'+bases+'</div><div class="dt-pair-mults"><button data-dtp-mult="2" class="'+(state.mult===2?'selected':'')+'">DOUBLE</button><button data-dtp-mult="3" class="'+(state.mult===3?'selected':'')+'">TRIPLE</button><button data-dtp-pop class="secondary">1 ŠIPKA ZPĚT</button></div>';
+  const input=state.mode==='aggregate'?'<div class="dt-pair-aggval">'+escHtml(state.total||'Zadej body')+'</div>'+digits:dartInput;
+  const pending=getPending();
+  const canSave=!state.busy&&!pending&&(state.special||state.mode==='aggregate'&&state.total!==''&&p.action!=='needs_special'||state.mode==='per_dart'&&(state.darts.length===3||['checkout','bust'].includes(p.action)));
+  const last=state.visits[state.visits.length-1];
+  const lastLabel=last?nameOf(last.player_id)+' · '+last.action+' · '+last.entered_points+' b.':'Zatím žádný nához';
+  app().innerHTML=toolbar()+'<section class="panel dt-pair-panel"><h3>'+escHtml(names)+' · '+escHtml(matchScore)+' · '+l.leg_no+'. leg</h3><div class="dt-pair-scorecards">'+card(m.pair1_id)+card(m.pair2_id)+'</div><p class="dt-pair-active">NA ŘADĚ: '+escHtml(nameOf(turn.player))+' ('+escHtml(pairName(turn.pairId))+')</p><p class="small">Poslední nához: '+escHtml(lastLabel)+'</p>'+modeButtons+input+special+'<div class="dt-pair-double">Pokusy na double (volitelné): '+['—',0,1,2,3].map(n=>'<button data-dtp-attempt="'+n+'" class="'+(String(state.attempts)===String(n)||(n==='—'&&state.attempts===null)?'selected':'')+'">'+n+'</button>').join('')+'</div><p class="small">'+(state.special==='checkout'?'Zavřeno '+state.specialCount+'. šipkou':state.special==='bust'?'Přehozeno '+state.specialCount+'. šipkou':p.action==='needs_special'?'Pro dokončení legu vyber ZAVŘENO nebo PŘEHOZENO':p.action==='checkout'?'Přesné zavření potvrď':p.action==='bust'?'Přehozeno – bude zapsáno 0 bodů':'Po náhozu zbývá '+p.remaining)+'</p><div class="tablet-counter-actions"><button class="secondary" data-dtp-undo '+(pending||state.busy?'disabled':'')+'>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-dtp-save '+(canSave?'':'disabled')+'>POTVRDIT NÁHOZ</button></div>'+(pending?'<p class="notice warning">Nához čeká na potvrzení. Další vstup je uzamčen. <button data-dtp-retry>OVĚŘIT ZÁPIS</button> <button data-dtp-discard class="secondary">VYŘEŠIT CHYBNÝ ZÁPIS</button></p>':'')+'<details><summary>Statistiky hráčů</summary><table class="dt-pair-stats"><tr><th>Hráč</th><th>Náhozy</th><th>Šipky</th><th>Ø 3 šipky</th></tr>'+statRows+'</table></details></section>';
+ }
+ async function fetchNow(tid,board){
+  const database=getDb();if(!database)throw new Error('Databáze není připojena.');
+  let {data:session,error:e}=await database.from('darturnio_pair_sessions').select('*').eq('tournament_id',tid).eq('board_no',board).eq('status','live').limit(1);
+  if(e)throw new Error('Nejdříve spusť SQL pro počítadlo dvojic: '+e.message);
+  let s=session?.[0];
+  if(!s){const claim=await database.rpc('darturnio_v2_claim_pair_match',{p_tournament_id:tid,p_board_no:board});if(claim.error)throw claim.error;if(claim.data){const q=await database.from('darturnio_pair_sessions').select('*').eq('id',claim.data).single();if(q.error)throw q.error;s=q.data}}
+  if(!s)return {session:null,match:null,leg:null,visits:[],history:[],pairs:[],players:new Map()};
+  const [mr,pr,lr]=await Promise.all([
+   database.from('darturnio_pair_matches').select('*').eq('id',s.match_id).single(),
+   database.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid),
+   database.from('darturnio_pair_legs').select('*').eq('session_id',s.id).order('leg_no',{ascending:false}).limit(1)
+  ]);
+  for(const r of [mr,pr,lr])if(r.error)throw r.error;
+  const ids=[...new Set((pr.data||[]).flatMap(p=>[p.player1_id,p.player2_id]).filter(Boolean))];
+  const names=ids.length?await database.from('players').select('id,name').in('id',ids):{data:[]};if(names.error)throw names.error;
+  const legs=await database.from('darturnio_pair_legs').select('id,leg_no,status,winner_pair_id').eq('session_id',s.id).order('leg_no');if(legs.error)throw legs.error;
+  const l=lr.data?.[0]||null;
+  const visits=l?await database.from('darturnio_pair_visits').select('*').eq('leg_id',l.id).order('visit_no'):{data:[]};if(visits.error)throw visits.error;
+  const priorIds=(legs.data||[]).filter(x=>x.id!==l?.id).map(x=>x.id);
+  const history=priorIds.length?await database.from('darturnio_pair_visits').select('pair_id,player_id,counted_points,darts_counted').in('leg_id',priorIds):{data:[]};if(history.error)throw history.error;
+  return {session:s,match:mr.data,leg:l,visits:visits.data||[],history:history.data||[],pairs:pr.data||[],players:new Map((names.data||[]).map(p=>[p.id,p.name])),legHistory:legs.data||[]};
+ }
+ async function refresh(tid=state.tid,board=state.board){
+  if(!tid||!board)return;
+  const request=++state.loadNumber;
+  if(!state.session){app().innerHTML=toolbar()+'<div class="panel">Načítám zápas dvojic…</div>'}
+  try{
+   const data=await fetchNow(tid,board);
+   if(request!==state.loadNumber||tid!==state.tid||board!==state.board)return;
+   const former=state.draftLeg;
+   Object.assign(state,data,{loadError:''});
+   if(state.leg?.id!==former){state.draftLeg=state.leg?.id||'';resetDraft()}
+  }catch(error){if(request!==state.loadNumber)return;state.loadError=error.message||String(error)}
+  renderLocal();
+ }
+ window.darturnioPairsTabletRender=async(tid,board)=>{
+   if(!tid||!board)return;
+   if(state.tid!==tid||state.board!==board){state.tid=tid;state.board=board;state.session=null;state.match=null;resetDraft()}
+   await refresh(tid,board);
+ };
+ const rpc=async(name,args)=>{const result=await getDb().rpc(name,args);if(result.error)throw result.error;return result.data};
+ async function retry(){const x=getPending();if(!x)return true;if(!navigator.onLine)throw new Error('Není internet, zápis zůstává uzamčený.');
+  await rpc('darturnio_v2_pair_visit',x);clearPending();return true;
+ }
+ async function submitVisit(){
+  if(state.busy)return;state.busy=true;
+  try{
+   if(!(await retry()))return;
+   const turn=activeTurn();if(!turn||!state.leg)throw new Error('Nejprve zahaj leg.');
+   if(!navigator.onLine)throw new Error('Pro potvrzení náhozu je potřeba internet.');
+   let args={p_leg_id:state.leg.id,p_request_id:crypto.randomUUID(),p_mode:state.mode,p_action:'auto',p_total:null,p_darts_count:3,p_darts:[],p_double_attempts:state.attempts,p_expected_visit_no:turn.visitNo,p_expected_player_id:turn.player};
+   if(state.special){args.p_mode='aggregate';args.p_action=state.special;args.p_darts_count=state.specialCount;args.p_total=state.special==='checkout'?turn.remaining:null}
+   else if(state.mode==='aggregate'){
+     if(state.total==='')throw new Error('Zadej body.');args.p_action='score';args.p_total=Number(state.total);
+   }else{
+     if(!state.darts.length)throw new Error('Zadej šipky.');args.p_darts=state.darts.map(x=>({...x}));
+   }
+   if(args.p_action==='checkout'&&!confirm('Potvrdit zavření '+turn.remaining+' bodů '+args.p_darts_count+'. šipkou pro '+nameOf(turn.player)+'?'))return;
+   setPending(args);
+   await rpc('darturnio_v2_pair_visit',args);clearPending();resetDraft();await refresh();
+  }catch(e){state.loadError='Nepodařilo se bezpečně zapsat nához: '+e.message;renderLocal()}
+  finally{state.busy=false;renderLocal()}
+ }
+ async function action(fn){if(state.busy)return;state.busy=true;try{await fn();state.loadError='';resetDraft();await refresh()}catch(e){state.loadError=e.message||String(e);renderLocal()}finally{state.busy=false}}
+ document.addEventListener('click',e=>{
+  const target=e.target.closest('[data-dtp-refresh],[data-dtp-start],[data-dtp-save],[data-dtp-undo],[data-dtp-retry],[data-dtp-discard],[data-dtp-mode],[data-dtp-digit],[data-dtp-erase],[data-dtp-base],[data-dtp-mult],[data-dtp-pop],[data-dtp-special],[data-dtp-attempt]');
+  if(!target||!app()?.contains(target)||!document.body.classList.contains('tablet-mode'))return;
+  e.preventDefault();e.stopPropagation();
+  if(target.hasAttribute('data-dtp-refresh')){void refresh();return}
+  if(target.hasAttribute('data-dtp-retry')){void action(async()=>{await retry()});return}
+  if(target.hasAttribute('data-dtp-discard')){
+   const pending=getPending();if(!pending)return;
+   void action(async()=>{
+     const found=await getDb().from('darturnio_pair_visits').select('id').eq('request_id',pending.p_request_id).limit(1);
+     if(found.error)throw found.error;
+     if((found.data||[]).length){clearPending();return}
+     if(!confirm('Nához v databázi není. Opravdu zrušit čekající neúspěšný zápis, aby šel zadat znovu?'))return;
+     clearPending();
+   });return;
+  }
+  if(state.busy||getPending())return;
+  if(target.hasAttribute('data-dtp-start')){
+   const v=x=>app().querySelector('[data-dtp-choice="'+x+'"]')?.value;
+   const pair=v('pair'),first1=v('first1'),first2=v('first2');
+   if(!pair||!first1||!first2){alert('Vyber začínající dvojici a prvního hráče z obou dvojic.');return}
+   void action(async()=>{await rpc('darturnio_v2_start_pair_leg',{p_session_id:state.session.id,p_starting_pair_id:pair,p_pair1_first_player:first1,p_pair2_first_player:first2})});return;
+  }
+  if(target.hasAttribute('data-dtp-mode')){state.mode=target.dataset.dtpMode;resetDraft();renderLocal();return}
+  if(target.hasAttribute('data-dtp-digit')){
+   const next=state.total+target.dataset.dtpDigit;if(next.length<=3&&Number(next)<=180){state.total=next;state.special=null}renderLocal();return;
+  }
+  if(target.hasAttribute('data-dtp-erase')){state.total=state.total.slice(0,-1);state.special=null;renderLocal();return}
+  if(target.hasAttribute('data-dtp-mult')){const n=Number(target.dataset.dtpMult);state.mult=state.mult===n?1:n;renderLocal();return}
+  if(target.hasAttribute('data-dtp-base')){
+   if(state.darts.length>=3||state.special||['checkout','bust'].includes(draftPreview(activeTurn()?.remaining??501).action))return;
+   const n=Number(target.dataset.dtpBase),mult=state.mult;
+   if(n===25&&mult===3){alert('Trojitý bull neexistuje.');return}
+   state.darts.push({segment:n,multiplier:mult});state.mult=1;
+   const x=draftPreview(activeTurn()?.remaining??501);
+   if(['checkout','bust'].includes(x.action)){state.special=null}
+   renderLocal();return;
+  }
+  if(target.hasAttribute('data-dtp-pop')){state.darts.pop();state.mult=1;renderLocal();return}
+  if(target.hasAttribute('data-dtp-special')){
+   const sp=target.dataset.dtpSpecial,n=Number(target.dataset.dtpN);
+   if(state.special===sp&&state.specialCount===n)state.special=null;
+   else{state.special=sp;state.specialCount=n;state.total='';state.darts=[];state.mult=1}
+   renderLocal();return;
+  }
+  if(target.hasAttribute('data-dtp-attempt')){state.attempts=target.dataset.dtpAttempt==='—'?null:Number(target.dataset.dtpAttempt);renderLocal();return}
+  if(target.hasAttribute('data-dtp-undo')){
+   if(!confirm('Vrátit poslední potvrzený nához?'))return;
+   void action(async()=>{await rpc('darturnio_v2_pair_undo',{p_session_id:state.session.id})});return;
+  }
+  if(target.hasAttribute('data-dtp-save')){void submitVisit()}
+ },true);
+ // Tablet logs in using the same admin session as for singles. Refresh is a fallback for Realtime.
+ setInterval(()=>{
+  if(document.body.classList.contains('tablet-mode')&&typeof isAdmin!=='undefined'&&isAdmin&&
+     (typeof tournaments!=='undefined'?tournaments:[]).find(t=>t.id===state.tid)?.participant_mode==='pairs'&&
+     !state.busy&&!getPending()&&state.board)void refresh();
+ },12000);
+})();
+
 </script>
 </body></html>
