@@ -811,8 +811,8 @@ window.darturnioX01 = (() => {
       <p class="comp-step-desc">Vyber název a typ soutěže. Jednorázový turnaj nastavíš nejrychleji.</p>
       <label>Název turnaje nebo série<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open" autocomplete="off"></label>
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
-      <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2) – KO</option></select></label>
-      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Dvojice lze rozlosovat do KO a hrát na STEEL tabletech (301/501). Pro SOFT lze výsledky zadávat ručně.</p>
+      <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2)</option></select></label>
+      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Stejně jako u jednotlivců vybereš formát až při losování: skupiny, KO, DKO nebo každý s každým.</p>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
         <div id="competitionFinalFields" hidden><label>Počet postupujících do finále<select id="competitionFinalists"><option>4</option><option selected>8</option><option>16</option><option>32</option></select></label></div>
@@ -827,7 +827,7 @@ window.darturnioX01 = (() => {
          <label>Počet terčů<input id="competitionBoards" type="number" min="1" max="64" value="2" required inputmode="numeric"></label>
         <label>Hra<select id="competitionGame"><option value="501">501 Double Out</option><option value="301">301 Double Out</option><option value="701">Cut-Throat Cricket</option></select></label>
       </div>
-      <label>Počet vítězných legů<input id="competitionLegs" type="number" min="1" max="21" value="2" required inputmode="numeric"></label>
+      <input id="competitionLegs" type="hidden" value="2"><p class="small">Počet legů, remízy a skupiny nastavíš až při losování po přidání účastníků.</p>
       <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span id="darturnioDartTypeInfo">Pro každý terč později získáš vlastní odkaz a QR kód počítadla.</span></div>
     </section>
     <section class="comp-wizard-step" data-comp-step="2" aria-label="Termíny" hidden>
@@ -1100,7 +1100,7 @@ window.darturnioX01 = (() => {
 </div>
 <div class="darturnio-pairs-panel" id="darturnioPairsPanel" hidden>
   <h3>Turnaj dvojic – sestavení týmů</h3>
-  <p class="small">Vyber dva různé hráče do týmu. Každý hráč může být jen v jedné dvojici. KO je připravené pro STEEL 301/501 s tabletovým počítadlem; SOFT lze zapisovat ručně. Skupiny a DKO dvojic zatím nejsou zapnuté.</p>
+  <p class="small">Vyber dva různé hráče do týmu. Každý hráč může být jen v jedné dvojici. KO je připravené pro STEEL 301/501 s tabletovým počítadlem; SOFT lze zapisovat ručně. Formát dvojic vyber níže při losování. Remízy jsou možné jen ve skupinách nebo v systému každý s každým.</p>
   <div class="darturnio-pairs-fields">
     <label>První hráč<select id="darturnioPairPlayer1" aria-label="První hráč dvojice"></select></label>
     <label>Druhý hráč<select id="darturnioPairPlayer2" aria-label="Druhý hráč dvojice"></select></label>
@@ -1109,15 +1109,24 @@ window.darturnioX01 = (() => {
   <p class="small" role="status" aria-live="polite" id="darturnioPairStatus"></p>
   <div id="darturnioPairList"></div>
   <section id="darturnioPairKnockout" class="darturnio-pair-ko">
-    <h3>KO pavouk dvojic</h3>
-    <p class="small">Dvojice hrají jako tým. U STEEL 301/501 lze výsledek zapisovat tabletovým počítadlem, které automaticky střídá hráče. Ruční výsledek lze zadat jen u zápasu, který není rozehraný na tabletu.</p>
-    <button type="button" class="action" id="darturnioDrawPairKo">ROZLOSOVAT DVOJICE – KO</button>
+    <h3>Losování a zápasy dvojic</h3>
+    <p class="small">Pro dvojice použij stejná čtyři tlačítka losování jako pro jednotlivce. STEEL 301/501 podporuje tabletové počítadlo se střídáním obou hráčů v týmu.</p>
+    <button type="button" class="action" id="darturnioDrawPairKo" hidden>KO – původní ovládání</button>
     <button type="button" class="secondary" id="darturnioResetPairKo" hidden>Zrušit KO rozlosování dvojic</button>
     <p class="small" id="darturnioPairKoFeedback" role="status" aria-live="polite"></p>
     <div id="darturnioPairKoMatches"></div>
   </section>
 </div>
 <div id="adminEntries"></div>
+<div id="darturnioDrawSettings" class="panel dt-draw-settings">
+<strong>NASTAVENÍ ZÁPASŮ PŘED LOSOVÁNÍM</strong>
+<div class="dt-draw-grid">
+<label>Pravidlo legů<select id="dtDrawLegRule"><option value="first_to">Na vítězné legy (bez remízy)</option><option value="fixed">Pevný počet legů (remíza povolena)</option></select></label>
+<label id="dtDrawLegCaption">Počet vítězných legů<input type="number" id="dtDrawLegs" min="1" max="21" value="2" inputmode="numeric"></label>
+<label>Počet skupin<input type="number" id="dtDrawGroups" min="1" max="8" value="2" inputmode="numeric"></label>
+</div>
+<p class="small" id="dtDrawHelp">Vyber formát níže. Remíza je možná jen pro skupiny a každý s každým. KO/DKO vyžaduje vítěze.</p>
+</div>
 <div class="format-draw-buttons" id="formatDrawButtons">
 <button class="action" id="drawGroupsBtn" type="button">SKUPINY + PAVOUK</button>
 <button class="action" id="drawSingleKoBtn" type="button">KO PAVOUK</button>
@@ -1303,7 +1312,7 @@ async function darturnioShowFinishedSinglesResult(notice,app){
    details=`<div class="local-result-stats">${darturnioMatchStatsCard(name1,match.legs1,visits.filter(v=>v.player_entry_id===match.player1_entry_id))}${darturnioMatchStatsCard(name2,match.legs2,visits.filter(v=>v.player_entry_id===match.player2_entry_id))}</div>`;
   }
  }catch(error){details=`<p class="warning">Podrobné statistiky se nepodařilo načíst: ${esc(error.message||error)}. Výsledek zápasu zůstal uložen.</p>`;}
- app.innerHTML=`<div class="dt-result-panel"><div class="local-result-brow">TURNAJOVÝ ZÁPAS DOKONČEN</div><h2>${esc(name1)} × ${esc(name2)}</h2><div class="dt-result-score">${Number(match.legs1)||0} : ${Number(match.legs2)||0}</div><p class="dt-result-winner">Vítěz: ${esc(playerName(match.winner_entry_id))}</p>${details}<button type="button" class="action dt-result-next" data-dt-result-next>POKRAČOVAT NA DALŠÍ ZÁPAS</button><p class="dt-result-subtext">Výsledek a statistiky jsou uložené. Další zápas se na tomto terči připraví po stisknutí tlačítka.</p>${cricket?'':'<button type="button" class="secondary dt-result-retry" data-dt-result-undo="'+esc(match.id)+'">ZPĚT – OPRAVIT POSLEDNÍ NÁHOZ</button>'} </div>`;
+ app.innerHTML=`<div class="dt-result-panel"><div class="local-result-brow">TURNAJOVÝ ZÁPAS DOKONČEN</div><h2>${esc(name1)} × ${esc(name2)}</h2><div class="dt-result-score">${Number(match.legs1)||0} : ${Number(match.legs2)||0}</div><p class="dt-result-winner">${match.winner_entry_id?'Vítěz: '+esc(playerName(match.winner_entry_id)):'REMÍZA'}</p>${details}<button type="button" class="action dt-result-next" data-dt-result-next>POKRAČOVAT NA DALŠÍ ZÁPAS</button><p class="dt-result-subtext">Výsledek a statistiky jsou uložené. Další zápas se na tomto terči připraví po stisknutí tlačítka.</p>${cricket?'':'<button type="button" class="secondary dt-result-retry" data-dt-result-undo="'+esc(match.id)+'">ZPĚT – OPRAVIT POSLEDNÍ NÁHOZ</button>'} </div>`;
  return true;
 }
 
@@ -1525,38 +1534,54 @@ function renderLive(){
   }).join("");
   $("liveBoards").innerHTML=cards;
 }
-function orderGroupStandings(rows, groupMatches){
-  const nameOf=row=>String(players.find(p=>p.id===row.entry.player_id)?.name||"");
-  const baseCompare=(a,b)=>b.wins-a.wins||
-    (b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||
-    b.legsFor-a.legsFor;
-  const sorted=[...rows].sort((a,b)=>baseCompare(a,b));
-  // Při shodě výher, rozdílu legů i počtu získaných legů rozhodnou vzájemné zápasy
-  // mezi hráči se shodou (u dvou hráčů přímý zápas, u tří a více mini-tabulka:
-  // výhry, rozdíl legů, získané legy). Teprve potom abeceda.
-  for(let i=0;i<sorted.length;){
-    let j=i+1;
-    while(j<sorted.length&&baseCompare(sorted[i],sorted[j])===0)j++;
-    if(j-i>=2){
-      const block=sorted.slice(i,j);
-      const ids=new Set(block.map(r=>r.entry.id));
-      const mini=new Map(block.map(r=>[r.entry.id,{w:0,f:0,a:0}]));
-      groupMatches.filter(m=>m.status==="finished"&&ids.has(m.player1_entry_id)&&ids.has(m.player2_entry_id)).forEach(m=>{
-        const p1=mini.get(m.player1_entry_id),p2=mini.get(m.player2_entry_id);
-        p1.f+=Number(m.legs1)||0;p1.a+=Number(m.legs2)||0;
-        p2.f+=Number(m.legs2)||0;p2.a+=Number(m.legs1)||0;
-        if(m.winner_entry_id===m.player1_entry_id)p1.w++;
-        else if(m.winner_entry_id===m.player2_entry_id)p2.w++;
-      });
-      block.sort((a,b)=>{
-        const x=mini.get(a.entry.id),y=mini.get(b.entry.id);
-        return y.w-x.w||(y.f-y.a)-(x.f-x.a)||y.f-x.f;
-      });
-      sorted.splice(i,j-i,...block);
-    }
-    i=j;
+// Jednotný žebříček: výhra 2, remíza 1, prohra 0; rozdíl a vyhrané legy;
+// mini-tabulka vzájemných zápasů včetně vícečlenné shody.
+function darturnioRank(identifiers,games,getId1=m=>m.player1_entry_id,getId2=m=>m.player2_entry_id){
+ const result=new Map(identifiers.map(x=>[x,{id:x,played:0,wins:0,draws:0,losses:0,points:0,
+  legsFor:0,legsAgainst:0,tiebreakWins:0,miniPoints:0,miniDiff:0,miniFor:0}]));
+ const all=games.filter(m=>m.status==='finished');
+ const regular=all.filter(m=>m.stage!=='tiebreak');
+ const accumulate=(arr,scope)=>{
+  for(const m of arr){const x=result.get(getId1(m)),y=result.get(getId2(m));if(!x||!y||x===y)continue;
+   const v1=Number(m.legs1)||0,v2=Number(m.legs2)||0;
+   if(scope==='regular'){
+     x.played++;y.played++;x.legsFor+=v1;x.legsAgainst+=v2;y.legsFor+=v2;y.legsAgainst+=v1;
+     if(v1>v2){x.wins++;y.losses++;x.points+=2}
+     else if(v2>v1){y.wins++;x.losses++;y.points+=2}
+     else{x.draws++;y.draws++;x.points++;y.points++}
+   }else if(scope==='tiebreak'){
+     if(v1>v2)x.tiebreakWins++;if(v2>v1)y.tiebreakWins++;
+   }
   }
-  return sorted;
+ };
+ accumulate(regular,'regular');accumulate(all.filter(m=>m.stage==='tiebreak'),'tiebreak');
+ const compareBase=(a,b)=>b.points-a.points||
+  ((b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst))||b.legsFor-a.legsFor;
+ const sorted=[...result.values()].sort(compareBase);
+ for(let i=0;i<sorted.length;){let j=i+1;
+  while(j<sorted.length&&compareBase(sorted[i],sorted[j])===0)j++;
+  if(j-i>1){const block=sorted.slice(i,j),ids=new Set(block.map(r=>r.id));
+   const h2h=new Map(block.map(r=>[r.id,{points:0,f:0,a:0}]));
+   for(const m of regular){const ia=getId1(m),ib=getId2(m);if(!ids.has(ia)||!ids.has(ib))continue;
+    const x=h2h.get(ia),y=h2h.get(ib),v1=Number(m.legs1)||0,v2=Number(m.legs2)||0;
+    x.f+=v1;x.a+=v2;y.f+=v2;y.a+=v1;
+    if(v1>v2)x.points+=2;else if(v2>v1)y.points+=2;else{x.points++;y.points++}
+   }
+   for(const r of block){const x=h2h.get(r.id);r.miniPoints=x.points;r.miniDiff=x.f-x.a;r.miniFor=x.f}
+   block.sort((a,b)=>b.miniPoints-a.miniPoints||b.miniDiff-a.miniDiff||b.miniFor-a.miniFor||
+     b.tiebreakWins-a.tiebreakWins);
+   sorted.splice(i,j-i,...block);
+  }
+  i=j;
+ }
+ return sorted;
+}
+function darturnioRankingKey(r){return [r.points,r.legsFor-r.legsAgainst,r.legsFor,
+ r.miniPoints,r.miniDiff,r.miniFor,r.tiebreakWins].join('|')}
+function orderGroupStandings(rows,groupMatches){
+ const order=darturnioRank(rows.map(r=>r.entry.id),groupMatches);
+ const lookup=new Map(rows.map(r=>[r.entry.id,r]));
+ return order.map(r=>({...lookup.get(r.id),...r}));
 }
 const creatingGroupTiebreaks = new Set();
 async function ensureGroupTiebreaks(groupName, members, groupMatches){
@@ -1567,35 +1592,20 @@ async function ensureGroupTiebreaks(groupName, members, groupMatches){
   if(!regular.length||!regular.every(m=>m.status==="finished"))return;
   const allTies=groupMatches.filter(m=>m.stage==="tiebreak");
   if(allTies.some(m=>m.status!=="finished"))return;
-  const stats=members.map(entry=>{
-    let wins=0,legsFor=0,legsAgainst=0;
-    groupMatches.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
-      const first=m.player1_entry_id===entry.id;
-      const own=Number(first?m.legs1:m.legs2)||0,opp=Number(first?m.legs2:m.legs1)||0;
-      legsFor+=own;legsAgainst+=opp;if(m.winner_entry_id===entry.id)wins++;
-    });
-    return {entry,wins,legsFor,legsAgainst};
-  });
-  const ordered=orderGroupStandings(stats,groupMatches);
-  const base=(a,b)=>b.wins-a.wins||(b.legsFor-b.legsAgainst)-(a.legsFor-a.legsAgainst)||b.legsFor-a.legsFor;
-  const tiedBlocks=[];
-  for(let i=0;i<ordered.length;){
-    let j=i+1;while(j<ordered.length&&base(ordered[i],ordered[j])===0)j++;
-    if(j-i>1){
-      const block=ordered.slice(i,j),ids=new Set(block.map(x=>x.entry.id));
-      const mini=new Map(block.map(x=>[x.entry.id,{w:0,f:0,a:0}]));
-      groupMatches.filter(m=>m.status==="finished"&&ids.has(m.player1_entry_id)&&ids.has(m.player2_entry_id)).forEach(m=>{
-        const a=mini.get(m.player1_entry_id),b=mini.get(m.player2_entry_id);
-        a.f+=Number(m.legs1)||0;a.a+=Number(m.legs2)||0;b.f+=Number(m.legs2)||0;b.a+=Number(m.legs1)||0;
-        if(m.winner_entry_id===m.player1_entry_id)a.w++;else if(m.winner_entry_id===m.player2_entry_id)b.w++;
-      });
-      const sig=x=>{const z=mini.get(x.entry.id);return [z.w,z.f-z.a,z.f].join("/");};
-      const remaining=block.filter(x=>sig(x)===sig(block[0]));
-      if(remaining.length>1)tiedBlocks.push(remaining.map(x=>x.entry.id));
-    }
-    i=j;
-  }
-  if(!tiedBlocks.length)return;
+  const ordered=orderGroupStandings(members.map(entry=>({entry})),groupMatches);
+  const allGroups=[...new Set(entries.filter(e=>e.tournament_id===selectedTournament).map(e=>e.group_name).filter(Boolean))].sort();
+  const groupIndex=allGroups.indexOf(groupName);
+  const totalEntries=entries.filter(e=>e.tournament_id===selectedTournament).length;
+  const qualifiers=Math.min(8,totalEntries);
+  const seats=Math.floor(qualifiers/allGroups.length)+(groupIndex<qualifiers%allGroups.length?1:0);
+  if(seats<1||seats>=ordered.length)return;
+  const key=darturnioRankingKey(ordered[seats-1]);
+  if(key!==darturnioRankingKey(ordered[seats]))return;
+  const tied=ordered.filter(r=>darturnioRankingKey(r)===key).map(r=>r.entry.id);
+  if(tied.length<2)return;
+  // Pokud již proběhl rozhodovací zápas a stále je shoda, vyžaduje individuální dořešení.
+  if(groupMatches.some(m=>m.stage==='tiebreak'))return;
+  const tiedBlocks=[tied];
   // match_no je jedinečné v rámci turnaje, nikoli pouze uvnitř skupiny.
   // Počty pro skupinu A a B se proto nesmějí překrývat.
   creatingGroupTiebreaks.add(creationKey);
@@ -1634,23 +1644,12 @@ function renderGroups(){
   if(!groups.length){$("groupsContent").innerHTML="Skupiny zatím nebyly rozlosovány.";return;}
   $("groupsContent").innerHTML=groups.map(g=>{
     const members=es.filter(e=>e.group_name===g);
-    const stats=members.map(entry=>{
-      let played=0,wins=0,legsFor=0,legsAgainst=0;
-      ms.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
-        played++;
-        const first=m.player1_entry_id===entry.id;
-        const own=Number(first?m.legs1:m.legs2),opp=Number(first?m.legs2:m.legs1);
-        legsFor+=own;legsAgainst+=opp;
-        if(m.winner_entry_id===entry.id)wins++;
-      });
-      return {entry,played,wins,legsFor,legsAgainst};
-    });
-    const orderedStats=orderGroupStandings(stats,ms.filter(m=>m.group_name===g));
+    const orderedStats=orderGroupStandings(members.map(entry=>({entry})),ms.filter(m=>m.group_name===g));
     const matchRows=ms.filter(m=>m.group_name===g).sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
     return `<div class="panel"><h3>Skupina ${esc(g)}</h3>
-      <table><tr><th>Hráč</th><th>Odehráno</th><th>Výhry</th><th>Legy</th></tr>
-      ${orderedStats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.legsFor}:${s.legsAgainst}</td></tr>`).join("")}</table>
-      <p class="small">Při shodě rozhoduje rozdíl legů, počet získaných legů a vzájemné zápasy. Pokud ani ty nerozhodnou, následují automatické rozhodovací zápasy na jeden leg. Abeceda se nepoužívá.</p>
+      <table><tr><th>Hráč</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Body</th><th>Legy</th><th>Rozdíl</th></tr>
+      ${orderedStats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.draws}</td><td>${s.losses}</td><td><strong>${s.points}</strong></td><td>${s.legsFor}:${s.legsAgainst}</td><td>${s.legsFor-s.legsAgainst}</td></tr>`).join("")}</table>
+      <p class="small">Pořadí: body (2/1/0) → rozdíl legů → vyhrané legy → vzájemné zápasy. Rozhodovací leg se hraje při shodě na postupové hranici.</p>
       <h3>Program a výsledky</h3>
       ${matchRows.map(m=>`<p>${m.stage==="tiebreak"?'<strong class="warning">ROZHODOVACÍ · 1 LEG</strong> ':''}${esc(playerName(m.player1_entry_id))} <strong>${m.status==="finished"?`${m.legs1}:${m.legs2}`:"– : –"}</strong> ${esc(playerName(m.player2_entry_id))} <span class="small">(${esc(m.status||"waiting")})</span></p>`).join("")}
     </div>`;
@@ -1756,19 +1755,9 @@ function renderSeriesResults(){
     ${finalRows?`<div class="table-wrap"><table><tr><th>Umístění</th><th>Hráč</th></tr>${finalRows}</table></div>`:"Finálové výsledky zatím nejsou zaznamenány."}
   `;
 }
-function groupStandingsFor(groupName, eventEntries=tournamentEntries(), eventMatches=tournamentMatches()){
-  const groupMatches=eventMatches.filter(m=>(m.stage==="group"||m.stage==="tiebreak")&&m.group_name===groupName);
-  const rows=eventEntries.filter(e=>e.group_name===groupName).map(entry=>{
-    let wins=0,legsFor=0,legsAgainst=0;
-    groupMatches.filter(m=>m.status==="finished"&&(m.player1_entry_id===entry.id||m.player2_entry_id===entry.id)).forEach(m=>{
-      const first=m.player1_entry_id===entry.id;
-      const own=Number(first?m.legs1:m.legs2),opp=Number(first?m.legs2:m.legs1);
-      legsFor+=own;legsAgainst+=opp;
-      if(m.winner_entry_id===entry.id)wins++;
-    });
-    return {entry,wins,legsFor,legsAgainst};
-  });
-  return orderGroupStandings(rows,groupMatches);
+function groupStandingsFor(groupName,eventEntries=tournamentEntries(),eventMatches=tournamentMatches()){
+ const games=eventMatches.filter(m=>(m.stage==='group'||m.stage==='tiebreak')&&m.group_name===groupName);
+ return orderGroupStandings(eventEntries.filter(e=>e.group_name===groupName).map(entry=>({entry})),games);
 }
 function renderBracketSeedControl(){
   const target=$("bracketSeedControl");
@@ -1784,7 +1773,7 @@ function renderBracketSeedControl(){
     return;
   }
   if(es.length<2){target.innerHTML=`<div class="panel"><p class="small muted">Pro vytvoření pavouka jsou potřeba alespoň 2 přihlášení hráči.</p></div>`;return;}
-  if(es.length>16){
+  if(es.length>128){
     target.innerHTML=`<div class="panel"><p class="notice">${es.length} hráčů – oboustranný pavouk bez skupin se vytvoří tlačítkem „Vytvořit zápasy podle počtu hráčů“.</p></div>`;
     return;
   }
@@ -1797,8 +1786,8 @@ function renderBracketSeedControl(){
   const groupNames=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
   const unassigned=es.filter(e=>!e.group_name);
   const invalidGroup=groupNames.some(g=>!groupMatches.some(m=>m.group_name===g));
-  if(!groupNames.length||unassigned.length||invalidGroup||groupNames.length>2){
-    target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Zkontroluj přiřazení všech hráčů do jedné nebo dvou skupin a jejich zápasy.</p></div>`;
+  if(!groupNames.length||unassigned.length||invalidGroup||groupNames.length>8){
+    target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Zkontroluj přiřazení všech hráčů do skupin a jejich zápasy.</p></div>`;
     return;
   }
   target.innerHTML=`<div class="panel"><div class="notice">Všechny skupinové zápasy jsou dokončené. Pavouk se vytváří automaticky.</div></div>`;
@@ -1818,6 +1807,7 @@ function buildInitialPlayoffRows(tournamentId,seededEntries,existingRows=[],grou
   const slots=positions.map(seed=>seededEntries[seed-1]||null);
   const firstMatchNo=Math.max(0,...existingRows.map(m=>Number(m.match_no)||0))+1;
   const rows=[];
+  const targetLegs=Number(tournaments.find(t=>t.id===tournamentId)?.target_legs)||DEFAULT_TARGET_LEGS;
   for(let i=0;i<slots.length;i+=2){
     const one=slots[i],two=slots[i+1];
     if(!one&&!two)continue;
@@ -1828,7 +1818,7 @@ function buildInitialPlayoffRows(tournamentId,seededEntries,existingRows=[],grou
       round_no:1,match_no:firstMatchNo+rows.length,board_no:null,
       player1_entry_id:isBye?player.id:one.id,
       player2_entry_id:isBye?player.id:two.id,
-      legs1:0,legs2:0,target_legs:DEFAULT_TARGET_LEGS,
+      legs1:0,legs2:0,target_legs:targetLegs,
       status:isBye?"finished":"waiting",
       ...(isBye?{winner_entry_id:player.id,ended_at:nowISO()}:{})
     });
@@ -1865,27 +1855,19 @@ async function seedKnockoutBracket(){
   const freshEntriesResult=await db.from("tournament_entries").select("*").eq("tournament_id",tournamentId);
   if(freshEntriesResult.error)return notify("Nepodařilo se načíst hráče: "+freshEntriesResult.error.message);
   const es=freshEntriesResult.data||[];
-  if(es.length<2||es.length>16)return notify("Skupinový turnaj musí mít 2 až 16 hráčů.");
+  if(es.length<2||es.length>128)return notify("Skupinový turnaj musí mít 2 až 128 hráčů.");
   const groupMatches=rows.filter(m=>m.stage==="group"||m.stage==="tiebreak");
   if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished"))return notify("Nejdřív musí být dokončeny všechny zápasy ve skupinách.");
   const groupNames=[...new Set(es.map(e=>e.group_name).filter(Boolean))].sort();
   if(!groupNames.length||es.some(e=>!e.group_name))return notify("Každý hráč musí být přiřazen do skupiny.");
-  if(groupNames.length>2)return notify("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
+  if(groupNames.length>16)return notify("Pro tento turnaj je podporováno nejvýše 16 skupin.");
   if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)||groupMatches.some(m=>m.group_name===g&&m.status!=="finished")))return notify("Ne všechny skupiny mají dokončené zápasy.");
-  let seededEntries=[];
-  if(groupNames.length===1){
-    const standings=groupStandingsFor(groupNames[0],es,groupMatches);
-    if(standings.length<2)return notify("Ve skupině musí být alespoň 2 hráči.");
-    seededEntries=standings.slice(0,8).map(x=>x.entry);
-  }else if(groupNames.length===2){
-    const first=groupStandingsFor(groupNames[0],es,groupMatches),second=groupStandingsFor(groupNames[1],es,groupMatches);
-    // Postupuje nejvýše 8 hráčů; pořadí A1, B1, A2, B2… zachová křížové nasazení.
-    for(let i=0;seededEntries.length<Math.min(8,es.length);i++){
-      if(first[i])seededEntries.push(first[i].entry);
-      if(second[i]&&seededEntries.length<Math.min(8,es.length))seededEntries.push(second[i].entry);
-    }
-  }else return notify("Pro tento turnaj jsou podporovány nejvýše dvě skupiny.");
-
+  const grouped=groupNames.map(g=>groupStandingsFor(g,es,groupMatches));
+  const limit=Math.min(8,es.length);
+  const seededEntries=[];
+  for(let rank=0;seededEntries.length<limit&&rank<es.length;rank++){
+    for(const standings of grouped)if(standings[rank]&&seededEntries.length<limit)seededEntries.push(standings[rank].entry);
+  }
   const seededIds=seededEntries.map(e=>e.id);
   const expectedQualifiers=Math.min(8,es.length);
   if(seededEntries.length!==expectedQualifiers||new Set(seededIds).size!==expectedQualifiers){
@@ -2082,6 +2064,7 @@ async function insertDoubleEliminationPhase(tournamentId,ids,roundNo,phaseName,e
 function matchLoser(m){return m.winner_entry_id===m.player1_entry_id?m.player2_entry_id:m.player1_entry_id;}
 /* DARTURNIO DKO UŠO v3: pevný orientovaný graf. Všechny soutěžní režimy používají stejné zápasy. */
 const DARTURNIO_DKO_USO = {"2":{"size":2,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":2}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"GF1","slot":2}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-01","result":"loser"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]},"4":{"size":4,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":4}],"winner_to":{"match":"W2-01","slot":1},"loser_to":{"match":"L1-01","slot":1}},{"id":"S-02","side":"middle","round":1,"position":2,"sources":[{"seed":2},{"seed":3}],"winner_to":{"match":"W2-01","slot":2},"loser_to":{"match":"L1-01","slot":2}},{"id":"W2-01","side":"right","round":2,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-02","result":"winner"}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"L2-01","slot":2}},{"id":"L1-01","side":"left","round":1,"position":1,"sources":[{"match":"S-01","result":"loser"},{"match":"S-02","result":"loser"}],"winner_to":{"match":"L2-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-01","side":"left","round":2,"position":1,"sources":[{"match":"L1-01","result":"winner"},{"match":"W2-01","result":"loser"}],"winner_to":{"match":"GF1","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"W2-01","result":"winner"},{"match":"L2-01","result":"winner"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]},"8":{"size":8,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":8}],"winner_to":{"match":"W2-01","slot":1},"loser_to":{"match":"L1-01","slot":1}},{"id":"S-02","side":"middle","round":1,"position":2,"sources":[{"seed":4},{"seed":5}],"winner_to":{"match":"W2-01","slot":2},"loser_to":{"match":"L1-01","slot":2}},{"id":"S-03","side":"middle","round":1,"position":3,"sources":[{"seed":2},{"seed":7}],"winner_to":{"match":"W2-02","slot":1},"loser_to":{"match":"L1-02","slot":1}},{"id":"S-04","side":"middle","round":1,"position":4,"sources":[{"seed":3},{"seed":6}],"winner_to":{"match":"W2-02","slot":2},"loser_to":{"match":"L1-02","slot":2}},{"id":"W2-01","side":"right","round":2,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-02","result":"winner"}],"winner_to":{"match":"W3-01","slot":1},"loser_to":{"match":"L2-02","slot":2}},{"id":"W2-02","side":"right","round":2,"position":2,"sources":[{"match":"S-03","result":"winner"},{"match":"S-04","result":"winner"}],"winner_to":{"match":"W3-01","slot":2},"loser_to":{"match":"L2-01","slot":2}},{"id":"W3-01","side":"right","round":3,"position":1,"sources":[{"match":"W2-01","result":"winner"},{"match":"W2-02","result":"winner"}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"L4-01","slot":2}},{"id":"L1-01","side":"left","round":1,"position":1,"sources":[{"match":"S-01","result":"loser"},{"match":"S-02","result":"loser"}],"winner_to":{"match":"L2-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-02","side":"left","round":1,"position":2,"sources":[{"match":"S-03","result":"loser"},{"match":"S-04","result":"loser"}],"winner_to":{"match":"L2-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-01","side":"left","round":2,"position":1,"sources":[{"match":"L1-01","result":"winner"},{"match":"W2-02","result":"loser"}],"winner_to":{"match":"L3-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-02","side":"left","round":2,"position":2,"sources":[{"match":"L1-02","result":"winner"},{"match":"W2-01","result":"loser"}],"winner_to":{"match":"L3-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-01","side":"left","round":3,"position":1,"sources":[{"match":"L2-01","result":"winner"},{"match":"L2-02","result":"winner"}],"winner_to":{"match":"L4-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-01","side":"left","round":4,"position":1,"sources":[{"match":"L3-01","result":"winner"},{"match":"W3-01","result":"loser"}],"winner_to":{"match":"GF1","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"W3-01","result":"winner"},{"match":"L4-01","result":"winner"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]},"16":{"size":16,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":16}],"winner_to":{"match":"W2-01","slot":1},"loser_to":{"match":"L1-01","slot":1}},{"id":"S-02","side":"middle","round":1,"position":2,"sources":[{"seed":8},{"seed":9}],"winner_to":{"match":"W2-01","slot":2},"loser_to":{"match":"L1-01","slot":2}},{"id":"S-03","side":"middle","round":1,"position":3,"sources":[{"seed":4},{"seed":13}],"winner_to":{"match":"W2-02","slot":1},"loser_to":{"match":"L1-02","slot":1}},{"id":"S-04","side":"middle","round":1,"position":4,"sources":[{"seed":5},{"seed":12}],"winner_to":{"match":"W2-02","slot":2},"loser_to":{"match":"L1-02","slot":2}},{"id":"S-05","side":"middle","round":1,"position":5,"sources":[{"seed":2},{"seed":15}],"winner_to":{"match":"W2-03","slot":1},"loser_to":{"match":"L1-03","slot":1}},{"id":"S-06","side":"middle","round":1,"position":6,"sources":[{"seed":7},{"seed":10}],"winner_to":{"match":"W2-03","slot":2},"loser_to":{"match":"L1-03","slot":2}},{"id":"S-07","side":"middle","round":1,"position":7,"sources":[{"seed":3},{"seed":14}],"winner_to":{"match":"W2-04","slot":1},"loser_to":{"match":"L1-04","slot":1}},{"id":"S-08","side":"middle","round":1,"position":8,"sources":[{"seed":6},{"seed":11}],"winner_to":{"match":"W2-04","slot":2},"loser_to":{"match":"L1-04","slot":2}},{"id":"W2-01","side":"right","round":2,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-02","result":"winner"}],"winner_to":{"match":"W3-01","slot":1},"loser_to":{"match":"L2-04","slot":2}},{"id":"W2-02","side":"right","round":2,"position":2,"sources":[{"match":"S-03","result":"winner"},{"match":"S-04","result":"winner"}],"winner_to":{"match":"W3-01","slot":2},"loser_to":{"match":"L2-03","slot":2}},{"id":"W2-03","side":"right","round":2,"position":3,"sources":[{"match":"S-05","result":"winner"},{"match":"S-06","result":"winner"}],"winner_to":{"match":"W3-02","slot":1},"loser_to":{"match":"L2-02","slot":2}},{"id":"W2-04","side":"right","round":2,"position":4,"sources":[{"match":"S-07","result":"winner"},{"match":"S-08","result":"winner"}],"winner_to":{"match":"W3-02","slot":2},"loser_to":{"match":"L2-01","slot":2}},{"id":"W3-01","side":"right","round":3,"position":1,"sources":[{"match":"W2-01","result":"winner"},{"match":"W2-02","result":"winner"}],"winner_to":{"match":"W4-01","slot":1},"loser_to":{"match":"L4-01","slot":2}},{"id":"W3-02","side":"right","round":3,"position":2,"sources":[{"match":"W2-03","result":"winner"},{"match":"W2-04","result":"winner"}],"winner_to":{"match":"W4-01","slot":2},"loser_to":{"match":"L4-02","slot":2}},{"id":"W4-01","side":"right","round":4,"position":1,"sources":[{"match":"W3-01","result":"winner"},{"match":"W3-02","result":"winner"}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"L6-01","slot":2}},{"id":"L1-01","side":"left","round":1,"position":1,"sources":[{"match":"S-01","result":"loser"},{"match":"S-02","result":"loser"}],"winner_to":{"match":"L2-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-02","side":"left","round":1,"position":2,"sources":[{"match":"S-03","result":"loser"},{"match":"S-04","result":"loser"}],"winner_to":{"match":"L2-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-03","side":"left","round":1,"position":3,"sources":[{"match":"S-05","result":"loser"},{"match":"S-06","result":"loser"}],"winner_to":{"match":"L2-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-04","side":"left","round":1,"position":4,"sources":[{"match":"S-07","result":"loser"},{"match":"S-08","result":"loser"}],"winner_to":{"match":"L2-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-01","side":"left","round":2,"position":1,"sources":[{"match":"L1-01","result":"winner"},{"match":"W2-04","result":"loser"}],"winner_to":{"match":"L3-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-02","side":"left","round":2,"position":2,"sources":[{"match":"L1-02","result":"winner"},{"match":"W2-03","result":"loser"}],"winner_to":{"match":"L3-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-03","side":"left","round":2,"position":3,"sources":[{"match":"L1-03","result":"winner"},{"match":"W2-02","result":"loser"}],"winner_to":{"match":"L3-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-04","side":"left","round":2,"position":4,"sources":[{"match":"L1-04","result":"winner"},{"match":"W2-01","result":"loser"}],"winner_to":{"match":"L3-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-01","side":"left","round":3,"position":1,"sources":[{"match":"L2-01","result":"winner"},{"match":"L2-02","result":"winner"}],"winner_to":{"match":"L4-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-02","side":"left","round":3,"position":2,"sources":[{"match":"L2-03","result":"winner"},{"match":"L2-04","result":"winner"}],"winner_to":{"match":"L4-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-01","side":"left","round":4,"position":1,"sources":[{"match":"L3-01","result":"winner"},{"match":"W3-01","result":"loser"}],"winner_to":{"match":"L5-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-02","side":"left","round":4,"position":2,"sources":[{"match":"L3-02","result":"winner"},{"match":"W3-02","result":"loser"}],"winner_to":{"match":"L5-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-01","side":"left","round":5,"position":1,"sources":[{"match":"L4-01","result":"winner"},{"match":"L4-02","result":"winner"}],"winner_to":{"match":"L6-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-01","side":"left","round":6,"position":1,"sources":[{"match":"L5-01","result":"winner"},{"match":"W4-01","result":"loser"}],"winner_to":{"match":"GF1","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"W4-01","result":"winner"},{"match":"L6-01","result":"winner"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]},"32":{"size":32,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":32}],"winner_to":{"match":"W2-01","slot":1},"loser_to":{"match":"L1-01","slot":1}},{"id":"S-02","side":"middle","round":1,"position":2,"sources":[{"seed":16},{"seed":17}],"winner_to":{"match":"W2-01","slot":2},"loser_to":{"match":"L1-01","slot":2}},{"id":"S-03","side":"middle","round":1,"position":3,"sources":[{"seed":8},{"seed":25}],"winner_to":{"match":"W2-02","slot":1},"loser_to":{"match":"L1-02","slot":1}},{"id":"S-04","side":"middle","round":1,"position":4,"sources":[{"seed":9},{"seed":24}],"winner_to":{"match":"W2-02","slot":2},"loser_to":{"match":"L1-02","slot":2}},{"id":"S-05","side":"middle","round":1,"position":5,"sources":[{"seed":4},{"seed":29}],"winner_to":{"match":"W2-03","slot":1},"loser_to":{"match":"L1-03","slot":1}},{"id":"S-06","side":"middle","round":1,"position":6,"sources":[{"seed":13},{"seed":20}],"winner_to":{"match":"W2-03","slot":2},"loser_to":{"match":"L1-03","slot":2}},{"id":"S-07","side":"middle","round":1,"position":7,"sources":[{"seed":5},{"seed":28}],"winner_to":{"match":"W2-04","slot":1},"loser_to":{"match":"L1-04","slot":1}},{"id":"S-08","side":"middle","round":1,"position":8,"sources":[{"seed":12},{"seed":21}],"winner_to":{"match":"W2-04","slot":2},"loser_to":{"match":"L1-04","slot":2}},{"id":"S-09","side":"middle","round":1,"position":9,"sources":[{"seed":2},{"seed":31}],"winner_to":{"match":"W2-05","slot":1},"loser_to":{"match":"L1-05","slot":1}},{"id":"S-10","side":"middle","round":1,"position":10,"sources":[{"seed":15},{"seed":18}],"winner_to":{"match":"W2-05","slot":2},"loser_to":{"match":"L1-05","slot":2}},{"id":"S-11","side":"middle","round":1,"position":11,"sources":[{"seed":7},{"seed":26}],"winner_to":{"match":"W2-06","slot":1},"loser_to":{"match":"L1-06","slot":1}},{"id":"S-12","side":"middle","round":1,"position":12,"sources":[{"seed":10},{"seed":23}],"winner_to":{"match":"W2-06","slot":2},"loser_to":{"match":"L1-06","slot":2}},{"id":"S-13","side":"middle","round":1,"position":13,"sources":[{"seed":3},{"seed":30}],"winner_to":{"match":"W2-07","slot":1},"loser_to":{"match":"L1-07","slot":1}},{"id":"S-14","side":"middle","round":1,"position":14,"sources":[{"seed":14},{"seed":19}],"winner_to":{"match":"W2-07","slot":2},"loser_to":{"match":"L1-07","slot":2}},{"id":"S-15","side":"middle","round":1,"position":15,"sources":[{"seed":6},{"seed":27}],"winner_to":{"match":"W2-08","slot":1},"loser_to":{"match":"L1-08","slot":1}},{"id":"S-16","side":"middle","round":1,"position":16,"sources":[{"seed":11},{"seed":22}],"winner_to":{"match":"W2-08","slot":2},"loser_to":{"match":"L1-08","slot":2}},{"id":"W2-01","side":"right","round":2,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-02","result":"winner"}],"winner_to":{"match":"W3-01","slot":1},"loser_to":{"match":"L2-08","slot":2}},{"id":"W2-02","side":"right","round":2,"position":2,"sources":[{"match":"S-03","result":"winner"},{"match":"S-04","result":"winner"}],"winner_to":{"match":"W3-01","slot":2},"loser_to":{"match":"L2-07","slot":2}},{"id":"W2-03","side":"right","round":2,"position":3,"sources":[{"match":"S-05","result":"winner"},{"match":"S-06","result":"winner"}],"winner_to":{"match":"W3-02","slot":1},"loser_to":{"match":"L2-06","slot":2}},{"id":"W2-04","side":"right","round":2,"position":4,"sources":[{"match":"S-07","result":"winner"},{"match":"S-08","result":"winner"}],"winner_to":{"match":"W3-02","slot":2},"loser_to":{"match":"L2-05","slot":2}},{"id":"W2-05","side":"right","round":2,"position":5,"sources":[{"match":"S-09","result":"winner"},{"match":"S-10","result":"winner"}],"winner_to":{"match":"W3-03","slot":1},"loser_to":{"match":"L2-04","slot":2}},{"id":"W2-06","side":"right","round":2,"position":6,"sources":[{"match":"S-11","result":"winner"},{"match":"S-12","result":"winner"}],"winner_to":{"match":"W3-03","slot":2},"loser_to":{"match":"L2-03","slot":2}},{"id":"W2-07","side":"right","round":2,"position":7,"sources":[{"match":"S-13","result":"winner"},{"match":"S-14","result":"winner"}],"winner_to":{"match":"W3-04","slot":1},"loser_to":{"match":"L2-02","slot":2}},{"id":"W2-08","side":"right","round":2,"position":8,"sources":[{"match":"S-15","result":"winner"},{"match":"S-16","result":"winner"}],"winner_to":{"match":"W3-04","slot":2},"loser_to":{"match":"L2-01","slot":2}},{"id":"W3-01","side":"right","round":3,"position":1,"sources":[{"match":"W2-01","result":"winner"},{"match":"W2-02","result":"winner"}],"winner_to":{"match":"W4-01","slot":1},"loser_to":{"match":"L4-02","slot":2}},{"id":"W3-02","side":"right","round":3,"position":2,"sources":[{"match":"W2-03","result":"winner"},{"match":"W2-04","result":"winner"}],"winner_to":{"match":"W4-01","slot":2},"loser_to":{"match":"L4-01","slot":2}},{"id":"W3-03","side":"right","round":3,"position":3,"sources":[{"match":"W2-05","result":"winner"},{"match":"W2-06","result":"winner"}],"winner_to":{"match":"W4-02","slot":1},"loser_to":{"match":"L4-04","slot":2}},{"id":"W3-04","side":"right","round":3,"position":4,"sources":[{"match":"W2-07","result":"winner"},{"match":"W2-08","result":"winner"}],"winner_to":{"match":"W4-02","slot":2},"loser_to":{"match":"L4-03","slot":2}},{"id":"W4-01","side":"right","round":4,"position":1,"sources":[{"match":"W3-01","result":"winner"},{"match":"W3-02","result":"winner"}],"winner_to":{"match":"W5-01","slot":1},"loser_to":{"match":"L6-02","slot":2}},{"id":"W4-02","side":"right","round":4,"position":2,"sources":[{"match":"W3-03","result":"winner"},{"match":"W3-04","result":"winner"}],"winner_to":{"match":"W5-01","slot":2},"loser_to":{"match":"L6-01","slot":2}},{"id":"W5-01","side":"right","round":5,"position":1,"sources":[{"match":"W4-01","result":"winner"},{"match":"W4-02","result":"winner"}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"L8-01","slot":2}},{"id":"L1-01","side":"left","round":1,"position":1,"sources":[{"match":"S-01","result":"loser"},{"match":"S-02","result":"loser"}],"winner_to":{"match":"L2-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-02","side":"left","round":1,"position":2,"sources":[{"match":"S-03","result":"loser"},{"match":"S-04","result":"loser"}],"winner_to":{"match":"L2-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-03","side":"left","round":1,"position":3,"sources":[{"match":"S-05","result":"loser"},{"match":"S-06","result":"loser"}],"winner_to":{"match":"L2-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-04","side":"left","round":1,"position":4,"sources":[{"match":"S-07","result":"loser"},{"match":"S-08","result":"loser"}],"winner_to":{"match":"L2-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-05","side":"left","round":1,"position":5,"sources":[{"match":"S-09","result":"loser"},{"match":"S-10","result":"loser"}],"winner_to":{"match":"L2-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-06","side":"left","round":1,"position":6,"sources":[{"match":"S-11","result":"loser"},{"match":"S-12","result":"loser"}],"winner_to":{"match":"L2-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-07","side":"left","round":1,"position":7,"sources":[{"match":"S-13","result":"loser"},{"match":"S-14","result":"loser"}],"winner_to":{"match":"L2-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-08","side":"left","round":1,"position":8,"sources":[{"match":"S-15","result":"loser"},{"match":"S-16","result":"loser"}],"winner_to":{"match":"L2-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-01","side":"left","round":2,"position":1,"sources":[{"match":"L1-01","result":"winner"},{"match":"W2-08","result":"loser"}],"winner_to":{"match":"L3-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-02","side":"left","round":2,"position":2,"sources":[{"match":"L1-02","result":"winner"},{"match":"W2-07","result":"loser"}],"winner_to":{"match":"L3-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-03","side":"left","round":2,"position":3,"sources":[{"match":"L1-03","result":"winner"},{"match":"W2-06","result":"loser"}],"winner_to":{"match":"L3-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-04","side":"left","round":2,"position":4,"sources":[{"match":"L1-04","result":"winner"},{"match":"W2-05","result":"loser"}],"winner_to":{"match":"L3-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-05","side":"left","round":2,"position":5,"sources":[{"match":"L1-05","result":"winner"},{"match":"W2-04","result":"loser"}],"winner_to":{"match":"L3-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-06","side":"left","round":2,"position":6,"sources":[{"match":"L1-06","result":"winner"},{"match":"W2-03","result":"loser"}],"winner_to":{"match":"L3-03","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-07","side":"left","round":2,"position":7,"sources":[{"match":"L1-07","result":"winner"},{"match":"W2-02","result":"loser"}],"winner_to":{"match":"L3-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-08","side":"left","round":2,"position":8,"sources":[{"match":"L1-08","result":"winner"},{"match":"W2-01","result":"loser"}],"winner_to":{"match":"L3-04","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-01","side":"left","round":3,"position":1,"sources":[{"match":"L2-01","result":"winner"},{"match":"L2-02","result":"winner"}],"winner_to":{"match":"L4-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-02","side":"left","round":3,"position":2,"sources":[{"match":"L2-03","result":"winner"},{"match":"L2-04","result":"winner"}],"winner_to":{"match":"L4-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-03","side":"left","round":3,"position":3,"sources":[{"match":"L2-05","result":"winner"},{"match":"L2-06","result":"winner"}],"winner_to":{"match":"L4-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-04","side":"left","round":3,"position":4,"sources":[{"match":"L2-07","result":"winner"},{"match":"L2-08","result":"winner"}],"winner_to":{"match":"L4-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-01","side":"left","round":4,"position":1,"sources":[{"match":"L3-01","result":"winner"},{"match":"W3-02","result":"loser"}],"winner_to":{"match":"L5-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-02","side":"left","round":4,"position":2,"sources":[{"match":"L3-02","result":"winner"},{"match":"W3-01","result":"loser"}],"winner_to":{"match":"L5-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-03","side":"left","round":4,"position":3,"sources":[{"match":"L3-03","result":"winner"},{"match":"W3-04","result":"loser"}],"winner_to":{"match":"L5-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-04","side":"left","round":4,"position":4,"sources":[{"match":"L3-04","result":"winner"},{"match":"W3-03","result":"loser"}],"winner_to":{"match":"L5-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-01","side":"left","round":5,"position":1,"sources":[{"match":"L4-01","result":"winner"},{"match":"L4-02","result":"winner"}],"winner_to":{"match":"L6-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-02","side":"left","round":5,"position":2,"sources":[{"match":"L4-03","result":"winner"},{"match":"L4-04","result":"winner"}],"winner_to":{"match":"L6-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-01","side":"left","round":6,"position":1,"sources":[{"match":"L5-01","result":"winner"},{"match":"W4-02","result":"loser"}],"winner_to":{"match":"L7-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-02","side":"left","round":6,"position":2,"sources":[{"match":"L5-02","result":"winner"},{"match":"W4-01","result":"loser"}],"winner_to":{"match":"L7-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-01","side":"left","round":7,"position":1,"sources":[{"match":"L6-01","result":"winner"},{"match":"L6-02","result":"winner"}],"winner_to":{"match":"L8-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-01","side":"left","round":8,"position":1,"sources":[{"match":"L7-01","result":"winner"},{"match":"W5-01","result":"loser"}],"winner_to":{"match":"GF1","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"W5-01","result":"winner"},{"match":"L8-01","result":"winner"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]},"64":{"size":64,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":64}],"winner_to":{"match":"W2-01","slot":1},"loser_to":{"match":"L1-01","slot":1}},{"id":"S-02","side":"middle","round":1,"position":2,"sources":[{"seed":32},{"seed":33}],"winner_to":{"match":"W2-01","slot":2},"loser_to":{"match":"L1-01","slot":2}},{"id":"S-03","side":"middle","round":1,"position":3,"sources":[{"seed":16},{"seed":49}],"winner_to":{"match":"W2-02","slot":1},"loser_to":{"match":"L1-02","slot":1}},{"id":"S-04","side":"middle","round":1,"position":4,"sources":[{"seed":17},{"seed":48}],"winner_to":{"match":"W2-02","slot":2},"loser_to":{"match":"L1-02","slot":2}},{"id":"S-05","side":"middle","round":1,"position":5,"sources":[{"seed":8},{"seed":57}],"winner_to":{"match":"W2-03","slot":1},"loser_to":{"match":"L1-03","slot":1}},{"id":"S-06","side":"middle","round":1,"position":6,"sources":[{"seed":25},{"seed":40}],"winner_to":{"match":"W2-03","slot":2},"loser_to":{"match":"L1-03","slot":2}},{"id":"S-07","side":"middle","round":1,"position":7,"sources":[{"seed":9},{"seed":56}],"winner_to":{"match":"W2-04","slot":1},"loser_to":{"match":"L1-04","slot":1}},{"id":"S-08","side":"middle","round":1,"position":8,"sources":[{"seed":24},{"seed":41}],"winner_to":{"match":"W2-04","slot":2},"loser_to":{"match":"L1-04","slot":2}},{"id":"S-09","side":"middle","round":1,"position":9,"sources":[{"seed":4},{"seed":61}],"winner_to":{"match":"W2-05","slot":1},"loser_to":{"match":"L1-05","slot":1}},{"id":"S-10","side":"middle","round":1,"position":10,"sources":[{"seed":29},{"seed":36}],"winner_to":{"match":"W2-05","slot":2},"loser_to":{"match":"L1-05","slot":2}},{"id":"S-11","side":"middle","round":1,"position":11,"sources":[{"seed":13},{"seed":52}],"winner_to":{"match":"W2-06","slot":1},"loser_to":{"match":"L1-06","slot":1}},{"id":"S-12","side":"middle","round":1,"position":12,"sources":[{"seed":20},{"seed":45}],"winner_to":{"match":"W2-06","slot":2},"loser_to":{"match":"L1-06","slot":2}},{"id":"S-13","side":"middle","round":1,"position":13,"sources":[{"seed":5},{"seed":60}],"winner_to":{"match":"W2-07","slot":1},"loser_to":{"match":"L1-07","slot":1}},{"id":"S-14","side":"middle","round":1,"position":14,"sources":[{"seed":28},{"seed":37}],"winner_to":{"match":"W2-07","slot":2},"loser_to":{"match":"L1-07","slot":2}},{"id":"S-15","side":"middle","round":1,"position":15,"sources":[{"seed":12},{"seed":53}],"winner_to":{"match":"W2-08","slot":1},"loser_to":{"match":"L1-08","slot":1}},{"id":"S-16","side":"middle","round":1,"position":16,"sources":[{"seed":21},{"seed":44}],"winner_to":{"match":"W2-08","slot":2},"loser_to":{"match":"L1-08","slot":2}},{"id":"S-17","side":"middle","round":1,"position":17,"sources":[{"seed":2},{"seed":63}],"winner_to":{"match":"W2-09","slot":1},"loser_to":{"match":"L1-09","slot":1}},{"id":"S-18","side":"middle","round":1,"position":18,"sources":[{"seed":31},{"seed":34}],"winner_to":{"match":"W2-09","slot":2},"loser_to":{"match":"L1-09","slot":2}},{"id":"S-19","side":"middle","round":1,"position":19,"sources":[{"seed":15},{"seed":50}],"winner_to":{"match":"W2-10","slot":1},"loser_to":{"match":"L1-10","slot":1}},{"id":"S-20","side":"middle","round":1,"position":20,"sources":[{"seed":18},{"seed":47}],"winner_to":{"match":"W2-10","slot":2},"loser_to":{"match":"L1-10","slot":2}},{"id":"S-21","side":"middle","round":1,"position":21,"sources":[{"seed":7},{"seed":58}],"winner_to":{"match":"W2-11","slot":1},"loser_to":{"match":"L1-11","slot":1}},{"id":"S-22","side":"middle","round":1,"position":22,"sources":[{"seed":26},{"seed":39}],"winner_to":{"match":"W2-11","slot":2},"loser_to":{"match":"L1-11","slot":2}},{"id":"S-23","side":"middle","round":1,"position":23,"sources":[{"seed":10},{"seed":55}],"winner_to":{"match":"W2-12","slot":1},"loser_to":{"match":"L1-12","slot":1}},{"id":"S-24","side":"middle","round":1,"position":24,"sources":[{"seed":23},{"seed":42}],"winner_to":{"match":"W2-12","slot":2},"loser_to":{"match":"L1-12","slot":2}},{"id":"S-25","side":"middle","round":1,"position":25,"sources":[{"seed":3},{"seed":62}],"winner_to":{"match":"W2-13","slot":1},"loser_to":{"match":"L1-13","slot":1}},{"id":"S-26","side":"middle","round":1,"position":26,"sources":[{"seed":30},{"seed":35}],"winner_to":{"match":"W2-13","slot":2},"loser_to":{"match":"L1-13","slot":2}},{"id":"S-27","side":"middle","round":1,"position":27,"sources":[{"seed":14},{"seed":51}],"winner_to":{"match":"W2-14","slot":1},"loser_to":{"match":"L1-14","slot":1}},{"id":"S-28","side":"middle","round":1,"position":28,"sources":[{"seed":19},{"seed":46}],"winner_to":{"match":"W2-14","slot":2},"loser_to":{"match":"L1-14","slot":2}},{"id":"S-29","side":"middle","round":1,"position":29,"sources":[{"seed":6},{"seed":59}],"winner_to":{"match":"W2-15","slot":1},"loser_to":{"match":"L1-15","slot":1}},{"id":"S-30","side":"middle","round":1,"position":30,"sources":[{"seed":27},{"seed":38}],"winner_to":{"match":"W2-15","slot":2},"loser_to":{"match":"L1-15","slot":2}},{"id":"S-31","side":"middle","round":1,"position":31,"sources":[{"seed":11},{"seed":54}],"winner_to":{"match":"W2-16","slot":1},"loser_to":{"match":"L1-16","slot":1}},{"id":"S-32","side":"middle","round":1,"position":32,"sources":[{"seed":22},{"seed":43}],"winner_to":{"match":"W2-16","slot":2},"loser_to":{"match":"L1-16","slot":2}},{"id":"W2-01","side":"right","round":2,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-02","result":"winner"}],"winner_to":{"match":"W3-01","slot":1},"loser_to":{"match":"L2-16","slot":2}},{"id":"W2-02","side":"right","round":2,"position":2,"sources":[{"match":"S-03","result":"winner"},{"match":"S-04","result":"winner"}],"winner_to":{"match":"W3-01","slot":2},"loser_to":{"match":"L2-15","slot":2}},{"id":"W2-03","side":"right","round":2,"position":3,"sources":[{"match":"S-05","result":"winner"},{"match":"S-06","result":"winner"}],"winner_to":{"match":"W3-02","slot":1},"loser_to":{"match":"L2-14","slot":2}},{"id":"W2-04","side":"right","round":2,"position":4,"sources":[{"match":"S-07","result":"winner"},{"match":"S-08","result":"winner"}],"winner_to":{"match":"W3-02","slot":2},"loser_to":{"match":"L2-13","slot":2}},{"id":"W2-05","side":"right","round":2,"position":5,"sources":[{"match":"S-09","result":"winner"},{"match":"S-10","result":"winner"}],"winner_to":{"match":"W3-03","slot":1},"loser_to":{"match":"L2-12","slot":2}},{"id":"W2-06","side":"right","round":2,"position":6,"sources":[{"match":"S-11","result":"winner"},{"match":"S-12","result":"winner"}],"winner_to":{"match":"W3-03","slot":2},"loser_to":{"match":"L2-11","slot":2}},{"id":"W2-07","side":"right","round":2,"position":7,"sources":[{"match":"S-13","result":"winner"},{"match":"S-14","result":"winner"}],"winner_to":{"match":"W3-04","slot":1},"loser_to":{"match":"L2-10","slot":2}},{"id":"W2-08","side":"right","round":2,"position":8,"sources":[{"match":"S-15","result":"winner"},{"match":"S-16","result":"winner"}],"winner_to":{"match":"W3-04","slot":2},"loser_to":{"match":"L2-09","slot":2}},{"id":"W2-09","side":"right","round":2,"position":9,"sources":[{"match":"S-17","result":"winner"},{"match":"S-18","result":"winner"}],"winner_to":{"match":"W3-05","slot":1},"loser_to":{"match":"L2-08","slot":2}},{"id":"W2-10","side":"right","round":2,"position":10,"sources":[{"match":"S-19","result":"winner"},{"match":"S-20","result":"winner"}],"winner_to":{"match":"W3-05","slot":2},"loser_to":{"match":"L2-07","slot":2}},{"id":"W2-11","side":"right","round":2,"position":11,"sources":[{"match":"S-21","result":"winner"},{"match":"S-22","result":"winner"}],"winner_to":{"match":"W3-06","slot":1},"loser_to":{"match":"L2-06","slot":2}},{"id":"W2-12","side":"right","round":2,"position":12,"sources":[{"match":"S-23","result":"winner"},{"match":"S-24","result":"winner"}],"winner_to":{"match":"W3-06","slot":2},"loser_to":{"match":"L2-05","slot":2}},{"id":"W2-13","side":"right","round":2,"position":13,"sources":[{"match":"S-25","result":"winner"},{"match":"S-26","result":"winner"}],"winner_to":{"match":"W3-07","slot":1},"loser_to":{"match":"L2-04","slot":2}},{"id":"W2-14","side":"right","round":2,"position":14,"sources":[{"match":"S-27","result":"winner"},{"match":"S-28","result":"winner"}],"winner_to":{"match":"W3-07","slot":2},"loser_to":{"match":"L2-03","slot":2}},{"id":"W2-15","side":"right","round":2,"position":15,"sources":[{"match":"S-29","result":"winner"},{"match":"S-30","result":"winner"}],"winner_to":{"match":"W3-08","slot":1},"loser_to":{"match":"L2-02","slot":2}},{"id":"W2-16","side":"right","round":2,"position":16,"sources":[{"match":"S-31","result":"winner"},{"match":"S-32","result":"winner"}],"winner_to":{"match":"W3-08","slot":2},"loser_to":{"match":"L2-01","slot":2}},{"id":"W3-01","side":"right","round":3,"position":1,"sources":[{"match":"W2-01","result":"winner"},{"match":"W2-02","result":"winner"}],"winner_to":{"match":"W4-01","slot":1},"loser_to":{"match":"L4-04","slot":2}},{"id":"W3-02","side":"right","round":3,"position":2,"sources":[{"match":"W2-03","result":"winner"},{"match":"W2-04","result":"winner"}],"winner_to":{"match":"W4-01","slot":2},"loser_to":{"match":"L4-03","slot":2}},{"id":"W3-03","side":"right","round":3,"position":3,"sources":[{"match":"W2-05","result":"winner"},{"match":"W2-06","result":"winner"}],"winner_to":{"match":"W4-02","slot":1},"loser_to":{"match":"L4-02","slot":2}},{"id":"W3-04","side":"right","round":3,"position":4,"sources":[{"match":"W2-07","result":"winner"},{"match":"W2-08","result":"winner"}],"winner_to":{"match":"W4-02","slot":2},"loser_to":{"match":"L4-01","slot":2}},{"id":"W3-05","side":"right","round":3,"position":5,"sources":[{"match":"W2-09","result":"winner"},{"match":"W2-10","result":"winner"}],"winner_to":{"match":"W4-03","slot":1},"loser_to":{"match":"L4-08","slot":2}},{"id":"W3-06","side":"right","round":3,"position":6,"sources":[{"match":"W2-11","result":"winner"},{"match":"W2-12","result":"winner"}],"winner_to":{"match":"W4-03","slot":2},"loser_to":{"match":"L4-07","slot":2}},{"id":"W3-07","side":"right","round":3,"position":7,"sources":[{"match":"W2-13","result":"winner"},{"match":"W2-14","result":"winner"}],"winner_to":{"match":"W4-04","slot":1},"loser_to":{"match":"L4-06","slot":2}},{"id":"W3-08","side":"right","round":3,"position":8,"sources":[{"match":"W2-15","result":"winner"},{"match":"W2-16","result":"winner"}],"winner_to":{"match":"W4-04","slot":2},"loser_to":{"match":"L4-05","slot":2}},{"id":"W4-01","side":"right","round":4,"position":1,"sources":[{"match":"W3-01","result":"winner"},{"match":"W3-02","result":"winner"}],"winner_to":{"match":"W5-01","slot":1},"loser_to":{"match":"L6-03","slot":2}},{"id":"W4-02","side":"right","round":4,"position":2,"sources":[{"match":"W3-03","result":"winner"},{"match":"W3-04","result":"winner"}],"winner_to":{"match":"W5-01","slot":2},"loser_to":{"match":"L6-04","slot":2}},{"id":"W4-03","side":"right","round":4,"position":3,"sources":[{"match":"W3-05","result":"winner"},{"match":"W3-06","result":"winner"}],"winner_to":{"match":"W5-02","slot":1},"loser_to":{"match":"L6-01","slot":2}},{"id":"W4-04","side":"right","round":4,"position":4,"sources":[{"match":"W3-07","result":"winner"},{"match":"W3-08","result":"winner"}],"winner_to":{"match":"W5-02","slot":2},"loser_to":{"match":"L6-02","slot":2}},{"id":"W5-01","side":"right","round":5,"position":1,"sources":[{"match":"W4-01","result":"winner"},{"match":"W4-02","result":"winner"}],"winner_to":{"match":"W6-01","slot":1},"loser_to":{"match":"L8-01","slot":2}},{"id":"W5-02","side":"right","round":5,"position":2,"sources":[{"match":"W4-03","result":"winner"},{"match":"W4-04","result":"winner"}],"winner_to":{"match":"W6-01","slot":2},"loser_to":{"match":"L8-02","slot":2}},{"id":"W6-01","side":"right","round":6,"position":1,"sources":[{"match":"W5-01","result":"winner"},{"match":"W5-02","result":"winner"}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"L10-01","slot":2}},{"id":"L1-01","side":"left","round":1,"position":1,"sources":[{"match":"S-01","result":"loser"},{"match":"S-02","result":"loser"}],"winner_to":{"match":"L2-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-02","side":"left","round":1,"position":2,"sources":[{"match":"S-03","result":"loser"},{"match":"S-04","result":"loser"}],"winner_to":{"match":"L2-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-03","side":"left","round":1,"position":3,"sources":[{"match":"S-05","result":"loser"},{"match":"S-06","result":"loser"}],"winner_to":{"match":"L2-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-04","side":"left","round":1,"position":4,"sources":[{"match":"S-07","result":"loser"},{"match":"S-08","result":"loser"}],"winner_to":{"match":"L2-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-05","side":"left","round":1,"position":5,"sources":[{"match":"S-09","result":"loser"},{"match":"S-10","result":"loser"}],"winner_to":{"match":"L2-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-06","side":"left","round":1,"position":6,"sources":[{"match":"S-11","result":"loser"},{"match":"S-12","result":"loser"}],"winner_to":{"match":"L2-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-07","side":"left","round":1,"position":7,"sources":[{"match":"S-13","result":"loser"},{"match":"S-14","result":"loser"}],"winner_to":{"match":"L2-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-08","side":"left","round":1,"position":8,"sources":[{"match":"S-15","result":"loser"},{"match":"S-16","result":"loser"}],"winner_to":{"match":"L2-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-09","side":"left","round":1,"position":9,"sources":[{"match":"S-17","result":"loser"},{"match":"S-18","result":"loser"}],"winner_to":{"match":"L2-09","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-10","side":"left","round":1,"position":10,"sources":[{"match":"S-19","result":"loser"},{"match":"S-20","result":"loser"}],"winner_to":{"match":"L2-10","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-11","side":"left","round":1,"position":11,"sources":[{"match":"S-21","result":"loser"},{"match":"S-22","result":"loser"}],"winner_to":{"match":"L2-11","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-12","side":"left","round":1,"position":12,"sources":[{"match":"S-23","result":"loser"},{"match":"S-24","result":"loser"}],"winner_to":{"match":"L2-12","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-13","side":"left","round":1,"position":13,"sources":[{"match":"S-25","result":"loser"},{"match":"S-26","result":"loser"}],"winner_to":{"match":"L2-13","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-14","side":"left","round":1,"position":14,"sources":[{"match":"S-27","result":"loser"},{"match":"S-28","result":"loser"}],"winner_to":{"match":"L2-14","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-15","side":"left","round":1,"position":15,"sources":[{"match":"S-29","result":"loser"},{"match":"S-30","result":"loser"}],"winner_to":{"match":"L2-15","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-16","side":"left","round":1,"position":16,"sources":[{"match":"S-31","result":"loser"},{"match":"S-32","result":"loser"}],"winner_to":{"match":"L2-16","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-01","side":"left","round":2,"position":1,"sources":[{"match":"L1-01","result":"winner"},{"match":"W2-16","result":"loser"}],"winner_to":{"match":"L3-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-02","side":"left","round":2,"position":2,"sources":[{"match":"L1-02","result":"winner"},{"match":"W2-15","result":"loser"}],"winner_to":{"match":"L3-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-03","side":"left","round":2,"position":3,"sources":[{"match":"L1-03","result":"winner"},{"match":"W2-14","result":"loser"}],"winner_to":{"match":"L3-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-04","side":"left","round":2,"position":4,"sources":[{"match":"L1-04","result":"winner"},{"match":"W2-13","result":"loser"}],"winner_to":{"match":"L3-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-05","side":"left","round":2,"position":5,"sources":[{"match":"L1-05","result":"winner"},{"match":"W2-12","result":"loser"}],"winner_to":{"match":"L3-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-06","side":"left","round":2,"position":6,"sources":[{"match":"L1-06","result":"winner"},{"match":"W2-11","result":"loser"}],"winner_to":{"match":"L3-03","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-07","side":"left","round":2,"position":7,"sources":[{"match":"L1-07","result":"winner"},{"match":"W2-10","result":"loser"}],"winner_to":{"match":"L3-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-08","side":"left","round":2,"position":8,"sources":[{"match":"L1-08","result":"winner"},{"match":"W2-09","result":"loser"}],"winner_to":{"match":"L3-04","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-09","side":"left","round":2,"position":9,"sources":[{"match":"L1-09","result":"winner"},{"match":"W2-08","result":"loser"}],"winner_to":{"match":"L3-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-10","side":"left","round":2,"position":10,"sources":[{"match":"L1-10","result":"winner"},{"match":"W2-07","result":"loser"}],"winner_to":{"match":"L3-05","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-11","side":"left","round":2,"position":11,"sources":[{"match":"L1-11","result":"winner"},{"match":"W2-06","result":"loser"}],"winner_to":{"match":"L3-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-12","side":"left","round":2,"position":12,"sources":[{"match":"L1-12","result":"winner"},{"match":"W2-05","result":"loser"}],"winner_to":{"match":"L3-06","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-13","side":"left","round":2,"position":13,"sources":[{"match":"L1-13","result":"winner"},{"match":"W2-04","result":"loser"}],"winner_to":{"match":"L3-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-14","side":"left","round":2,"position":14,"sources":[{"match":"L1-14","result":"winner"},{"match":"W2-03","result":"loser"}],"winner_to":{"match":"L3-07","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-15","side":"left","round":2,"position":15,"sources":[{"match":"L1-15","result":"winner"},{"match":"W2-02","result":"loser"}],"winner_to":{"match":"L3-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-16","side":"left","round":2,"position":16,"sources":[{"match":"L1-16","result":"winner"},{"match":"W2-01","result":"loser"}],"winner_to":{"match":"L3-08","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-01","side":"left","round":3,"position":1,"sources":[{"match":"L2-01","result":"winner"},{"match":"L2-02","result":"winner"}],"winner_to":{"match":"L4-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-02","side":"left","round":3,"position":2,"sources":[{"match":"L2-03","result":"winner"},{"match":"L2-04","result":"winner"}],"winner_to":{"match":"L4-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-03","side":"left","round":3,"position":3,"sources":[{"match":"L2-05","result":"winner"},{"match":"L2-06","result":"winner"}],"winner_to":{"match":"L4-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-04","side":"left","round":3,"position":4,"sources":[{"match":"L2-07","result":"winner"},{"match":"L2-08","result":"winner"}],"winner_to":{"match":"L4-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-05","side":"left","round":3,"position":5,"sources":[{"match":"L2-09","result":"winner"},{"match":"L2-10","result":"winner"}],"winner_to":{"match":"L4-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-06","side":"left","round":3,"position":6,"sources":[{"match":"L2-11","result":"winner"},{"match":"L2-12","result":"winner"}],"winner_to":{"match":"L4-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-07","side":"left","round":3,"position":7,"sources":[{"match":"L2-13","result":"winner"},{"match":"L2-14","result":"winner"}],"winner_to":{"match":"L4-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-08","side":"left","round":3,"position":8,"sources":[{"match":"L2-15","result":"winner"},{"match":"L2-16","result":"winner"}],"winner_to":{"match":"L4-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-01","side":"left","round":4,"position":1,"sources":[{"match":"L3-01","result":"winner"},{"match":"W3-04","result":"loser"}],"winner_to":{"match":"L5-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-02","side":"left","round":4,"position":2,"sources":[{"match":"L3-02","result":"winner"},{"match":"W3-03","result":"loser"}],"winner_to":{"match":"L5-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-03","side":"left","round":4,"position":3,"sources":[{"match":"L3-03","result":"winner"},{"match":"W3-02","result":"loser"}],"winner_to":{"match":"L5-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-04","side":"left","round":4,"position":4,"sources":[{"match":"L3-04","result":"winner"},{"match":"W3-01","result":"loser"}],"winner_to":{"match":"L5-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-05","side":"left","round":4,"position":5,"sources":[{"match":"L3-05","result":"winner"},{"match":"W3-08","result":"loser"}],"winner_to":{"match":"L5-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-06","side":"left","round":4,"position":6,"sources":[{"match":"L3-06","result":"winner"},{"match":"W3-07","result":"loser"}],"winner_to":{"match":"L5-03","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-07","side":"left","round":4,"position":7,"sources":[{"match":"L3-07","result":"winner"},{"match":"W3-06","result":"loser"}],"winner_to":{"match":"L5-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-08","side":"left","round":4,"position":8,"sources":[{"match":"L3-08","result":"winner"},{"match":"W3-05","result":"loser"}],"winner_to":{"match":"L5-04","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-01","side":"left","round":5,"position":1,"sources":[{"match":"L4-01","result":"winner"},{"match":"L4-02","result":"winner"}],"winner_to":{"match":"L6-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-02","side":"left","round":5,"position":2,"sources":[{"match":"L4-03","result":"winner"},{"match":"L4-04","result":"winner"}],"winner_to":{"match":"L6-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-03","side":"left","round":5,"position":3,"sources":[{"match":"L4-05","result":"winner"},{"match":"L4-06","result":"winner"}],"winner_to":{"match":"L6-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-04","side":"left","round":5,"position":4,"sources":[{"match":"L4-07","result":"winner"},{"match":"L4-08","result":"winner"}],"winner_to":{"match":"L6-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-01","side":"left","round":6,"position":1,"sources":[{"match":"L5-01","result":"winner"},{"match":"W4-03","result":"loser"}],"winner_to":{"match":"L7-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-02","side":"left","round":6,"position":2,"sources":[{"match":"L5-02","result":"winner"},{"match":"W4-04","result":"loser"}],"winner_to":{"match":"L7-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-03","side":"left","round":6,"position":3,"sources":[{"match":"L5-03","result":"winner"},{"match":"W4-01","result":"loser"}],"winner_to":{"match":"L7-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-04","side":"left","round":6,"position":4,"sources":[{"match":"L5-04","result":"winner"},{"match":"W4-02","result":"loser"}],"winner_to":{"match":"L7-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-01","side":"left","round":7,"position":1,"sources":[{"match":"L6-01","result":"winner"},{"match":"L6-02","result":"winner"}],"winner_to":{"match":"L8-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-02","side":"left","round":7,"position":2,"sources":[{"match":"L6-03","result":"winner"},{"match":"L6-04","result":"winner"}],"winner_to":{"match":"L8-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-01","side":"left","round":8,"position":1,"sources":[{"match":"L7-01","result":"winner"},{"match":"W5-01","result":"loser"}],"winner_to":{"match":"L9-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-02","side":"left","round":8,"position":2,"sources":[{"match":"L7-02","result":"winner"},{"match":"W5-02","result":"loser"}],"winner_to":{"match":"L9-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L9-01","side":"left","round":9,"position":1,"sources":[{"match":"L8-01","result":"winner"},{"match":"L8-02","result":"winner"}],"winner_to":{"match":"L10-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L10-01","side":"left","round":10,"position":1,"sources":[{"match":"L9-01","result":"winner"},{"match":"W6-01","result":"loser"}],"winner_to":{"match":"GF1","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"W6-01","result":"winner"},{"match":"L10-01","result":"winner"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]},"128":{"size":128,"matches":[{"id":"S-01","side":"middle","round":1,"position":1,"sources":[{"seed":1},{"seed":128}],"winner_to":{"match":"W2-01","slot":1},"loser_to":{"match":"L1-01","slot":1}},{"id":"S-02","side":"middle","round":1,"position":2,"sources":[{"seed":64},{"seed":65}],"winner_to":{"match":"W2-01","slot":2},"loser_to":{"match":"L1-01","slot":2}},{"id":"S-03","side":"middle","round":1,"position":3,"sources":[{"seed":32},{"seed":97}],"winner_to":{"match":"W2-02","slot":1},"loser_to":{"match":"L1-02","slot":1}},{"id":"S-04","side":"middle","round":1,"position":4,"sources":[{"seed":33},{"seed":96}],"winner_to":{"match":"W2-02","slot":2},"loser_to":{"match":"L1-02","slot":2}},{"id":"S-05","side":"middle","round":1,"position":5,"sources":[{"seed":16},{"seed":113}],"winner_to":{"match":"W2-03","slot":1},"loser_to":{"match":"L1-03","slot":1}},{"id":"S-06","side":"middle","round":1,"position":6,"sources":[{"seed":49},{"seed":80}],"winner_to":{"match":"W2-03","slot":2},"loser_to":{"match":"L1-03","slot":2}},{"id":"S-07","side":"middle","round":1,"position":7,"sources":[{"seed":17},{"seed":112}],"winner_to":{"match":"W2-04","slot":1},"loser_to":{"match":"L1-04","slot":1}},{"id":"S-08","side":"middle","round":1,"position":8,"sources":[{"seed":48},{"seed":81}],"winner_to":{"match":"W2-04","slot":2},"loser_to":{"match":"L1-04","slot":2}},{"id":"S-09","side":"middle","round":1,"position":9,"sources":[{"seed":8},{"seed":121}],"winner_to":{"match":"W2-05","slot":1},"loser_to":{"match":"L1-05","slot":1}},{"id":"S-10","side":"middle","round":1,"position":10,"sources":[{"seed":57},{"seed":72}],"winner_to":{"match":"W2-05","slot":2},"loser_to":{"match":"L1-05","slot":2}},{"id":"S-11","side":"middle","round":1,"position":11,"sources":[{"seed":25},{"seed":104}],"winner_to":{"match":"W2-06","slot":1},"loser_to":{"match":"L1-06","slot":1}},{"id":"S-12","side":"middle","round":1,"position":12,"sources":[{"seed":40},{"seed":89}],"winner_to":{"match":"W2-06","slot":2},"loser_to":{"match":"L1-06","slot":2}},{"id":"S-13","side":"middle","round":1,"position":13,"sources":[{"seed":9},{"seed":120}],"winner_to":{"match":"W2-07","slot":1},"loser_to":{"match":"L1-07","slot":1}},{"id":"S-14","side":"middle","round":1,"position":14,"sources":[{"seed":56},{"seed":73}],"winner_to":{"match":"W2-07","slot":2},"loser_to":{"match":"L1-07","slot":2}},{"id":"S-15","side":"middle","round":1,"position":15,"sources":[{"seed":24},{"seed":105}],"winner_to":{"match":"W2-08","slot":1},"loser_to":{"match":"L1-08","slot":1}},{"id":"S-16","side":"middle","round":1,"position":16,"sources":[{"seed":41},{"seed":88}],"winner_to":{"match":"W2-08","slot":2},"loser_to":{"match":"L1-08","slot":2}},{"id":"S-17","side":"middle","round":1,"position":17,"sources":[{"seed":4},{"seed":125}],"winner_to":{"match":"W2-09","slot":1},"loser_to":{"match":"L1-09","slot":1}},{"id":"S-18","side":"middle","round":1,"position":18,"sources":[{"seed":61},{"seed":68}],"winner_to":{"match":"W2-09","slot":2},"loser_to":{"match":"L1-09","slot":2}},{"id":"S-19","side":"middle","round":1,"position":19,"sources":[{"seed":29},{"seed":100}],"winner_to":{"match":"W2-10","slot":1},"loser_to":{"match":"L1-10","slot":1}},{"id":"S-20","side":"middle","round":1,"position":20,"sources":[{"seed":36},{"seed":93}],"winner_to":{"match":"W2-10","slot":2},"loser_to":{"match":"L1-10","slot":2}},{"id":"S-21","side":"middle","round":1,"position":21,"sources":[{"seed":13},{"seed":116}],"winner_to":{"match":"W2-11","slot":1},"loser_to":{"match":"L1-11","slot":1}},{"id":"S-22","side":"middle","round":1,"position":22,"sources":[{"seed":52},{"seed":77}],"winner_to":{"match":"W2-11","slot":2},"loser_to":{"match":"L1-11","slot":2}},{"id":"S-23","side":"middle","round":1,"position":23,"sources":[{"seed":20},{"seed":109}],"winner_to":{"match":"W2-12","slot":1},"loser_to":{"match":"L1-12","slot":1}},{"id":"S-24","side":"middle","round":1,"position":24,"sources":[{"seed":45},{"seed":84}],"winner_to":{"match":"W2-12","slot":2},"loser_to":{"match":"L1-12","slot":2}},{"id":"S-25","side":"middle","round":1,"position":25,"sources":[{"seed":5},{"seed":124}],"winner_to":{"match":"W2-13","slot":1},"loser_to":{"match":"L1-13","slot":1}},{"id":"S-26","side":"middle","round":1,"position":26,"sources":[{"seed":60},{"seed":69}],"winner_to":{"match":"W2-13","slot":2},"loser_to":{"match":"L1-13","slot":2}},{"id":"S-27","side":"middle","round":1,"position":27,"sources":[{"seed":28},{"seed":101}],"winner_to":{"match":"W2-14","slot":1},"loser_to":{"match":"L1-14","slot":1}},{"id":"S-28","side":"middle","round":1,"position":28,"sources":[{"seed":37},{"seed":92}],"winner_to":{"match":"W2-14","slot":2},"loser_to":{"match":"L1-14","slot":2}},{"id":"S-29","side":"middle","round":1,"position":29,"sources":[{"seed":12},{"seed":117}],"winner_to":{"match":"W2-15","slot":1},"loser_to":{"match":"L1-15","slot":1}},{"id":"S-30","side":"middle","round":1,"position":30,"sources":[{"seed":53},{"seed":76}],"winner_to":{"match":"W2-15","slot":2},"loser_to":{"match":"L1-15","slot":2}},{"id":"S-31","side":"middle","round":1,"position":31,"sources":[{"seed":21},{"seed":108}],"winner_to":{"match":"W2-16","slot":1},"loser_to":{"match":"L1-16","slot":1}},{"id":"S-32","side":"middle","round":1,"position":32,"sources":[{"seed":44},{"seed":85}],"winner_to":{"match":"W2-16","slot":2},"loser_to":{"match":"L1-16","slot":2}},{"id":"S-33","side":"middle","round":1,"position":33,"sources":[{"seed":2},{"seed":127}],"winner_to":{"match":"W2-17","slot":1},"loser_to":{"match":"L1-17","slot":1}},{"id":"S-34","side":"middle","round":1,"position":34,"sources":[{"seed":63},{"seed":66}],"winner_to":{"match":"W2-17","slot":2},"loser_to":{"match":"L1-17","slot":2}},{"id":"S-35","side":"middle","round":1,"position":35,"sources":[{"seed":31},{"seed":98}],"winner_to":{"match":"W2-18","slot":1},"loser_to":{"match":"L1-18","slot":1}},{"id":"S-36","side":"middle","round":1,"position":36,"sources":[{"seed":34},{"seed":95}],"winner_to":{"match":"W2-18","slot":2},"loser_to":{"match":"L1-18","slot":2}},{"id":"S-37","side":"middle","round":1,"position":37,"sources":[{"seed":15},{"seed":114}],"winner_to":{"match":"W2-19","slot":1},"loser_to":{"match":"L1-19","slot":1}},{"id":"S-38","side":"middle","round":1,"position":38,"sources":[{"seed":50},{"seed":79}],"winner_to":{"match":"W2-19","slot":2},"loser_to":{"match":"L1-19","slot":2}},{"id":"S-39","side":"middle","round":1,"position":39,"sources":[{"seed":18},{"seed":111}],"winner_to":{"match":"W2-20","slot":1},"loser_to":{"match":"L1-20","slot":1}},{"id":"S-40","side":"middle","round":1,"position":40,"sources":[{"seed":47},{"seed":82}],"winner_to":{"match":"W2-20","slot":2},"loser_to":{"match":"L1-20","slot":2}},{"id":"S-41","side":"middle","round":1,"position":41,"sources":[{"seed":7},{"seed":122}],"winner_to":{"match":"W2-21","slot":1},"loser_to":{"match":"L1-21","slot":1}},{"id":"S-42","side":"middle","round":1,"position":42,"sources":[{"seed":58},{"seed":71}],"winner_to":{"match":"W2-21","slot":2},"loser_to":{"match":"L1-21","slot":2}},{"id":"S-43","side":"middle","round":1,"position":43,"sources":[{"seed":26},{"seed":103}],"winner_to":{"match":"W2-22","slot":1},"loser_to":{"match":"L1-22","slot":1}},{"id":"S-44","side":"middle","round":1,"position":44,"sources":[{"seed":39},{"seed":90}],"winner_to":{"match":"W2-22","slot":2},"loser_to":{"match":"L1-22","slot":2}},{"id":"S-45","side":"middle","round":1,"position":45,"sources":[{"seed":10},{"seed":119}],"winner_to":{"match":"W2-23","slot":1},"loser_to":{"match":"L1-23","slot":1}},{"id":"S-46","side":"middle","round":1,"position":46,"sources":[{"seed":55},{"seed":74}],"winner_to":{"match":"W2-23","slot":2},"loser_to":{"match":"L1-23","slot":2}},{"id":"S-47","side":"middle","round":1,"position":47,"sources":[{"seed":23},{"seed":106}],"winner_to":{"match":"W2-24","slot":1},"loser_to":{"match":"L1-24","slot":1}},{"id":"S-48","side":"middle","round":1,"position":48,"sources":[{"seed":42},{"seed":87}],"winner_to":{"match":"W2-24","slot":2},"loser_to":{"match":"L1-24","slot":2}},{"id":"S-49","side":"middle","round":1,"position":49,"sources":[{"seed":3},{"seed":126}],"winner_to":{"match":"W2-25","slot":1},"loser_to":{"match":"L1-25","slot":1}},{"id":"S-50","side":"middle","round":1,"position":50,"sources":[{"seed":62},{"seed":67}],"winner_to":{"match":"W2-25","slot":2},"loser_to":{"match":"L1-25","slot":2}},{"id":"S-51","side":"middle","round":1,"position":51,"sources":[{"seed":30},{"seed":99}],"winner_to":{"match":"W2-26","slot":1},"loser_to":{"match":"L1-26","slot":1}},{"id":"S-52","side":"middle","round":1,"position":52,"sources":[{"seed":35},{"seed":94}],"winner_to":{"match":"W2-26","slot":2},"loser_to":{"match":"L1-26","slot":2}},{"id":"S-53","side":"middle","round":1,"position":53,"sources":[{"seed":14},{"seed":115}],"winner_to":{"match":"W2-27","slot":1},"loser_to":{"match":"L1-27","slot":1}},{"id":"S-54","side":"middle","round":1,"position":54,"sources":[{"seed":51},{"seed":78}],"winner_to":{"match":"W2-27","slot":2},"loser_to":{"match":"L1-27","slot":2}},{"id":"S-55","side":"middle","round":1,"position":55,"sources":[{"seed":19},{"seed":110}],"winner_to":{"match":"W2-28","slot":1},"loser_to":{"match":"L1-28","slot":1}},{"id":"S-56","side":"middle","round":1,"position":56,"sources":[{"seed":46},{"seed":83}],"winner_to":{"match":"W2-28","slot":2},"loser_to":{"match":"L1-28","slot":2}},{"id":"S-57","side":"middle","round":1,"position":57,"sources":[{"seed":6},{"seed":123}],"winner_to":{"match":"W2-29","slot":1},"loser_to":{"match":"L1-29","slot":1}},{"id":"S-58","side":"middle","round":1,"position":58,"sources":[{"seed":59},{"seed":70}],"winner_to":{"match":"W2-29","slot":2},"loser_to":{"match":"L1-29","slot":2}},{"id":"S-59","side":"middle","round":1,"position":59,"sources":[{"seed":27},{"seed":102}],"winner_to":{"match":"W2-30","slot":1},"loser_to":{"match":"L1-30","slot":1}},{"id":"S-60","side":"middle","round":1,"position":60,"sources":[{"seed":38},{"seed":91}],"winner_to":{"match":"W2-30","slot":2},"loser_to":{"match":"L1-30","slot":2}},{"id":"S-61","side":"middle","round":1,"position":61,"sources":[{"seed":11},{"seed":118}],"winner_to":{"match":"W2-31","slot":1},"loser_to":{"match":"L1-31","slot":1}},{"id":"S-62","side":"middle","round":1,"position":62,"sources":[{"seed":54},{"seed":75}],"winner_to":{"match":"W2-31","slot":2},"loser_to":{"match":"L1-31","slot":2}},{"id":"S-63","side":"middle","round":1,"position":63,"sources":[{"seed":22},{"seed":107}],"winner_to":{"match":"W2-32","slot":1},"loser_to":{"match":"L1-32","slot":1}},{"id":"S-64","side":"middle","round":1,"position":64,"sources":[{"seed":43},{"seed":86}],"winner_to":{"match":"W2-32","slot":2},"loser_to":{"match":"L1-32","slot":2}},{"id":"W2-01","side":"right","round":2,"position":1,"sources":[{"match":"S-01","result":"winner"},{"match":"S-02","result":"winner"}],"winner_to":{"match":"W3-01","slot":1},"loser_to":{"match":"L2-32","slot":2}},{"id":"W2-02","side":"right","round":2,"position":2,"sources":[{"match":"S-03","result":"winner"},{"match":"S-04","result":"winner"}],"winner_to":{"match":"W3-01","slot":2},"loser_to":{"match":"L2-31","slot":2}},{"id":"W2-03","side":"right","round":2,"position":3,"sources":[{"match":"S-05","result":"winner"},{"match":"S-06","result":"winner"}],"winner_to":{"match":"W3-02","slot":1},"loser_to":{"match":"L2-30","slot":2}},{"id":"W2-04","side":"right","round":2,"position":4,"sources":[{"match":"S-07","result":"winner"},{"match":"S-08","result":"winner"}],"winner_to":{"match":"W3-02","slot":2},"loser_to":{"match":"L2-29","slot":2}},{"id":"W2-05","side":"right","round":2,"position":5,"sources":[{"match":"S-09","result":"winner"},{"match":"S-10","result":"winner"}],"winner_to":{"match":"W3-03","slot":1},"loser_to":{"match":"L2-28","slot":2}},{"id":"W2-06","side":"right","round":2,"position":6,"sources":[{"match":"S-11","result":"winner"},{"match":"S-12","result":"winner"}],"winner_to":{"match":"W3-03","slot":2},"loser_to":{"match":"L2-27","slot":2}},{"id":"W2-07","side":"right","round":2,"position":7,"sources":[{"match":"S-13","result":"winner"},{"match":"S-14","result":"winner"}],"winner_to":{"match":"W3-04","slot":1},"loser_to":{"match":"L2-26","slot":2}},{"id":"W2-08","side":"right","round":2,"position":8,"sources":[{"match":"S-15","result":"winner"},{"match":"S-16","result":"winner"}],"winner_to":{"match":"W3-04","slot":2},"loser_to":{"match":"L2-25","slot":2}},{"id":"W2-09","side":"right","round":2,"position":9,"sources":[{"match":"S-17","result":"winner"},{"match":"S-18","result":"winner"}],"winner_to":{"match":"W3-05","slot":1},"loser_to":{"match":"L2-24","slot":2}},{"id":"W2-10","side":"right","round":2,"position":10,"sources":[{"match":"S-19","result":"winner"},{"match":"S-20","result":"winner"}],"winner_to":{"match":"W3-05","slot":2},"loser_to":{"match":"L2-23","slot":2}},{"id":"W2-11","side":"right","round":2,"position":11,"sources":[{"match":"S-21","result":"winner"},{"match":"S-22","result":"winner"}],"winner_to":{"match":"W3-06","slot":1},"loser_to":{"match":"L2-22","slot":2}},{"id":"W2-12","side":"right","round":2,"position":12,"sources":[{"match":"S-23","result":"winner"},{"match":"S-24","result":"winner"}],"winner_to":{"match":"W3-06","slot":2},"loser_to":{"match":"L2-21","slot":2}},{"id":"W2-13","side":"right","round":2,"position":13,"sources":[{"match":"S-25","result":"winner"},{"match":"S-26","result":"winner"}],"winner_to":{"match":"W3-07","slot":1},"loser_to":{"match":"L2-20","slot":2}},{"id":"W2-14","side":"right","round":2,"position":14,"sources":[{"match":"S-27","result":"winner"},{"match":"S-28","result":"winner"}],"winner_to":{"match":"W3-07","slot":2},"loser_to":{"match":"L2-19","slot":2}},{"id":"W2-15","side":"right","round":2,"position":15,"sources":[{"match":"S-29","result":"winner"},{"match":"S-30","result":"winner"}],"winner_to":{"match":"W3-08","slot":1},"loser_to":{"match":"L2-18","slot":2}},{"id":"W2-16","side":"right","round":2,"position":16,"sources":[{"match":"S-31","result":"winner"},{"match":"S-32","result":"winner"}],"winner_to":{"match":"W3-08","slot":2},"loser_to":{"match":"L2-17","slot":2}},{"id":"W2-17","side":"right","round":2,"position":17,"sources":[{"match":"S-33","result":"winner"},{"match":"S-34","result":"winner"}],"winner_to":{"match":"W3-09","slot":1},"loser_to":{"match":"L2-16","slot":2}},{"id":"W2-18","side":"right","round":2,"position":18,"sources":[{"match":"S-35","result":"winner"},{"match":"S-36","result":"winner"}],"winner_to":{"match":"W3-09","slot":2},"loser_to":{"match":"L2-15","slot":2}},{"id":"W2-19","side":"right","round":2,"position":19,"sources":[{"match":"S-37","result":"winner"},{"match":"S-38","result":"winner"}],"winner_to":{"match":"W3-10","slot":1},"loser_to":{"match":"L2-14","slot":2}},{"id":"W2-20","side":"right","round":2,"position":20,"sources":[{"match":"S-39","result":"winner"},{"match":"S-40","result":"winner"}],"winner_to":{"match":"W3-10","slot":2},"loser_to":{"match":"L2-13","slot":2}},{"id":"W2-21","side":"right","round":2,"position":21,"sources":[{"match":"S-41","result":"winner"},{"match":"S-42","result":"winner"}],"winner_to":{"match":"W3-11","slot":1},"loser_to":{"match":"L2-12","slot":2}},{"id":"W2-22","side":"right","round":2,"position":22,"sources":[{"match":"S-43","result":"winner"},{"match":"S-44","result":"winner"}],"winner_to":{"match":"W3-11","slot":2},"loser_to":{"match":"L2-11","slot":2}},{"id":"W2-23","side":"right","round":2,"position":23,"sources":[{"match":"S-45","result":"winner"},{"match":"S-46","result":"winner"}],"winner_to":{"match":"W3-12","slot":1},"loser_to":{"match":"L2-10","slot":2}},{"id":"W2-24","side":"right","round":2,"position":24,"sources":[{"match":"S-47","result":"winner"},{"match":"S-48","result":"winner"}],"winner_to":{"match":"W3-12","slot":2},"loser_to":{"match":"L2-09","slot":2}},{"id":"W2-25","side":"right","round":2,"position":25,"sources":[{"match":"S-49","result":"winner"},{"match":"S-50","result":"winner"}],"winner_to":{"match":"W3-13","slot":1},"loser_to":{"match":"L2-08","slot":2}},{"id":"W2-26","side":"right","round":2,"position":26,"sources":[{"match":"S-51","result":"winner"},{"match":"S-52","result":"winner"}],"winner_to":{"match":"W3-13","slot":2},"loser_to":{"match":"L2-07","slot":2}},{"id":"W2-27","side":"right","round":2,"position":27,"sources":[{"match":"S-53","result":"winner"},{"match":"S-54","result":"winner"}],"winner_to":{"match":"W3-14","slot":1},"loser_to":{"match":"L2-06","slot":2}},{"id":"W2-28","side":"right","round":2,"position":28,"sources":[{"match":"S-55","result":"winner"},{"match":"S-56","result":"winner"}],"winner_to":{"match":"W3-14","slot":2},"loser_to":{"match":"L2-05","slot":2}},{"id":"W2-29","side":"right","round":2,"position":29,"sources":[{"match":"S-57","result":"winner"},{"match":"S-58","result":"winner"}],"winner_to":{"match":"W3-15","slot":1},"loser_to":{"match":"L2-04","slot":2}},{"id":"W2-30","side":"right","round":2,"position":30,"sources":[{"match":"S-59","result":"winner"},{"match":"S-60","result":"winner"}],"winner_to":{"match":"W3-15","slot":2},"loser_to":{"match":"L2-03","slot":2}},{"id":"W2-31","side":"right","round":2,"position":31,"sources":[{"match":"S-61","result":"winner"},{"match":"S-62","result":"winner"}],"winner_to":{"match":"W3-16","slot":1},"loser_to":{"match":"L2-02","slot":2}},{"id":"W2-32","side":"right","round":2,"position":32,"sources":[{"match":"S-63","result":"winner"},{"match":"S-64","result":"winner"}],"winner_to":{"match":"W3-16","slot":2},"loser_to":{"match":"L2-01","slot":2}},{"id":"W3-01","side":"right","round":3,"position":1,"sources":[{"match":"W2-01","result":"winner"},{"match":"W2-02","result":"winner"}],"winner_to":{"match":"W4-01","slot":1},"loser_to":{"match":"L4-08","slot":2}},{"id":"W3-02","side":"right","round":3,"position":2,"sources":[{"match":"W2-03","result":"winner"},{"match":"W2-04","result":"winner"}],"winner_to":{"match":"W4-01","slot":2},"loser_to":{"match":"L4-07","slot":2}},{"id":"W3-03","side":"right","round":3,"position":3,"sources":[{"match":"W2-05","result":"winner"},{"match":"W2-06","result":"winner"}],"winner_to":{"match":"W4-02","slot":1},"loser_to":{"match":"L4-06","slot":2}},{"id":"W3-04","side":"right","round":3,"position":4,"sources":[{"match":"W2-07","result":"winner"},{"match":"W2-08","result":"winner"}],"winner_to":{"match":"W4-02","slot":2},"loser_to":{"match":"L4-05","slot":2}},{"id":"W3-05","side":"right","round":3,"position":5,"sources":[{"match":"W2-09","result":"winner"},{"match":"W2-10","result":"winner"}],"winner_to":{"match":"W4-03","slot":1},"loser_to":{"match":"L4-04","slot":2}},{"id":"W3-06","side":"right","round":3,"position":6,"sources":[{"match":"W2-11","result":"winner"},{"match":"W2-12","result":"winner"}],"winner_to":{"match":"W4-03","slot":2},"loser_to":{"match":"L4-03","slot":2}},{"id":"W3-07","side":"right","round":3,"position":7,"sources":[{"match":"W2-13","result":"winner"},{"match":"W2-14","result":"winner"}],"winner_to":{"match":"W4-04","slot":1},"loser_to":{"match":"L4-02","slot":2}},{"id":"W3-08","side":"right","round":3,"position":8,"sources":[{"match":"W2-15","result":"winner"},{"match":"W2-16","result":"winner"}],"winner_to":{"match":"W4-04","slot":2},"loser_to":{"match":"L4-01","slot":2}},{"id":"W3-09","side":"right","round":3,"position":9,"sources":[{"match":"W2-17","result":"winner"},{"match":"W2-18","result":"winner"}],"winner_to":{"match":"W4-05","slot":1},"loser_to":{"match":"L4-16","slot":2}},{"id":"W3-10","side":"right","round":3,"position":10,"sources":[{"match":"W2-19","result":"winner"},{"match":"W2-20","result":"winner"}],"winner_to":{"match":"W4-05","slot":2},"loser_to":{"match":"L4-15","slot":2}},{"id":"W3-11","side":"right","round":3,"position":11,"sources":[{"match":"W2-21","result":"winner"},{"match":"W2-22","result":"winner"}],"winner_to":{"match":"W4-06","slot":1},"loser_to":{"match":"L4-14","slot":2}},{"id":"W3-12","side":"right","round":3,"position":12,"sources":[{"match":"W2-23","result":"winner"},{"match":"W2-24","result":"winner"}],"winner_to":{"match":"W4-06","slot":2},"loser_to":{"match":"L4-13","slot":2}},{"id":"W3-13","side":"right","round":3,"position":13,"sources":[{"match":"W2-25","result":"winner"},{"match":"W2-26","result":"winner"}],"winner_to":{"match":"W4-07","slot":1},"loser_to":{"match":"L4-12","slot":2}},{"id":"W3-14","side":"right","round":3,"position":14,"sources":[{"match":"W2-27","result":"winner"},{"match":"W2-28","result":"winner"}],"winner_to":{"match":"W4-07","slot":2},"loser_to":{"match":"L4-11","slot":2}},{"id":"W3-15","side":"right","round":3,"position":15,"sources":[{"match":"W2-29","result":"winner"},{"match":"W2-30","result":"winner"}],"winner_to":{"match":"W4-08","slot":1},"loser_to":{"match":"L4-10","slot":2}},{"id":"W3-16","side":"right","round":3,"position":16,"sources":[{"match":"W2-31","result":"winner"},{"match":"W2-32","result":"winner"}],"winner_to":{"match":"W4-08","slot":2},"loser_to":{"match":"L4-09","slot":2}},{"id":"W4-01","side":"right","round":4,"position":1,"sources":[{"match":"W3-01","result":"winner"},{"match":"W3-02","result":"winner"}],"winner_to":{"match":"W5-01","slot":1},"loser_to":{"match":"L6-05","slot":2}},{"id":"W4-02","side":"right","round":4,"position":2,"sources":[{"match":"W3-03","result":"winner"},{"match":"W3-04","result":"winner"}],"winner_to":{"match":"W5-01","slot":2},"loser_to":{"match":"L6-06","slot":2}},{"id":"W4-03","side":"right","round":4,"position":3,"sources":[{"match":"W3-05","result":"winner"},{"match":"W3-06","result":"winner"}],"winner_to":{"match":"W5-02","slot":1},"loser_to":{"match":"L6-07","slot":2}},{"id":"W4-04","side":"right","round":4,"position":4,"sources":[{"match":"W3-07","result":"winner"},{"match":"W3-08","result":"winner"}],"winner_to":{"match":"W5-02","slot":2},"loser_to":{"match":"L6-08","slot":2}},{"id":"W4-05","side":"right","round":4,"position":5,"sources":[{"match":"W3-09","result":"winner"},{"match":"W3-10","result":"winner"}],"winner_to":{"match":"W5-03","slot":1},"loser_to":{"match":"L6-01","slot":2}},{"id":"W4-06","side":"right","round":4,"position":6,"sources":[{"match":"W3-11","result":"winner"},{"match":"W3-12","result":"winner"}],"winner_to":{"match":"W5-03","slot":2},"loser_to":{"match":"L6-02","slot":2}},{"id":"W4-07","side":"right","round":4,"position":7,"sources":[{"match":"W3-13","result":"winner"},{"match":"W3-14","result":"winner"}],"winner_to":{"match":"W5-04","slot":1},"loser_to":{"match":"L6-03","slot":2}},{"id":"W4-08","side":"right","round":4,"position":8,"sources":[{"match":"W3-15","result":"winner"},{"match":"W3-16","result":"winner"}],"winner_to":{"match":"W5-04","slot":2},"loser_to":{"match":"L6-04","slot":2}},{"id":"W5-01","side":"right","round":5,"position":1,"sources":[{"match":"W4-01","result":"winner"},{"match":"W4-02","result":"winner"}],"winner_to":{"match":"W6-01","slot":1},"loser_to":{"match":"L8-01","slot":2}},{"id":"W5-02","side":"right","round":5,"position":2,"sources":[{"match":"W4-03","result":"winner"},{"match":"W4-04","result":"winner"}],"winner_to":{"match":"W6-01","slot":2},"loser_to":{"match":"L8-02","slot":2}},{"id":"W5-03","side":"right","round":5,"position":3,"sources":[{"match":"W4-05","result":"winner"},{"match":"W4-06","result":"winner"}],"winner_to":{"match":"W6-02","slot":1},"loser_to":{"match":"L8-03","slot":2}},{"id":"W5-04","side":"right","round":5,"position":4,"sources":[{"match":"W4-07","result":"winner"},{"match":"W4-08","result":"winner"}],"winner_to":{"match":"W6-02","slot":2},"loser_to":{"match":"L8-04","slot":2}},{"id":"W6-01","side":"right","round":6,"position":1,"sources":[{"match":"W5-01","result":"winner"},{"match":"W5-02","result":"winner"}],"winner_to":{"match":"W7-01","slot":1},"loser_to":{"match":"L10-02","slot":2}},{"id":"W6-02","side":"right","round":6,"position":2,"sources":[{"match":"W5-03","result":"winner"},{"match":"W5-04","result":"winner"}],"winner_to":{"match":"W7-01","slot":2},"loser_to":{"match":"L10-01","slot":2}},{"id":"W7-01","side":"right","round":7,"position":1,"sources":[{"match":"W6-01","result":"winner"},{"match":"W6-02","result":"winner"}],"winner_to":{"match":"GF1","slot":1},"loser_to":{"match":"L12-01","slot":2}},{"id":"L1-01","side":"left","round":1,"position":1,"sources":[{"match":"S-01","result":"loser"},{"match":"S-02","result":"loser"}],"winner_to":{"match":"L2-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-02","side":"left","round":1,"position":2,"sources":[{"match":"S-03","result":"loser"},{"match":"S-04","result":"loser"}],"winner_to":{"match":"L2-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-03","side":"left","round":1,"position":3,"sources":[{"match":"S-05","result":"loser"},{"match":"S-06","result":"loser"}],"winner_to":{"match":"L2-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-04","side":"left","round":1,"position":4,"sources":[{"match":"S-07","result":"loser"},{"match":"S-08","result":"loser"}],"winner_to":{"match":"L2-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-05","side":"left","round":1,"position":5,"sources":[{"match":"S-09","result":"loser"},{"match":"S-10","result":"loser"}],"winner_to":{"match":"L2-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-06","side":"left","round":1,"position":6,"sources":[{"match":"S-11","result":"loser"},{"match":"S-12","result":"loser"}],"winner_to":{"match":"L2-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-07","side":"left","round":1,"position":7,"sources":[{"match":"S-13","result":"loser"},{"match":"S-14","result":"loser"}],"winner_to":{"match":"L2-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-08","side":"left","round":1,"position":8,"sources":[{"match":"S-15","result":"loser"},{"match":"S-16","result":"loser"}],"winner_to":{"match":"L2-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-09","side":"left","round":1,"position":9,"sources":[{"match":"S-17","result":"loser"},{"match":"S-18","result":"loser"}],"winner_to":{"match":"L2-09","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-10","side":"left","round":1,"position":10,"sources":[{"match":"S-19","result":"loser"},{"match":"S-20","result":"loser"}],"winner_to":{"match":"L2-10","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-11","side":"left","round":1,"position":11,"sources":[{"match":"S-21","result":"loser"},{"match":"S-22","result":"loser"}],"winner_to":{"match":"L2-11","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-12","side":"left","round":1,"position":12,"sources":[{"match":"S-23","result":"loser"},{"match":"S-24","result":"loser"}],"winner_to":{"match":"L2-12","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-13","side":"left","round":1,"position":13,"sources":[{"match":"S-25","result":"loser"},{"match":"S-26","result":"loser"}],"winner_to":{"match":"L2-13","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-14","side":"left","round":1,"position":14,"sources":[{"match":"S-27","result":"loser"},{"match":"S-28","result":"loser"}],"winner_to":{"match":"L2-14","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-15","side":"left","round":1,"position":15,"sources":[{"match":"S-29","result":"loser"},{"match":"S-30","result":"loser"}],"winner_to":{"match":"L2-15","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-16","side":"left","round":1,"position":16,"sources":[{"match":"S-31","result":"loser"},{"match":"S-32","result":"loser"}],"winner_to":{"match":"L2-16","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-17","side":"left","round":1,"position":17,"sources":[{"match":"S-33","result":"loser"},{"match":"S-34","result":"loser"}],"winner_to":{"match":"L2-17","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-18","side":"left","round":1,"position":18,"sources":[{"match":"S-35","result":"loser"},{"match":"S-36","result":"loser"}],"winner_to":{"match":"L2-18","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-19","side":"left","round":1,"position":19,"sources":[{"match":"S-37","result":"loser"},{"match":"S-38","result":"loser"}],"winner_to":{"match":"L2-19","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-20","side":"left","round":1,"position":20,"sources":[{"match":"S-39","result":"loser"},{"match":"S-40","result":"loser"}],"winner_to":{"match":"L2-20","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-21","side":"left","round":1,"position":21,"sources":[{"match":"S-41","result":"loser"},{"match":"S-42","result":"loser"}],"winner_to":{"match":"L2-21","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-22","side":"left","round":1,"position":22,"sources":[{"match":"S-43","result":"loser"},{"match":"S-44","result":"loser"}],"winner_to":{"match":"L2-22","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-23","side":"left","round":1,"position":23,"sources":[{"match":"S-45","result":"loser"},{"match":"S-46","result":"loser"}],"winner_to":{"match":"L2-23","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-24","side":"left","round":1,"position":24,"sources":[{"match":"S-47","result":"loser"},{"match":"S-48","result":"loser"}],"winner_to":{"match":"L2-24","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-25","side":"left","round":1,"position":25,"sources":[{"match":"S-49","result":"loser"},{"match":"S-50","result":"loser"}],"winner_to":{"match":"L2-25","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-26","side":"left","round":1,"position":26,"sources":[{"match":"S-51","result":"loser"},{"match":"S-52","result":"loser"}],"winner_to":{"match":"L2-26","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-27","side":"left","round":1,"position":27,"sources":[{"match":"S-53","result":"loser"},{"match":"S-54","result":"loser"}],"winner_to":{"match":"L2-27","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-28","side":"left","round":1,"position":28,"sources":[{"match":"S-55","result":"loser"},{"match":"S-56","result":"loser"}],"winner_to":{"match":"L2-28","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-29","side":"left","round":1,"position":29,"sources":[{"match":"S-57","result":"loser"},{"match":"S-58","result":"loser"}],"winner_to":{"match":"L2-29","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-30","side":"left","round":1,"position":30,"sources":[{"match":"S-59","result":"loser"},{"match":"S-60","result":"loser"}],"winner_to":{"match":"L2-30","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-31","side":"left","round":1,"position":31,"sources":[{"match":"S-61","result":"loser"},{"match":"S-62","result":"loser"}],"winner_to":{"match":"L2-31","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L1-32","side":"left","round":1,"position":32,"sources":[{"match":"S-63","result":"loser"},{"match":"S-64","result":"loser"}],"winner_to":{"match":"L2-32","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-01","side":"left","round":2,"position":1,"sources":[{"match":"L1-01","result":"winner"},{"match":"W2-32","result":"loser"}],"winner_to":{"match":"L3-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-02","side":"left","round":2,"position":2,"sources":[{"match":"L1-02","result":"winner"},{"match":"W2-31","result":"loser"}],"winner_to":{"match":"L3-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-03","side":"left","round":2,"position":3,"sources":[{"match":"L1-03","result":"winner"},{"match":"W2-30","result":"loser"}],"winner_to":{"match":"L3-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-04","side":"left","round":2,"position":4,"sources":[{"match":"L1-04","result":"winner"},{"match":"W2-29","result":"loser"}],"winner_to":{"match":"L3-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-05","side":"left","round":2,"position":5,"sources":[{"match":"L1-05","result":"winner"},{"match":"W2-28","result":"loser"}],"winner_to":{"match":"L3-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-06","side":"left","round":2,"position":6,"sources":[{"match":"L1-06","result":"winner"},{"match":"W2-27","result":"loser"}],"winner_to":{"match":"L3-03","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-07","side":"left","round":2,"position":7,"sources":[{"match":"L1-07","result":"winner"},{"match":"W2-26","result":"loser"}],"winner_to":{"match":"L3-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-08","side":"left","round":2,"position":8,"sources":[{"match":"L1-08","result":"winner"},{"match":"W2-25","result":"loser"}],"winner_to":{"match":"L3-04","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-09","side":"left","round":2,"position":9,"sources":[{"match":"L1-09","result":"winner"},{"match":"W2-24","result":"loser"}],"winner_to":{"match":"L3-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-10","side":"left","round":2,"position":10,"sources":[{"match":"L1-10","result":"winner"},{"match":"W2-23","result":"loser"}],"winner_to":{"match":"L3-05","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-11","side":"left","round":2,"position":11,"sources":[{"match":"L1-11","result":"winner"},{"match":"W2-22","result":"loser"}],"winner_to":{"match":"L3-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-12","side":"left","round":2,"position":12,"sources":[{"match":"L1-12","result":"winner"},{"match":"W2-21","result":"loser"}],"winner_to":{"match":"L3-06","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-13","side":"left","round":2,"position":13,"sources":[{"match":"L1-13","result":"winner"},{"match":"W2-20","result":"loser"}],"winner_to":{"match":"L3-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-14","side":"left","round":2,"position":14,"sources":[{"match":"L1-14","result":"winner"},{"match":"W2-19","result":"loser"}],"winner_to":{"match":"L3-07","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-15","side":"left","round":2,"position":15,"sources":[{"match":"L1-15","result":"winner"},{"match":"W2-18","result":"loser"}],"winner_to":{"match":"L3-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-16","side":"left","round":2,"position":16,"sources":[{"match":"L1-16","result":"winner"},{"match":"W2-17","result":"loser"}],"winner_to":{"match":"L3-08","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-17","side":"left","round":2,"position":17,"sources":[{"match":"L1-17","result":"winner"},{"match":"W2-16","result":"loser"}],"winner_to":{"match":"L3-09","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-18","side":"left","round":2,"position":18,"sources":[{"match":"L1-18","result":"winner"},{"match":"W2-15","result":"loser"}],"winner_to":{"match":"L3-09","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-19","side":"left","round":2,"position":19,"sources":[{"match":"L1-19","result":"winner"},{"match":"W2-14","result":"loser"}],"winner_to":{"match":"L3-10","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-20","side":"left","round":2,"position":20,"sources":[{"match":"L1-20","result":"winner"},{"match":"W2-13","result":"loser"}],"winner_to":{"match":"L3-10","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-21","side":"left","round":2,"position":21,"sources":[{"match":"L1-21","result":"winner"},{"match":"W2-12","result":"loser"}],"winner_to":{"match":"L3-11","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-22","side":"left","round":2,"position":22,"sources":[{"match":"L1-22","result":"winner"},{"match":"W2-11","result":"loser"}],"winner_to":{"match":"L3-11","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-23","side":"left","round":2,"position":23,"sources":[{"match":"L1-23","result":"winner"},{"match":"W2-10","result":"loser"}],"winner_to":{"match":"L3-12","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-24","side":"left","round":2,"position":24,"sources":[{"match":"L1-24","result":"winner"},{"match":"W2-09","result":"loser"}],"winner_to":{"match":"L3-12","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-25","side":"left","round":2,"position":25,"sources":[{"match":"L1-25","result":"winner"},{"match":"W2-08","result":"loser"}],"winner_to":{"match":"L3-13","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-26","side":"left","round":2,"position":26,"sources":[{"match":"L1-26","result":"winner"},{"match":"W2-07","result":"loser"}],"winner_to":{"match":"L3-13","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-27","side":"left","round":2,"position":27,"sources":[{"match":"L1-27","result":"winner"},{"match":"W2-06","result":"loser"}],"winner_to":{"match":"L3-14","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-28","side":"left","round":2,"position":28,"sources":[{"match":"L1-28","result":"winner"},{"match":"W2-05","result":"loser"}],"winner_to":{"match":"L3-14","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-29","side":"left","round":2,"position":29,"sources":[{"match":"L1-29","result":"winner"},{"match":"W2-04","result":"loser"}],"winner_to":{"match":"L3-15","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-30","side":"left","round":2,"position":30,"sources":[{"match":"L1-30","result":"winner"},{"match":"W2-03","result":"loser"}],"winner_to":{"match":"L3-15","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-31","side":"left","round":2,"position":31,"sources":[{"match":"L1-31","result":"winner"},{"match":"W2-02","result":"loser"}],"winner_to":{"match":"L3-16","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L2-32","side":"left","round":2,"position":32,"sources":[{"match":"L1-32","result":"winner"},{"match":"W2-01","result":"loser"}],"winner_to":{"match":"L3-16","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-01","side":"left","round":3,"position":1,"sources":[{"match":"L2-01","result":"winner"},{"match":"L2-02","result":"winner"}],"winner_to":{"match":"L4-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-02","side":"left","round":3,"position":2,"sources":[{"match":"L2-03","result":"winner"},{"match":"L2-04","result":"winner"}],"winner_to":{"match":"L4-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-03","side":"left","round":3,"position":3,"sources":[{"match":"L2-05","result":"winner"},{"match":"L2-06","result":"winner"}],"winner_to":{"match":"L4-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-04","side":"left","round":3,"position":4,"sources":[{"match":"L2-07","result":"winner"},{"match":"L2-08","result":"winner"}],"winner_to":{"match":"L4-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-05","side":"left","round":3,"position":5,"sources":[{"match":"L2-09","result":"winner"},{"match":"L2-10","result":"winner"}],"winner_to":{"match":"L4-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-06","side":"left","round":3,"position":6,"sources":[{"match":"L2-11","result":"winner"},{"match":"L2-12","result":"winner"}],"winner_to":{"match":"L4-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-07","side":"left","round":3,"position":7,"sources":[{"match":"L2-13","result":"winner"},{"match":"L2-14","result":"winner"}],"winner_to":{"match":"L4-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-08","side":"left","round":3,"position":8,"sources":[{"match":"L2-15","result":"winner"},{"match":"L2-16","result":"winner"}],"winner_to":{"match":"L4-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-09","side":"left","round":3,"position":9,"sources":[{"match":"L2-17","result":"winner"},{"match":"L2-18","result":"winner"}],"winner_to":{"match":"L4-09","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-10","side":"left","round":3,"position":10,"sources":[{"match":"L2-19","result":"winner"},{"match":"L2-20","result":"winner"}],"winner_to":{"match":"L4-10","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-11","side":"left","round":3,"position":11,"sources":[{"match":"L2-21","result":"winner"},{"match":"L2-22","result":"winner"}],"winner_to":{"match":"L4-11","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-12","side":"left","round":3,"position":12,"sources":[{"match":"L2-23","result":"winner"},{"match":"L2-24","result":"winner"}],"winner_to":{"match":"L4-12","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-13","side":"left","round":3,"position":13,"sources":[{"match":"L2-25","result":"winner"},{"match":"L2-26","result":"winner"}],"winner_to":{"match":"L4-13","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-14","side":"left","round":3,"position":14,"sources":[{"match":"L2-27","result":"winner"},{"match":"L2-28","result":"winner"}],"winner_to":{"match":"L4-14","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-15","side":"left","round":3,"position":15,"sources":[{"match":"L2-29","result":"winner"},{"match":"L2-30","result":"winner"}],"winner_to":{"match":"L4-15","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L3-16","side":"left","round":3,"position":16,"sources":[{"match":"L2-31","result":"winner"},{"match":"L2-32","result":"winner"}],"winner_to":{"match":"L4-16","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-01","side":"left","round":4,"position":1,"sources":[{"match":"L3-01","result":"winner"},{"match":"W3-08","result":"loser"}],"winner_to":{"match":"L5-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-02","side":"left","round":4,"position":2,"sources":[{"match":"L3-02","result":"winner"},{"match":"W3-07","result":"loser"}],"winner_to":{"match":"L5-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-03","side":"left","round":4,"position":3,"sources":[{"match":"L3-03","result":"winner"},{"match":"W3-06","result":"loser"}],"winner_to":{"match":"L5-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-04","side":"left","round":4,"position":4,"sources":[{"match":"L3-04","result":"winner"},{"match":"W3-05","result":"loser"}],"winner_to":{"match":"L5-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-05","side":"left","round":4,"position":5,"sources":[{"match":"L3-05","result":"winner"},{"match":"W3-04","result":"loser"}],"winner_to":{"match":"L5-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-06","side":"left","round":4,"position":6,"sources":[{"match":"L3-06","result":"winner"},{"match":"W3-03","result":"loser"}],"winner_to":{"match":"L5-03","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-07","side":"left","round":4,"position":7,"sources":[{"match":"L3-07","result":"winner"},{"match":"W3-02","result":"loser"}],"winner_to":{"match":"L5-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-08","side":"left","round":4,"position":8,"sources":[{"match":"L3-08","result":"winner"},{"match":"W3-01","result":"loser"}],"winner_to":{"match":"L5-04","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-09","side":"left","round":4,"position":9,"sources":[{"match":"L3-09","result":"winner"},{"match":"W3-16","result":"loser"}],"winner_to":{"match":"L5-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-10","side":"left","round":4,"position":10,"sources":[{"match":"L3-10","result":"winner"},{"match":"W3-15","result":"loser"}],"winner_to":{"match":"L5-05","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-11","side":"left","round":4,"position":11,"sources":[{"match":"L3-11","result":"winner"},{"match":"W3-14","result":"loser"}],"winner_to":{"match":"L5-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-12","side":"left","round":4,"position":12,"sources":[{"match":"L3-12","result":"winner"},{"match":"W3-13","result":"loser"}],"winner_to":{"match":"L5-06","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-13","side":"left","round":4,"position":13,"sources":[{"match":"L3-13","result":"winner"},{"match":"W3-12","result":"loser"}],"winner_to":{"match":"L5-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-14","side":"left","round":4,"position":14,"sources":[{"match":"L3-14","result":"winner"},{"match":"W3-11","result":"loser"}],"winner_to":{"match":"L5-07","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-15","side":"left","round":4,"position":15,"sources":[{"match":"L3-15","result":"winner"},{"match":"W3-10","result":"loser"}],"winner_to":{"match":"L5-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L4-16","side":"left","round":4,"position":16,"sources":[{"match":"L3-16","result":"winner"},{"match":"W3-09","result":"loser"}],"winner_to":{"match":"L5-08","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-01","side":"left","round":5,"position":1,"sources":[{"match":"L4-01","result":"winner"},{"match":"L4-02","result":"winner"}],"winner_to":{"match":"L6-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-02","side":"left","round":5,"position":2,"sources":[{"match":"L4-03","result":"winner"},{"match":"L4-04","result":"winner"}],"winner_to":{"match":"L6-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-03","side":"left","round":5,"position":3,"sources":[{"match":"L4-05","result":"winner"},{"match":"L4-06","result":"winner"}],"winner_to":{"match":"L6-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-04","side":"left","round":5,"position":4,"sources":[{"match":"L4-07","result":"winner"},{"match":"L4-08","result":"winner"}],"winner_to":{"match":"L6-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-05","side":"left","round":5,"position":5,"sources":[{"match":"L4-09","result":"winner"},{"match":"L4-10","result":"winner"}],"winner_to":{"match":"L6-05","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-06","side":"left","round":5,"position":6,"sources":[{"match":"L4-11","result":"winner"},{"match":"L4-12","result":"winner"}],"winner_to":{"match":"L6-06","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-07","side":"left","round":5,"position":7,"sources":[{"match":"L4-13","result":"winner"},{"match":"L4-14","result":"winner"}],"winner_to":{"match":"L6-07","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L5-08","side":"left","round":5,"position":8,"sources":[{"match":"L4-15","result":"winner"},{"match":"L4-16","result":"winner"}],"winner_to":{"match":"L6-08","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-01","side":"left","round":6,"position":1,"sources":[{"match":"L5-01","result":"winner"},{"match":"W4-05","result":"loser"}],"winner_to":{"match":"L7-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-02","side":"left","round":6,"position":2,"sources":[{"match":"L5-02","result":"winner"},{"match":"W4-06","result":"loser"}],"winner_to":{"match":"L7-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-03","side":"left","round":6,"position":3,"sources":[{"match":"L5-03","result":"winner"},{"match":"W4-07","result":"loser"}],"winner_to":{"match":"L7-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-04","side":"left","round":6,"position":4,"sources":[{"match":"L5-04","result":"winner"},{"match":"W4-08","result":"loser"}],"winner_to":{"match":"L7-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-05","side":"left","round":6,"position":5,"sources":[{"match":"L5-05","result":"winner"},{"match":"W4-01","result":"loser"}],"winner_to":{"match":"L7-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-06","side":"left","round":6,"position":6,"sources":[{"match":"L5-06","result":"winner"},{"match":"W4-02","result":"loser"}],"winner_to":{"match":"L7-03","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-07","side":"left","round":6,"position":7,"sources":[{"match":"L5-07","result":"winner"},{"match":"W4-03","result":"loser"}],"winner_to":{"match":"L7-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L6-08","side":"left","round":6,"position":8,"sources":[{"match":"L5-08","result":"winner"},{"match":"W4-04","result":"loser"}],"winner_to":{"match":"L7-04","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-01","side":"left","round":7,"position":1,"sources":[{"match":"L6-01","result":"winner"},{"match":"L6-02","result":"winner"}],"winner_to":{"match":"L8-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-02","side":"left","round":7,"position":2,"sources":[{"match":"L6-03","result":"winner"},{"match":"L6-04","result":"winner"}],"winner_to":{"match":"L8-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-03","side":"left","round":7,"position":3,"sources":[{"match":"L6-05","result":"winner"},{"match":"L6-06","result":"winner"}],"winner_to":{"match":"L8-03","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L7-04","side":"left","round":7,"position":4,"sources":[{"match":"L6-07","result":"winner"},{"match":"L6-08","result":"winner"}],"winner_to":{"match":"L8-04","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-01","side":"left","round":8,"position":1,"sources":[{"match":"L7-01","result":"winner"},{"match":"W5-01","result":"loser"}],"winner_to":{"match":"L9-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-02","side":"left","round":8,"position":2,"sources":[{"match":"L7-02","result":"winner"},{"match":"W5-02","result":"loser"}],"winner_to":{"match":"L9-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-03","side":"left","round":8,"position":3,"sources":[{"match":"L7-03","result":"winner"},{"match":"W5-03","result":"loser"}],"winner_to":{"match":"L9-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L8-04","side":"left","round":8,"position":4,"sources":[{"match":"L7-04","result":"winner"},{"match":"W5-04","result":"loser"}],"winner_to":{"match":"L9-02","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L9-01","side":"left","round":9,"position":1,"sources":[{"match":"L8-01","result":"winner"},{"match":"L8-02","result":"winner"}],"winner_to":{"match":"L10-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L9-02","side":"left","round":9,"position":2,"sources":[{"match":"L8-03","result":"winner"},{"match":"L8-04","result":"winner"}],"winner_to":{"match":"L10-02","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L10-01","side":"left","round":10,"position":1,"sources":[{"match":"L9-01","result":"winner"},{"match":"W6-02","result":"loser"}],"winner_to":{"match":"L11-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L10-02","side":"left","round":10,"position":2,"sources":[{"match":"L9-02","result":"winner"},{"match":"W6-01","result":"loser"}],"winner_to":{"match":"L11-01","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"L11-01","side":"left","round":11,"position":1,"sources":[{"match":"L10-01","result":"winner"},{"match":"L10-02","result":"winner"}],"winner_to":{"match":"L12-01","slot":1},"loser_to":{"status":"ELIMINATED"}},{"id":"L12-01","side":"left","round":12,"position":1,"sources":[{"match":"L11-01","result":"winner"},{"match":"W7-01","result":"loser"}],"winner_to":{"match":"GF1","slot":2},"loser_to":{"status":"ELIMINATED"}},{"id":"GF1","side":"final","round":1,"position":1,"sources":[{"match":"W7-01","result":"winner"},{"match":"L12-01","result":"winner"}],"winner_to":{"condition":"If undefeated finalist wins: CHAMPION; otherwise GF2 slot 1"},"loser_to":{"condition":"If undefeated finalist wins: RUNNER_UP; otherwise GF2 slot 2"}},{"id":"GF2","side":"final","round":2,"position":1,"sources":[{"match":"GF1","result":"winner","condition":"GF1 winner is left-side finalist"},{"match":"GF1","result":"loser","condition":"GF1 winner is left-side finalist"}],"winner_to":{"status":"CHAMPION"},"loser_to":{"status":"RUNNER_UP"}}]}};
+window.darturnioV4DkoMap=DARTURNIO_DKO_USO;
 function dkoIdNo(node,graph){
   if(node.side==='middle')return node.position;
   if(node.side==='final')return node.id==='GF1'?9001:9002;
@@ -2221,22 +2204,30 @@ async function createNextKnockoutRound(tournamentId){
   const knockout=all.filter(m=>m.stage==="playoff");
   if(!knockout.length){
     const groupMatches=all.filter(m=>m.stage==="group"||m.stage==="tiebreak");
-    if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished"&&m.winner_entry_id))return;
+    if(!groupMatches.length||!groupMatches.every(m=>m.status==="finished"))return;
     const {data:es,error:entriesError}=await db.from("tournament_entries").select("*").eq("tournament_id",tournamentId);
     if(entriesError)throw new Error("Nepodařilo se načíst hráče pro automatický pavouk: "+entriesError.message);
     const groupNames=[...new Set((es||[]).map(e=>e.group_name).filter(Boolean))].sort();
-    if((es||[]).length<2||(es||[]).length>16||!groupNames.length||groupNames.length>2||(es||[]).some(e=>!e.group_name))return;
+    if((es||[]).length<2||(es||[]).length>128||!groupNames.length||groupNames.length>16||(es||[]).some(e=>!e.group_name))return;
     if(groupNames.some(g=>!groupMatches.some(m=>m.group_name===g)))return;
+    const groupStandings=groupNames.map(g=>groupStandingsFor(g,es,groupMatches));
+    const count=Math.min(8,es.length);
     let seededEntries=[];
-    if(groupNames.length===1){seededEntries=groupStandingsFor(groupNames[0],es,groupMatches).slice(0,8).map(x=>x.entry);}
-    else{
-      const first=groupStandingsFor(groupNames[0],es,groupMatches),second=groupStandingsFor(groupNames[1],es,groupMatches);
-      for(let i=0;seededEntries.length<Math.min(8,es.length);i++){
-        if(first[i])seededEntries.push(first[i].entry);
-        if(second[i]&&seededEntries.length<Math.min(8,es.length))seededEntries.push(second[i].entry);
+    for(let rank=0;seededEntries.length<count&&rank<es.length;rank++){
+      for(const standings of groupStandings){
+        if(standings[rank]&&seededEntries.length<count)seededEntries.push(standings[rank].entry);
       }
     }
-    if(seededEntries.length!==Math.min(8,es.length)||new Set(seededEntries.map(e=>e.id)).size!==seededEntries.length)return;
+    // Nepostupovat, pokud hranici postupu nelze spolehlivě rozhodnout.
+    const unstable=groupStandings.some(standings=>{
+      const admitted=standings.filter(r=>seededEntries.some(e=>e.id===r.entry.id));
+      const excluded=standings.filter(r=>!seededEntries.some(e=>e.id===r.entry.id));
+      if(!admitted.length||!excluded.length)return false;
+      const a=admitted[admitted.length-1],b=excluded[0];
+      return darturnioRankingKey(a)===darturnioRankingKey(b);
+    });
+    if(unstable)return;
+    if(seededEntries.length!==count||new Set(seededEntries.map(e=>e.id)).size!==seededEntries.length)return;
     const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,all);
     const {error:insertError}=await db.from("matches").insert(bracketRows);
     if(insertError)throw new Error("Skupiny jsou dokončené, ale automatické vytvoření pavouka selhalo: "+insertError.message);
@@ -2249,6 +2240,7 @@ async function createNextKnockoutRound(tournamentId){
   const winners=current.map(m=>m.winner_entry_id).filter(Boolean);
   if(winners.length<=1)return;
   const nextRows=makeDoubleEliminationPhaseRows(tournamentId,winners,maxRound+1,null,all);
+  nextRows.forEach(r=>r.target_legs=Number(tournaments.find(t=>t.id===tournamentId)?.target_legs)||DEFAULT_TARGET_LEGS);
   const {error:insertError}=await db.from("matches").insert(nextRows);
   if(insertError)throw new Error("Výsledky jsou uložené, ale další kolo se nepodařilo vytvořit: "+insertError.message);
 }
@@ -2438,25 +2430,14 @@ function setFormHTML(container,html){
   }
 }
 function renderRoundRobinTable(es,ms){
-  const target=$("startContent");
-  const games=ms.filter(m=>m.stage==="round_robin");
-  if(!games.length){target.innerHTML='<p>Pro tento turnaj zatím není rozlosovaný systém každý s každým. Zápasy KK vytvoří pořadatel v administraci.</p>';return;}
-  const stats=new Map(es.map(e=>[e.id,{entry:e,played:0,wins:0,draws:0,losses:0,for:0,against:0}]));
-  for(const m of games){
-    if(m.status!=="finished")continue;
-    const a=stats.get(m.player1_entry_id),b=stats.get(m.player2_entry_id);
-    if(!a||!b)continue;
-    const x=Number(m.legs1)||0,y=Number(m.legs2)||0;
-    a.played++;b.played++;a.for+=x;a.against+=y;b.for+=y;b.against+=x;
-    if(x>y){a.wins++;b.losses++}else if(y>x){b.wins++;a.losses++}else{a.draws++;b.draws++}
-  }
-  const ordered=[...stats.values()].sort((a,b)=>b.wins-a.wins||(b.for-b.against)-(a.for-a.against)||b.for-a.for||playerName(a.entry.id).localeCompare(playerName(b.entry.id),'cs'));
-  const complete=games.every(m=>m.status==="finished");
-  const rounds=[...new Set(games.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
-  target.innerHTML=`<p class="small">${games.filter(m=>m.status==="finished").length} z ${games.length} zápasů odehráno. Průběžné pořadí: výhry, rozdíl legů, získané legy. Případné úplné shody je nutné rozhodnout před přidělením bodů.${complete?' Všechny zápasy jsou odehrány.':''}</p>
-  <div class="table-wrap"><table class="kk-standings"><thead><tr><th>Poř.</th><th>Hráč</th><th>Z</th><th>V</th><th>P</th><th>Legy</th><th>Rozdíl</th></tr></thead><tbody>${ordered.map((r,i)=>`<tr><td>${i+1}.</td><td>${esc(playerName(r.entry.id))}</td><td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.for}:${r.against}</td><td>${r.for-r.against>0?'+':''}${r.for-r.against}</td></tr>`).join('')}</tbody></table></div>
-  <h3>Rozpis zápasů a výsledky</h3>${rounds.map(round=>`<h4>${round}. kolo</h4><div class="table-wrap"><table><thead><tr><th>Hráč 1</th><th>Výsledek</th><th>Hráč 2</th><th>Stav</th></tr></thead><tbody>${games.filter(m=>(Number(m.round_no)||1)===round).sort((a,b)=>(Number(a.match_no)||0)-(Number(b.match_no)||0)).map(m=>`<tr><td>${esc(playerName(m.player1_entry_id))}</td><td><strong>${m.status==='finished'?`${m.legs1}:${m.legs2}`:'– : –'}</strong></td><td>${esc(playerName(m.player2_entry_id))}</td><td>${m.status==='finished'?'Odehráno':m.status==='live'?'Právě se hraje':'Čeká'}</td></tr>`).join('')}</tbody></table></div>`).join('')}
-  <p class="small">Výsledky se zapisují přes počítadlo na terči nebo ručně v administraci v sekci Terče. Tabulka se aktualizuje z uložených zápasů.</p>`;
+ const target=$('startContent'),games=ms.filter(m=>m.stage==='round_robin');
+ if(!games.length){target.innerHTML='<p>Pro tento turnaj zatím není rozlosovaný systém každý s každým.</p>';return}
+ const ranked=darturnioRank(es.map(e=>e.id),games);
+ const rounds=[...new Set(games.map(m=>Number(m.round_no)||1))].sort((a,b)=>a-b);
+ target.innerHTML=`<p class="small">Odehráno ${games.filter(m=>m.status==='finished').length} / ${games.length}. Pořadí: body (2–1–0), rozdíl legů, vyhrané legy, vzájemné zápasy.</p>
+ <div class="table-wrap"><table><thead><tr><th>#</th><th>Hráč</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Body</th><th>Legy</th><th>Rozdíl</th></tr></thead>
+ <tbody>${ranked.map((r,i)=>`<tr><td>${i+1}.</td><td>${esc(playerName(r.id))}</td><td>${r.played}</td><td>${r.wins}</td><td>${r.draws}</td><td>${r.losses}</td><td><strong>${r.points}</strong></td><td>${r.legsFor}:${r.legsAgainst}</td><td>${r.legsFor-r.legsAgainst}</td></tr>`).join('')}</tbody></table></div>
+ <h3>Rozpis a výsledky</h3>${rounds.map(n=>`<h4>${n}. kolo</h4>${games.filter(m=>(Number(m.round_no)||1)===n).map(m=>`<p>${esc(playerName(m.player1_entry_id))} <strong>${m.status==='finished'?m.legs1+':'+m.legs2:'– : –'}</strong> ${esc(playerName(m.player2_entry_id))}</p>`).join('')}`).join('')}`;
 }
 function renderAdmin501Overview(){
   const root=document.getElementById('admin501Overview');
@@ -3191,8 +3172,17 @@ function shuffle(array){
   return a;
 }
 function chooseGroupCount(n){
-  // Turnaj má vždy dvě náhodně rozlosované a co nejvyrovnanější skupiny.
-  return n>=2?2:1;
+  const requested=Number(document.getElementById('dtDrawGroups')?.value)||2;
+  return Math.min(Math.max(1,requested),8,Math.floor(n/2));
+}
+function darturnioDrawSettings(format){
+  const rule=document.getElementById('dtDrawLegRule')?.value||'first_to';
+  const legs=Number(document.getElementById('dtDrawLegs')?.value);
+  const groups=Number(document.getElementById('dtDrawGroups')?.value)||2;
+  if(!Number.isInteger(legs)||legs<1||legs>21)throw new Error('Počet legů musí být 1–21.');
+  if(rule==='fixed'&&(format!=='groups'&&format!=='round_robin'||legs<2))
+    throw new Error('Remíza je možná jen pro skupiny nebo KK (nejméně 2 legy).');
+  return {rule,legs,groups};
 }
 function createRoundRobin(entryIds){
   let list=[...entryIds];
@@ -3249,8 +3239,8 @@ async function drawGroups(){
   if(es.length<2)return notify("Pro rozlosování potřebuješ alespoň 2 hráče.");
   const existing=matches.filter(m=>m.tournament_id===tournament_id);
   if(existing.length)return notify("Tento turnaj už má vytvořené zápasy. Kvůli ochraně výsledků nelze losování přepsat.");
-  if(es.length>16){
-    return notify("Pro více než 16 hráčů zvol DKO pavouk nebo jiný formát.");
+  if(es.length>128){
+    return notify("Skupiny podporují nejvýše 128 hráčů.");
     const shuffled=shuffle(es);
     const bracketRows=buildInitialPlayoffRows(tournament_id,shuffled,[],"DE:WB:1");
     const preview=bracketRows.map(m=>m.player1_entry_id===m.player2_entry_id?`${playerName(m.player1_entry_id)} – volný los`:`${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}`).join("\n");
@@ -3263,22 +3253,25 @@ async function drawGroups(){
     notify("Hotovo! Oboustranný pavouk byl vytvořen. Každý hráč končí po druhé prohře.");
     return;
   }
-  if(!confirm(`Náhodně rozlosovat ${es.length} hráčů do skupin a vytvořit skupinové zápasy?`))return;
-  const shuffled=shuffle(es),groupCount=chooseGroupCount(shuffled.length);
-  const groups=groupCount===2
-    ? [shuffled.slice(0,Math.ceil(shuffled.length/2)),shuffled.slice(Math.ceil(shuffled.length/2))]
-    : [shuffled];
+  let config;try{config=darturnioDrawSettings('groups')}catch(e){return notify(e.message)}
+  const groupCount=chooseGroupCount(es.length);
+  if(!confirm(`Rozlosovat ${es.length} hráčů do ${groupCount} skupin? ${config.rule==='fixed'?'Pevně '+config.legs+' legů, remíza možná':'Na '+config.legs+' vítězných legů, bez remízy'}.`))return;
+  const shuffled=shuffle(es);
+  const groups=Array.from({length:groupCount},()=>[]);
+  shuffled.forEach((entry,i)=>groups[i%groupCount].push(entry));
+  const {error:settingsError}=await db.from('tournaments').update({target_legs:config.legs,draw_format:'groups',draw_group_count:groupCount}).eq('id',tournament_id);
+  if(settingsError)return notify('Nastavení losování nelze uložit: '+settingsError.message);
   for(let i=0;i<groups.length;i++){
     const ids=groups[i].map(e=>e.id);
     const {error}=await db.from("tournament_entries").update({group_name:String.fromCharCode(65+i)}).in("id",ids);
     if(error)return notify("Chyba při ukládání skupin: "+error.message);
   }
   const rows=[];let matchNo=1;
-  groups.forEach((group,i)=>createRoundRobin(group.map(e=>e.id)).forEach(m=>rows.push({tournament_id,stage:"group",group_name:String.fromCharCode(65+i),round_no:m.round_no,match_no:matchNo++,board_no:null,player1_entry_id:m.player1_entry_id,player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:DEFAULT_TARGET_LEGS,status:"waiting"})));
+  groups.forEach((group,i)=>createRoundRobin(group.map(e=>e.id)).forEach(m=>rows.push({tournament_id,stage:"group",group_name:String.fromCharCode(65+i),round_no:m.round_no,match_no:matchNo++,board_no:null,player1_entry_id:m.player1_entry_id,player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:config.legs,leg_rule:config.rule,fixed_legs:config.rule==='fixed'?config.legs:null,status:"waiting"})));
   const {error}=await db.from("matches").insert(rows);
   if(error)return notify("Skupiny byly uloženy, ale zápasy se nepodařilo vytvořit: "+error.message);
   selectedTournament=tournament_id;await loadData();
-  notify(`Hotovo! ${es.length} hráčů rozděleno do ${groupCount} ${groupCount===1?"skupiny":"skupin"}. ${groupCount===1?"Z jedné skupiny postoupí nejvýše TOP 8.":"Z každé skupiny postoupí TOP 4."} Ostatní získají 1 bod. Po dokončení skupin se vytvoří jednostranný pavouk.`);
+  notify(`Hotovo! ${es.length} hráčů rozděleno do ${groupCount} skupin. Po dohrání se podle pořadí vyberou postupující do KO.`);
 }
 guardClick("drawGroupsBtn",drawGroups);
 async function drawDirectFormat(format){
@@ -3288,16 +3281,19 @@ async function drawDirectFormat(format){
   if(format==="double_ko"&&es.length>128)return notify("DKO podporuje nejvýše 128 hráčů.");
   if(matches.some(m=>m.tournament_id===tournament_id))return notify("Turnaj už má vytvořené zápasy. Nejdříve zruš původní rozlosování.");
   const labels={single_ko:"KO pavouk",double_ko:"DKO pavouk",round_robin:"každý s každým"};
-  if(!confirm(`Vytvořit ${labels[format]} pro ${es.length} hráčů?`))return;
-  const tournament=tournaments.find(t=>t.id===tournament_id);
-  const targetLegs=Number(tournament?.target_legs)||DEFAULT_TARGET_LEGS;
+  let config;try{config=darturnioDrawSettings(format)}catch(e){return notify(e.message)}
+  if(!confirm(`Vytvořit ${labels[format]} pro ${es.length} hráčů? ${config.rule==='fixed'?'Pevně '+config.legs+' legů s možností remízy':'Na '+config.legs+' vítězných legů'}.`))return;
+  const targetLegs=config.legs;
+  const {error:settingsError}=await db.from('tournaments').update({target_legs:targetLegs,draw_format:format,draw_group_count:null}).eq('id',tournament_id);
+  if(settingsError)return notify('Nastavení losování se nepodařilo uložit: '+settingsError.message);
   const shuffled=shuffle(es);
   let rows;
   if(format==="round_robin"){
     rows=createRoundRobin(shuffled.map(e=>e.id)).map((m,i)=>({
       tournament_id,stage:"round_robin",group_name:"KK",round_no:m.round_no,
       match_no:i+1,board_no:null,player1_entry_id:m.player1_entry_id,
-      player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:targetLegs,status:"waiting"
+      player2_entry_id:m.player2_entry_id,legs1:0,legs2:0,target_legs:targetLegs,
+      leg_rule:config.rule,fixed_legs:config.rule==='fixed'?config.legs:null,status:"waiting"
     }));
   }else{
     rows=buildInitialPlayoffRows(tournament_id,shuffled,[],format==="double_ko"?"DE:WB:1":"KO:1");
@@ -3369,15 +3365,22 @@ window.setManualMatchResult=async function(matchId){
   const m=matches.find(x=>x.id===matchId);
   if(!m||m.status!=="live")return notify("Ruční výsledek lze zadat až po spuštění zápasu, dokud je stále rozehraný.");
   const need=legsToWin(m);
-  const allowed=need===2?["2:0","2:1","1:2","0:2"]:[`${need}:0`,`${need}:${need-1}`,`${need-1}:${need}`,`0:${need}`];
+  const allowed=m.leg_rule==='fixed'&&['group','round_robin'].includes(m.stage)?
+   Array.from({length:Number(m.fixed_legs)+1},(_,i)=>`${i}:${Number(m.fixed_legs)-i}`):
+   (need===2?["2:0","2:1","1:2","0:2"]:[`${need}:0`,`${need}:${need-1}`,`${need-1}:${need}`,`0:${need}`]);
   const choice=prompt(`Ruční výsledek pro ${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}\nZadej: ${allowed.join(", ")}`,allowed[0]);
   if(choice===null)return;
   const parts=choice.trim().split(":").map(Number);
-  if(parts.length!==2||!isValidLegScore(parts[0],parts[1],need))return notify(legScoreHelp(need));
+  const fixed=m.leg_rule==='fixed'&&(m.stage==='group'||m.stage==='round_robin');
+  if(parts.length!==2||!parts.every(n=>Number.isInteger(n)&&n>=0)||
+     !(fixed?parts[0]+parts[1]===Number(m.fixed_legs):isValidLegScore(parts[0],parts[1],need)))
+    return notify(fixed?`Je potřeba odehrát přesně ${m.fixed_legs} legů (např. 1:1).`:legScoreHelp(need));
    if(!confirm(`Opravdu uložit konečný ruční výsledek ${parts[0]}:${parts[1]}? Zápas bude dokončen a terč uvolněn. Pokud už bylo použito tabletové počítadlo, databáze ruční zápis odmítne. Ruční výsledek se nezapočítá do šipkového průměru.`))return;
-  const {data,error}=await db.rpc("set_manual_match_result",{p_match_id:matchId,p_legs1:parts[0],p_legs2:parts[1]});
-  if(error)return notify("Ruční výsledek se nepodařilo uložit: "+error.message);
-  if(!data)return notify("Databáze nepotvrdila uložení výsledku.");
+  const isGroupKK=m.stage==='group'||m.stage==='round_robin';
+  const {data,error}=await db.rpc(isGroupKK?'darturnio_v4_singles_result':'set_manual_match_result',
+     {p_match_id:matchId,p_legs1:parts[0],p_legs2:parts[1]});
+  if(error)return notify('Ruční výsledek se nepodařilo uložit: '+error.message);
+  if(!isGroupKK&&!data)return notify('Databáze nepotvrdila uložení výsledku.');
   try{await createNextKnockoutRound(m.tournament_id);}
   catch(err){notify(err.message||"Automatické vytvoření pavouka / dalšího kola se nepodařilo.");}
   if(m.stage==="playoff"){
@@ -3400,14 +3403,18 @@ window.editMatchResult=async function(matchId){
   const inputB=prompt("Opravený počet legů pro "+playerName(m.player2_entry_id),String(m.legs2));
   if(inputB===null)return;
   const b=Number(inputB);if(inputB.trim()===""||!Number.isInteger(b))return notify("Zadej celé číslo.");
-  if(!isValidLegScore(a,b,need))return notify(legScoreHelp(need));
-  const winner=a>b?m.player1_entry_id:m.player2_entry_id;
+  const fixed=m.leg_rule==='fixed'&&['group','round_robin'].includes(m.stage);
+  if(!(fixed?(a>=0&&b>=0&&a+b===Number(m.fixed_legs)):isValidLegScore(a,b,need)))
+    return notify(fixed?`Celkem musí být ${m.fixed_legs} legů.`:legScoreHelp(need));
+  const winner=a>b?m.player1_entry_id:b>a?m.player2_entry_id:null;
   const later=matches.filter(x=>x.tournament_id===m.tournament_id&&x.stage==="playoff"&&(Number(x.round_no)||0)>(Number(m.round_no)||0));
   if(m.stage==="playoff"&&winner!==m.winner_entry_id&&later.length)return notify("Vítěz by se změnil, ale další kolo už existuje. Kvůli ochraně pavouka tuto opravu nelze provést automaticky. Nejprve je nutné bezpečně opravit navazující zápasy.");
   if(String(m.group_name)==="DE:GF:1"&&winner!==m.winner_entry_id)return notify("Změna vítěze velkého finále by vyžadovala vytvoření nebo zrušení rozhodujícího finále. Tuto opravu proto nelze provést automaticky.");
   if(m.stage==="group"&&matches.some(x=>x.tournament_id===m.tournament_id&&x.stage==="playoff"))return notify("Skupinový zápas už ovlivnil nasazení vytvořeného pavouka. Kvůli ochraně pavouka lze skupinový výsledek opravit pouze před jeho vytvořením.");
   if(!confirm(`Opravdu uložit nový výsledek ${a}:${b}? Pořadí a body se znovu přepočítají, pokud to průběh turnaje umožňuje.`))return;
-  const {data:updated,error}=await db.from("matches").update({legs1:a,legs2:b,winner_entry_id:winner}).eq("id",matchId).eq("status","finished").select("id").maybeSingle();
+  const {data:updated,error}=fixed?
+     await db.rpc('darturnio_v4_singles_result',{p_match_id:matchId,p_legs1:a,p_legs2:b}).then(r=>({data:!r.error?{id:matchId}:null,error:r.error})):
+     await db.from("matches").update({legs1:a,legs2:b,winner_entry_id:winner}).eq("id",matchId).eq("status","finished").select("id").maybeSingle();
   if(error)return notify("Oprava se nepodařila: "+error.message);
   if(!updated){await loadData();return notify("Zápas mezitím někdo změnil. Obnovuji stav.");}
   if(m.stage==="playoff"){
@@ -3631,7 +3638,7 @@ async function renderTablet(localOnly=false){
     const legRows=await db.from("match_legs").select("leg_no,starting_entry_id,winner_entry_id,status").eq("match_id",match.id).order("leg_no");
     const nextNo=Number(leg.leg_no)+1;
     if(match.status==="finished"){
-      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>Vítěz: ${esc(playerName(match.winner_entry_id))}</h3><button class="secondary" data-tablet-undo-match="${esc(match.id)}">ZPĚT</button><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>${match.winner_entry_id?'Vítěz: '+esc(playerName(match.winner_entry_id)):'Remíza'}</h3><button class="secondary" data-tablet-undo-match="${esc(match.id)}">ZPĚT</button><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
     }
     const first=legRows.data?.find(x=>x.leg_no===1);
     const starter=nextNo===2?(first?.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id):first?.starting_entry_id;
@@ -5420,7 +5427,7 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
  let at=0;
  function fields(step){
   if(step===0){const list=[byId('competitionName')];if(byId('competitionType').value!=='single')list.push(byId('competitionRounds'));return list}
-  if(step===1)return [byId('competitionBoards'),byId('competitionLegs')];
+  if(step===1)return [byId('competitionBoards')];
   if(step===2)return [...byId('competitionDates').querySelectorAll('input[type="date"]')];
   return [];
  }
@@ -5442,7 +5449,7 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
    frag.append(row('Terče / režim',byId('competitionDartType').selectedOptions[0]?.textContent||'STEEL'));
    frag.append(row('Hra',game));
   frag.append(row('Terče',byId('competitionBoards').value));
-  frag.append(row('Vítězné legy',byId('competitionLegs').value));
+  frag.append(row('Legy a formát','Nastavíš při losování turnaje'));
   frag.append(row('Termíny',dates.map(formatDate).join(' · ')||'—'));
   summary.replaceChildren(frag);
  }
@@ -6887,7 +6894,7 @@ mountSearch();
     const {data,error}=await db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid).order('created_at',{ascending:true});
     if(my!==request||tid!==tournament.value)return;
     if(error){message('Pro správu dvojic nejprve spusť přiložené SQL v Supabase. '+error.message,true);return}
-    knownPairs=data||[];render();message(`${knownPairs.length} dvojic v turnaji. Turnaj dvojic. Pro testovací KO použij samostatné tlačítko níže.`);
+    knownPairs=data||[];render();message(`${knownPairs.length} dvojic v turnaji. Zvol nastavení legů a jeden ze čtyř formátů losování níže.`);
   }
   async function removePair(id){
     if(busy||!id||!window.confirm('Odebrat tuto dvojici ze startovní přípravy?'))return;
@@ -6916,14 +6923,7 @@ mountSearch();
   tournament.addEventListener('change',reload);
   const observer=new MutationObserver(()=>{if(activeTournament!==tournament.value)reload();else fill()});
   observer.observe(tournament,{childList:true});observer.observe(pool,{childList:true});
-  // Do not let the existing singles draw silently turn pairs into singles.
-  for(const id of ['drawGroupsBtn','drawSingleKoBtn','drawDoubleKoBtn','drawRoundRobinBtn']){
-    $(id)?.addEventListener('click',e=>{
-      if(confirmedPairsMode&&activeTournament===tournament.value){
-        e.preventDefault();e.stopImmediatePropagation();message('Pro dvojice použij červené tlačítko ROZLOSOVAT DVOJICE – KO v sekci Sestavení týmů.',true);
-      }
-    },true);
-  }
+  // Formát dvojic řeší nová společná správa losování V4 (zachovává existující registraci dvojic).
   reload();
 })();
 </script>
@@ -6935,10 +6935,12 @@ mountSearch();
 #darturnioPairsPanel:not([hidden]) #darturnioPairKnockout {display:block!important}
 #darturnioPairsPanel:not([hidden]) #darturnioPairKnockout[hidden] {display:block!important}
 
-body.darturnio-pairs-selected #formatDrawButtons,
-body.darturnio-pairs-selected #cancelDrawBtn,
-body.darturnio-pairs-selected #redrawGroupsBtn,
 body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
+#darturnioDrawSettings{background:#19191c;border:1px solid #46464e;padding:14px;margin:16px 0}
+#darturnioDrawSettings .dt-draw-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:10px}
+#darturnioDrawSettings label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:700}
+#darturnioDrawSettings input,#darturnioDrawSettings select{width:100%;min-height:44px;background:#24242a;color:#fff;border:1px solid #52525b;border-radius:8px;padding:8px}
+@media(max-width:650px){#darturnioDrawSettings .dt-draw-grid{grid-template-columns:1fr}}
 #darturnioPairKnockout{scroll-margin-top:16px}
 #darturnioDrawPairKo{width:100%;min-height:54px;font-size:16px}
 #darturnioPairKoFeedback{min-height:18px}
@@ -6954,114 +6956,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
 #darturnioPairKnockout .pair-ko-note{font-size:12px;color:#aab;margin-top:4px}
 @media(max-width:520px){#darturnioPairKnockout .pair-ko-score{gap:7px}#darturnioPairKnockout .pair-ko-score button{width:100%}}
 </style>
-<script id="darturnio-pair-ko-v2-controller">
-(()=>{'use strict';
- const $=id=>document.getElementById(id);
- const root=$('darturnioPairKnockout'),tidField=$('entryTournament'),draw=$('darturnioDrawPairKo'),reset=$('darturnioResetPairKo'),out=$('darturnioPairKoMatches'),feedback=$('darturnioPairKoFeedback');
- if(!root||!tidField||!draw||!out)return;
- const client=()=>window.db||(typeof db!=='undefined'?db:null);
- let sequence=0,drawn=false,pending=false,lastTournament='';
- function say(t,err=false){feedback.textContent=t;feedback.style.color=err?'#ff9898':'#9de3b0'}
- function node(tag,klass,txt){const el=document.createElement(tag);if(klass)el.className=klass;if(txt!==undefined)el.textContent=txt;return el}
- async function render(){
-  const request=++sequence,tid=tidField.value;lastTournament=tid;out.replaceChildren();drawn=false;draw.disabled=true;
-  document.body.classList.remove('darturnio-pairs-selected');
-  // While loading, the parent (pairs panel) controls visibility; don't hide the KO section.
-  root.hidden=false;
-  say('Načítám stav KO pavouka dvojic…');
-  if(!tid){root.hidden=true;return;}
-  const db=client();if(!db){say('Databáze není připojena.',true);return}
-  const [mode,pairs,matches,sessions]=await Promise.all([
-   db.from('tournaments').select('participant_mode,target_legs').eq('id',tid).maybeSingle(),
-   db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id').eq('tournament_id',tid),
-   db.from('darturnio_pair_matches').select('id,round_no,match_no,slot_no,pair1_id,pair2_id,target_legs,legs1,legs2,status,winner_pair_id').eq('tournament_id',tid).order('round_no').order('match_no'),
-   db.from('darturnio_pair_sessions').select('match_id,board_no').eq('tournament_id',tid).eq('status','live')
-  ]);
-  if(request!==sequence||tidField.value!==tid)return;
-  if(mode.error){
-    say('Nepodařilo se ověřit typ turnaje: '+mode.error.message,true);
-    return;
-  }
-  if(mode.data?.participant_mode!=='pairs'){
-    root.hidden=true;
-    return;
-  }
-  document.body.classList.add('darturnio-pairs-selected');
-  root.hidden=false;
-  if(matches.error){say('Databáze pro KO dvojic není připravená: '+matches.error.message,true);return}
-  if(pairs.error){say(pairs.error.message,true);return}
-  const participantIds=[...new Set((pairs.data||[]).flatMap(p=>[p.player1_id,p.player2_id]).filter(Boolean))];
-  const playerLookup=participantIds.length?await db.from('players').select('id,name').in('id',participantIds):{data:[]};
-  if(request!==sequence||tidField.value!==tid)return;
-  const playerMap=new Map((playerLookup.data||[]).map(p=>[p.id,p.name]));
-  const pairNames=new Map((pairs.data||[]).map(p=>[p.id,`${playerMap.get(p.player1_id)||'Hráč 1'} + ${playerMap.get(p.player2_id)||'Hráč 2'}`]));
-  const activeByMatch=new Map((sessions?.data||[]).map(x=>[x.match_id,x.board_no]));
-  const rows=matches.data||[];drawn=rows.length>0;draw.hidden=drawn;reset.hidden=!drawn;draw.disabled=drawn||(pairs.data||[]).length<2;
-  if(!drawn){say((pairs.data||[]).length<2?'Sestav alespoň dvě dvojice.':'Připraveno k rozlosování KO dvojic.');return}
-  if(rows.some(m=>m.slot_no==null)){say('Starší rozlosování dvojic není kompatibilní s novým počítadlem. Pro nový test nejdříve zruš KO rozlosování a vytvoř nové.',true);return}
-  const rounds=[...new Set(rows.map(r=>r.round_no))];
-  for(const round of rounds){
-   const section=node('section','pair-ko-round');section.append(node('h4','',round===rounds[rounds.length-1]?'Finále':`${round}. kolo`));
-   for(const m of rows.filter(x=>x.round_no===round)){
-    const card=node('div','pair-ko-match');const name1=pairNames.get(m.pair1_id)||'Čeká na postup';const name2=pairNames.get(m.pair2_id)||'Čeká na postup';
-    card.append(node('div','pair-ko-teams',`${name1}  ×  ${name2}`));
-    if(m.status==='finished')card.append(node('div','pair-ko-note',m.pair2_id?`Výsledek ${m.legs1}:${m.legs2} · Vítěz: ${pairNames.get(m.winner_pair_id)||'–'}`:'Volný los – automatický postup'));
-    else if(m.status==='pending')card.append(node('div','pair-ko-note','Čeká se na soupeře z předchozího kola'));
-    else if(activeByMatch.has(m.id))card.append(node('div','pair-ko-note','Právě se hraje na terči '+activeByMatch.get(m.id)+' · výsledek se přenáší z tabletu'));
-    else{
-      const controls=node('div','pair-ko-score');const x=node('input');x.type='number';x.min='0';x.max=String(m.target_legs);x.value=String(m.target_legs);x.setAttribute('aria-label','Legy první dvojice');
-      const sep=node('strong','',':');const y=node('input');y.type='number';y.min='0';y.max=String(m.target_legs);y.value='0';y.setAttribute('aria-label','Legy druhé dvojice');
-      const save=node('button','action','Potvrdit výsledek');save.type='button';save.addEventListener('click',async()=>{
-       const a=Number(x.value),b=Number(y.value),t=Number(m.target_legs);
-       if(!Number.isInteger(a)||!Number.isInteger(b)||Math.max(a,b)!==t||Math.min(a,b)<0||Math.min(a,b)>=t){say(`Vítěz musí získat přesně ${t} legů.`,true);return}
-       if(!window.confirm(`Potvrdit výsledek ${name1} ${a}:${b} ${name2}?`))return;
-       save.disabled=true;
-       try{const {error}=await db.rpc('darturnio_v2_submit_pair_result',{p_match_id:m.id,p_legs1:a,p_legs2:b});if(error)throw error;say('Výsledek uložen. Vítěz automaticky postupuje.');await render()}
-       catch(e){say('Výsledek se nepodařilo zapsat: '+e.message,true);save.disabled=false}
-      });controls.append(x,sep,y,save);card.append(controls);
-    }
-    section.append(card);
-   }
-   out.append(section);
-  }
-  const last=rows.find(r=>r.round_no===rounds[rounds.length-1]);
-  if(last?.status==='finished'&&last.winner_pair_id)say('Turnaj dvojic dokončen. Vítěz: '+(pairNames.get(last.winner_pair_id)||'–'));
-  else say('KO pavouk dvojic je aktivní. Výsledky zapisuje pořadatel nebo tablet.');
-  const statsResponse=await db.rpc('darturnio_v2_pair_player_stats',{p_tournament_id:tid});
-  if(request!==sequence||tidField.value!==tid)return;
-  if(!statsResponse.error&&(statsResponse.data||[]).length){
-    const section=node('section','pair-ko-round');section.append(node('h4','','Statistiky jednotlivých hráčů dvojic'));
-    const wrapper=node('div','table-wrap');const table=node('table','');
-    const tr=document.createElement('tr');['Hráč','Náhozy','Šipky','Ø / 3 šipky','Zavření'].forEach(v=>{const th=document.createElement('th');th.textContent=v;tr.append(th)});table.append(tr);
-    for(const row of statsResponse.data){const r=document.createElement('tr');[row.player_name,row.visits,row.darts,row.average_3dart??'—',row.checkouts].forEach(v=>{const td=document.createElement('td');td.textContent=String(v);r.append(td)});table.append(r)}
-    wrapper.append(table);section.append(wrapper);out.append(section);
-  }
- }
- draw.addEventListener('click',async()=>{
-  if(pending||drawn)return;
-  const tid=tidField.value;const db=client();if(!tid||!db)return;
-  if(!confirm('Rozlosovat KO pavouk dvojic? Zápasy se uloží do Supabase. STEEL 301/501 můžeš hrát na tabletu.'))return;
-  pending=true;draw.disabled=true;
-  try{const {error}=await db.rpc('darturnio_v2_draw_pairs_ko',{p_tournament_id:tid});if(error)throw error;say('Dvojice byly rozlosovány.');await render()}
-  catch(e){say('Losování se nezdařilo: '+e.message,true);draw.disabled=false}finally{pending=false}
- });
- reset.addEventListener('click',async()=>{
-  const tid=tidField.value,db=client();if(!tid||!db||pending)return;
-  if(!window.confirm('Opravdu zrušit KO pavouk dvojic? Vymažou se všechny jeho výsledky a postupy. Sestavené dvojice i hráči na startovní listině zůstanou.'))return;
-  pending=true;reset.disabled=true;
-  try{const {error}=await db.rpc('darturnio_v2_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;await render();say('KO rozlosování dvojic bylo zrušeno.')}
-  catch(e){say('Nepodařilo se zrušit rozlosování: '+e.message,true)}finally{pending=false;reset.disabled=false}
- });
- tidField.addEventListener('change',render);
- const pairsList=$('darturnioPairList');
- if(pairsList){let observedUpdate=false;const pairObserver=new MutationObserver(()=>{if(observedUpdate)return;observedUpdate=true;queueMicrotask(()=>{observedUpdate=false;render()})});pairObserver.observe(pairsList,{childList:true});}
-  const pairsPanel=$('darturnioPairsPanel');
-  if(pairsPanel){new MutationObserver(()=>{if(!pairsPanel.hidden)render()}).observe(pairsPanel,{attributes:true,attributeFilter:['hidden']});}
- // Existing app updates tournament selector dynamically.
- const observer=new MutationObserver(()=>{if(tidField.value!==lastTournament)render()});observer.observe(tidField,{childList:true});
- render();
-})();
-</script>
+<!-- V4: jednotný správce formátů dvojic na konci dokumentu -->
 
 <style id="darturnio-public-pairs-bracket-style">
 /* Jen verejny pavouk turnaju dvojic; ostatni turnajove formaty beze zmeny. */
@@ -7088,8 +6983,76 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  function isVisible(){return !bracket.classList.contains('hidden')&&!bracket.hidden&&!document.body.classList.contains('tablet-mode')}
  function dbClient(){try{return typeof db!=='undefined'?db:window.db}catch{return window.db}}
  function tournamentId(){return select.value||''}
+ // Tabulky veřejného pohledu na dvojice, stejná kritéria jako v administraci.
+ function publicPairTable(games){
+  const ids=[...new Set(games.flatMap(m=>[m.pair1_id,m.pair2_id]).filter(Boolean))];
+  const names=new Map();for(const m of games){if(m.pair1_id)names.set(m.pair1_id,m.pair1_name);if(m.pair2_id)names.set(m.pair2_id,m.pair2_name)}
+  const stats=new Map(ids.map(id=>[id,{id,played:0,wins:0,draws:0,losses:0,points:0,plus:0,minus:0,miniP:0,miniDiff:0,miniFor:0}]));
+  const done=games.filter(m=>m.status==='finished'&&m.stage!=='tiebreak');
+  for(const m of done){const a=stats.get(m.pair1_id),b=stats.get(m.pair2_id);if(!a||!b)continue;
+    const x=Number(m.legs1),y=Number(m.legs2);a.played++;b.played++;a.plus+=x;a.minus+=y;b.plus+=y;b.minus+=x;
+    if(x>y){a.wins++;a.points+=2;b.losses++}else if(y>x){b.wins++;b.points+=2;a.losses++}
+    else{a.draws++;b.draws++;a.points++;b.points++}
+  }
+  for(const m of games.filter(m=>m.stage==='tiebreak'&&m.status==='finished')){const w=stats.get(m.winner_pair_id);if(w)w.tieWins++;}
+  const base=(a,b)=>b.points-a.points||((b.plus-b.minus)-(a.plus-a.minus))||b.plus-a.plus;
+  const sorted=[...stats.values()].sort(base);
+  for(let i=0;i<sorted.length;){let j=i+1;while(j<sorted.length&&base(sorted[i],sorted[j])===0)j++;
+   if(j-i>1){const block=sorted.slice(i,j),set=new Set(block.map(x=>x.id));
+    const mini=new Map(block.map(x=>[x.id,{p:0,f:0,a:0}]));
+    for(const m of done){if(!set.has(m.pair1_id)||!set.has(m.pair2_id))continue;
+     const a=mini.get(m.pair1_id),b=mini.get(m.pair2_id),x=Number(m.legs1),y=Number(m.legs2);
+     a.f+=x;a.a+=y;b.f+=y;b.a+=x;if(x>y)a.p+=2;else if(y>x)b.p+=2;else{a.p++;b.p++}
+    }
+    for(const x of block){const y=mini.get(x.id);x.miniP=y.p;x.miniDiff=y.f-y.a;x.miniFor=y.f}
+    block.sort((a,b)=>b.miniP-a.miniP||b.miniDiff-a.miniDiff||b.miniFor-a.miniFor||b.tieWins-a.tieWins);
+    sorted.splice(i,j-i,...block);
+   }i=j;
+  }
+  const table=newNode('table','');const tr=newNode('tr');
+  ['#','Dvojice','Z','V','R','P','Body','Legy','+/-'].forEach(v=>tr.append(newNode('th','',v)));
+  table.append(tr);
+  for(const [i,r] of sorted.entries()){const line=newNode('tr');
+   [i+1,names.get(r.id)||'Dvojice',r.played,r.wins,r.draws,r.losses,r.points,`${r.plus}:${r.minus}`,r.plus-r.minus]
+     .forEach(v=>line.append(newNode('td','',v)));table.append(line);
+  }
+  return table;
+ }
+ function publicPairFormats(rows){
+  const res=newNode('div','');
+  const isGroups=rows.some(m=>m.stage==='group'),isRR=rows.some(m=>m.stage==='round_robin'),isDKO=rows.some(m=>m.stage==='double_ko');
+  if(isGroups||isRR){
+    const codes=[...new Set(rows.filter(m=>m.stage==='group'||m.stage==='round_robin').map(m=>m.group_name))].sort();
+    for(const code of codes){
+      const group=rows.filter(m=>m.group_name===code&&['group','round_robin','tiebreak'].includes(m.stage));
+      const section=newNode('section','panel');section.append(newNode('h3','',code==='KK'?'Každý s každým':'Skupina '+code));
+      section.append(publicPairTable(group));
+      section.append(newNode('p','small','Pořadí: body 2–1–0, rozdíl legů, počet vyhraných legů, vzájemné zápasy.'));
+      for(const m of group){const line=newNode('p','',`${m.pair1_name||'–'} ${m.status==='finished'?m.legs1+':'+m.legs2:'– : –'} ${m.pair2_name||'–'}`);section.append(line)}
+      res.append(section);
+    }
+  }
+  const finalRows=rows.filter(m=>!['group','round_robin','tiebreak'].includes(m.stage));
+  if(finalRows.length){const panel=newNode('section','panel');panel.append(newNode('h3','',isDKO?'Oboustranný pavouk (DKO)':'KO / Play-off'));
+   for(const m of finalRows){
+    const match=newNode('div','dt-pair-match');
+    match.append(newNode('div','small',isDKO?`DKO ${m.bracket_node||''}`:`Kolo ${m.round_no} · Zápas ${m.match_no}`));
+    match.append(newNode('div','dt-pair-side',m.pair1_name||'Čeká na postup'));
+    match.append(newNode('div','dt-pair-side',m.pair2_name||'Čeká na postup'));
+    const text=m.status==='finished'?(m.pair1_id&&m.pair2_id?`${m.legs1}:${m.legs2} · Vítěz: ${m.winner_pair_id===m.pair1_id?m.pair1_name:m.pair2_name}`:'Volný los'):
+      m.bracket_node==='GF2'?'Druhé finále pouze při nutné odvetě':'Čeká na zápas';
+    match.append(newNode('div','dt-pair-status',text));panel.append(match);
+   }
+   res.append(panel);
+  }
+  content.replaceChildren(res);
+ }
  function paint(payload){
   const rows=Array.isArray(payload.matches)?payload.matches:[];
+  if(rows.some(m=>['group','round_robin','tiebreak','double_ko'].includes(m.stage))){
+   if(info)info.textContent=`Turnaj dvojic – ${rows.length} zápasů`;
+   publicPairFormats(rows);return;
+  }
   if(info)info.textContent=rows.length?`KO dvojic: ${rows.length} zápasů`:'KO pavouk dvojic ještě není rozlosovaný.';
   if(!rows.length){content.textContent='Dvojice zatím nemají rozlosovaný KO pavouk.';return}
   const allRounds=[...new Set(rows.map(m=>Number(m.round_no)))].sort((a,b)=>a-b);
@@ -7460,4 +7423,269 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
 #tabletApp .dt-result-panel .dt-result-retry{margin:6px 0}
 @media(max-width:580px){#tabletApp .dt-result-panel .local-result-stats{grid-template-columns:1fr}}
 </style>
+<script id="darturnio-v4-pair-controller">
+// DARTURNIO V4 – jednotné losování / výsledky dvojic
+(()=>{'use strict';
+ const $=id=>document.getElementById(id);
+ const field=$('entryTournament'),root=$('darturnioPairKnockout'),out=$('darturnioPairKoMatches');
+ if(!field||!root||!out)return;
+ const info=$('darturnioPairKoFeedback'),reset=$('darturnioResetPairKo');
+ const buttons={groups:'drawGroupsBtn',single_ko:'drawSingleKoBtn',double_ko:'drawDoubleKoBtn',round_robin:'drawRoundRobinBtn'};
+ const dbClient=()=>window.db||(typeof db!=='undefined'?db:null);
+ let active='',isPair=false,seq=0,pending=false,rows=[],teams=[],teamNames=new Map(),currentFormat='';
+ const status=(message,err=false)=>{info.textContent=message;info.style.color=err?'#ff9696':'#a0e3b8'};
+ const elem=(tag,klass,text)=>{const n=document.createElement(tag);if(klass)n.className=klass;if(text!==undefined)n.textContent=String(text);return n};
+ const config=format=>{
+   const rule=$('dtDrawLegRule')?.value||'first_to',legs=Number($('dtDrawLegs')?.value),groups=Number($('dtDrawGroups')?.value);
+   if(!Number.isInteger(legs)||legs<1||legs>21)throw new Error('Počet legů musí být mezi 1–21.');
+   if(rule==='fixed'&&(format!=='groups'&&format!=='round_robin'||legs<2))throw new Error('Remíza je povolena pouze ve skupinách nebo KK, nejméně na 2 legy.');
+   if(format==='groups'&&(!Number.isInteger(groups)||groups<1||groups>8||groups>Math.floor(teams.length/2)))
+     throw new Error('Skupin může být 1–8, alespoň dvě dvojice v každé.');
+   return {rule,legs,groups};
+ };
+ function number(node,graph){
+   if(node.side==='middle')return node.position;
+   if(node.side==='final')return node.id==='GF1'?9001:9002;
+   if(node.side==='right'){
+     let n=0;for(let r=2;r<node.round;r++)n+=graph.size/(2**r);
+     return 1000+n+node.position-1;
+   }
+   let n=0;for(let r=1;r<node.round;r++)n+=graph.size/(2**(Math.floor((r+1)/2)+1));
+   return 2000+n+node.position-1;
+ }
+ function dkoNodes(n){
+   let size=2;while(size<n)size*=2;
+   const graph=window.darturnioV4DkoMap?.[size];
+   if(!graph)throw new Error('Neplatná mapa DKO pro '+size+' dvojic.');
+   return graph.matches.map(m=>({id:m.id,round:m.round,match_no:number(m,graph),sources:m.sources}));
+ }
+ const name=id=>teamNames.get(id)||'Čeká na soupeře';
+ const percent=(a,b)=>`${a}:${b}`;
+ function standings(games,participants){
+   const stats=new Map(participants.map(id=>[id,{id,played:0,wins:0,draws:0,losses:0,points:0,
+     plus:0,minus:0,miniP:0,miniD:0,miniF:0,tieWins:0}]));
+   const regular=games.filter(m=>m.status==='finished'&&m.stage!=='tiebreak');
+   for(const m of regular){const a=stats.get(m.pair1_id),b=stats.get(m.pair2_id);if(!a||!b)continue;
+    const x=Number(m.legs1),y=Number(m.legs2);a.played++;b.played++;a.plus+=x;a.minus+=y;b.plus+=y;b.minus+=x;
+    if(x>y){a.wins++;b.losses++;a.points+=2}else if(y>x){b.wins++;a.losses++;b.points+=2}
+    else{a.draws++;b.draws++;a.points++;b.points++}
+   }
+   const compare=(a,b)=>b.points-a.points||
+    (b.plus-b.minus)-(a.plus-a.minus)||b.plus-a.plus;
+   const ranked=[...stats.values()].sort(compare);
+   for(let i=0;i<ranked.length;){let j=i+1;while(j<ranked.length&&compare(ranked[i],ranked[j])===0)j++;
+    if(j-i>1){const block=ranked.slice(i,j),set=new Set(block.map(r=>r.id));
+     const mini=new Map(block.map(r=>[r.id,{p:0,f:0,a:0}]));
+     for(const m of regular){if(!set.has(m.pair1_id)||!set.has(m.pair2_id))continue;
+      const a=mini.get(m.pair1_id),b=mini.get(m.pair2_id),x=Number(m.legs1),y=Number(m.legs2);
+      a.f+=x;a.a+=y;b.f+=y;b.a+=x;if(x>y)a.p+=2;else if(y>x)b.p+=2;else{a.p++;b.p++}
+     }
+     for(const r of block){const v=mini.get(r.id);r.miniP=v.p;r.miniD=v.f-v.a;r.miniF=v.f}
+     block.sort((a,b)=>b.miniP-a.miniP||b.miniD-a.miniD||b.miniF-a.miniF);
+     ranked.splice(i,j-i,...block);
+    }i=j;
+   }
+   for(const m of games.filter(m=>m.status==='finished'&&m.stage==='tiebreak')){
+     const winner=stats.get(m.winner_pair_id);if(winner)winner.tieWins++;
+   }
+   // Rozhodovací leg se aplikuje až po zbylých kritériích.
+   ranked.sort((a,b)=>compare(a,b)||b.miniP-a.miniP||b.miniD-a.miniD||b.miniF-a.miniF||b.tieWins-a.tieWins);
+   return ranked;
+ }
+ function tieKey(r){return [r.points,r.plus-r.minus,r.plus,r.miniP,r.miniD,r.miniF,r.tieWins].join('|')}
+ function renderStandings(g){
+   const games=rows.filter(m=>(m.stage==='group'||m.stage==='tiebreak'||m.stage==='round_robin')&&m.group_name===g);
+   const groupTeams=teams.filter(t=>(t.group_name||'KK')===g).map(t=>t.id);
+   if(!groupTeams.length)return;
+   const table=elem('table'),thead=elem('tr');['#','Dvojice','Z','V','R','P','Body','Legy','+/-'].forEach(h=>thead.append(elem('th','',h)));
+   table.append(thead);
+   for(const [i,r] of standings(games,groupTeams).entries()){
+     const tr=elem('tr');[i+1,name(r.id),r.played,r.wins,r.draws,r.losses,r.points,percent(r.plus,r.minus),r.plus-r.minus].forEach((v,index)=>{
+       const td=elem('td','',v);if(index===6)td.style.fontWeight='bold';tr.append(td)});table.append(tr);
+   }
+   const sec=elem('section','pair-ko-round');sec.append(elem('h4','',g==='KK'?'Tabulka – každý s každým':'Skupina '+g),table);
+   sec.append(elem('p','small','Pořadí: body (2–1–0) → rozdíl legů → vyhrané legy → vzájemné zápasy.'));
+   out.append(sec);
+ }
+ function renderMatch(m){
+   const box=elem('div','pair-ko-match');
+   const a=name(m.pair1_id),b=name(m.pair2_id);
+   const kind=m.stage==='tiebreak'?'ROZHODOVACÍ LEG':m.stage==='double_ko'?(m.bracket_node||'DKO'):m.stage==='playoff'?'PLAY-OFF':m.stage==='group'?`SKUPINA ${m.group_name}`:m.stage==='round_robin'?'KAŽDÝ S KAŽDÝM':'KO';
+   box.append(elem('div','small',kind+' · zápas '+m.match_no));
+   box.append(elem('div','pair-ko-teams',a+'  ×  '+b));
+   if(m.status==='finished'){
+     box.append(elem('div','pair-ko-note',
+       m.pair1_id&&m.pair2_id?`Výsledek ${m.legs1}:${m.legs2} · ${m.winner_pair_id?'Vítěz: '+name(m.winner_pair_id):'Remíza'}`:
+       (m.winner_pair_id?'Volný los – '+name(m.winner_pair_id):'Volný los')));
+   }else if(m.status==='pending'){
+     box.append(elem('div','pair-ko-note','Čeká na soupeře z předchozího kola'));
+   }else if(m.isLive){
+     box.append(elem('div','pair-ko-note','Právě se hraje na tabletu · terč '+m.isLive));
+   }else{
+     const controls=elem('div','pair-ko-score');
+     const x=elem('input'),y=elem('input');x.type=y.type='number';x.min=y.min='0';
+     const fixed=m.leg_rule==='fixed'&&['group','round_robin'].includes(m.stage);
+     const t=fixed?Number(m.fixed_legs):Number(m.target_legs);
+     x.max=y.max=String(t);x.value=fixed?String(Math.floor(t/2)):String(t);
+     y.value=fixed?String(Math.ceil(t/2)):'0';
+     x.setAttribute('aria-label','Legy první dvojice');y.setAttribute('aria-label','Legy druhé dvojice');
+     const save=elem('button','action','Potvrdit výsledek');save.type='button';
+     save.addEventListener('click',async()=>{
+       if(pending)return;
+       const v1=Number(x.value),v2=Number(y.value);
+       if(!Number.isInteger(v1)||!Number.isInteger(v2)||v1<0||v2<0||
+          !(fixed?v1+v2===t:Math.max(v1,v2)===t&&Math.min(v1,v2)<t)){
+         status(fixed?`Musí se odehrát přesně ${t} legů.`:`Vítěz musí získat ${t} legů.`,true);return;
+       }
+       if(!confirm(`Uložit ${a} ${v1}:${v2} ${b}?`))return;
+       pending=true;save.disabled=true;
+       try{const db=dbClient();
+         const {error}=await db.rpc('darturnio_v4_pair_result',{p_match_id:m.id,p_legs1:v1,p_legs2:v2});
+         if(error)throw error;
+         if(m.stage==='double_ko'){
+           const progress=await db.rpc('darturnio_v4_advance_pair_dko',{p_tournament_id:active});
+           if(progress.error)throw progress.error;
+         }
+         status('Výsledek uložen.');await refresh();
+       }catch(e){status('Výsledek nelze uložit: '+e.message,true)}finally{pending=false;save.disabled=false}
+     });
+     controls.append(x,elem('strong','',':'),y,save);box.append(controls);
+   }
+   return box;
+ }
+ async function refresh(){
+   const tid=field.value,request=++seq;active=tid;out.replaceChildren();isPair=false;rows=[];teams=[];teamNames=new Map();
+   if(!tid){root.hidden=true;document.body.classList.remove('darturnio-pairs-selected');return}
+   const db=dbClient();if(!db)return;
+   const mode=await db.from('tournaments').select('participant_mode,draw_format').eq('id',tid).maybeSingle();
+   if(request!==seq||tid!==field.value)return;
+   isPair=mode.data?.participant_mode==='pairs';
+   document.body.classList.toggle('darturnio-pairs-selected',isPair);
+   root.hidden=!isPair;
+   if(!isPair)return;
+   const [p,m,s]=await Promise.all([
+     db.from('darturnio_tournament_pairs').select('id,player1_id,player2_id,group_name').eq('tournament_id',tid),
+     db.from('darturnio_pair_matches').select('*').eq('tournament_id',tid).order('match_no'),
+     db.from('darturnio_pair_sessions').select('match_id,board_no').eq('tournament_id',tid).eq('status','live')
+   ]);
+   if(request!==seq||field.value!==tid)return;
+   if(p.error||m.error){status('Pro nové losování spusť SQL V4. '+(p.error||m.error).message,true);return}
+   teams=p.data||[];rows=m.data||[];
+   const ids=[...new Set(teams.flatMap(x=>[x.player1_id,x.player2_id]))];
+   const players=ids.length?await db.from('players').select('id,name').in('id',ids):{data:[]};
+   if(request!==seq||field.value!==tid)return;
+   const lookup=new Map((players.data||[]).map(x=>[x.id,x.name]));
+   teamNames=new Map(teams.map(t=>[t.id,(lookup.get(t.player1_id)||'Hráč 1')+' + '+(lookup.get(t.player2_id)||'Hráč 2')]));
+   currentFormat=mode.data?.draw_format||'single_ko';
+   const live=new Map((s.data||[]).map(x=>[x.match_id,x.board_no]));
+   rows.forEach(m=>m.isLive=live.get(m.id)||null);
+   reset.hidden=rows.length===0;
+   status(rows.length?`Rozlosováno: ${rows.length} zápasů.`:
+      `Připraveno ${teams.length} dvojic. Vyber nastavení a jedno ze čtyř tlačítek losování níže.`);
+   if(!rows.length)return;
+   if(['groups','round_robin'].includes(currentFormat)){
+     const groups=[...new Set(teams.map(t=>t.group_name).filter(Boolean))].sort();
+     for(const g of groups)renderStandings(g);
+   }
+   const byGroup=(m)=>m.stage==='group'||m.stage==='tiebreak'||m.stage==='round_robin'?m.group_name:
+     m.stage==='double_ko'?(m.bracket_node?.startsWith('L')?'DKO – opravný pavouk':m.bracket_node?.startsWith('GF')?'DKO – finále':'DKO – vítězný pavouk'):
+     'KO / play-off';
+   const by=new Map();for(const m of rows){const key=byGroup(m);if(!by.has(key))by.set(key,[]);by.get(key).push(m)}
+   for(const [key,games] of by){
+      const sec=elem('section','pair-ko-round');sec.append(elem('h4','',key));
+      games.forEach(m=>sec.append(renderMatch(m)));out.append(sec);
+   }
+   if(currentFormat==='groups'&&!rows.some(m=>m.slot_no!==null)&&rows.filter(m=>m.stage==='group').every(m=>m.status==='finished')){
+     const orderedGroups=[...new Set(teams.map(t=>t.group_name))].sort();
+     const standingsBy=orderedGroups.map(g=>standings(rows.filter(m=>m.group_name===g),teams.filter(t=>t.group_name===g).map(t=>t.id)));
+     const count=Math.min(8,teams.length),qualifiers=[];
+     for(let rank=0;qualifiers.length<count&&rank<teams.length;rank++){
+       for(const g of standingsBy)if(g[rank]&&qualifiers.length<count)qualifiers.push(g[rank].id);
+     }
+     const needs=[];
+     for(let i=0;i<standingsBy.length;i++){
+       const ordered=standingsBy[i],cut=ordered.filter(r=>qualifiers.includes(r.id)).length;
+       if(cut>0&&cut<ordered.length&&tieKey(ordered[cut-1])===tieKey(ordered[cut])){
+         const key=tieKey(ordered[cut-1]);needs.push({group:orderedGroups[i],ids:ordered.filter(x=>tieKey(x)===key).map(x=>x.id)});
+       }
+     }
+     const control=elem('section','panel');
+     if(needs.length){
+       control.append(elem('p','small','Na postupové hranici je nerozhodná shoda. Je nutný rozhodovací leg.'));
+       for(const t of needs){
+         const already=rows.some(m=>m.group_name===t.group&&m.stage==='tiebreak');
+         if(already){control.append(elem('p','small','Rozhodovací leg pro skupinu '+t.group+' již proběhl. Pokud shoda trvá, rozhodni ručně pořadí.'));continue}
+         const btn=elem('button','action','Vytvořit rozhodovací leg – skupina '+t.group);
+         btn.addEventListener('click',async()=>{
+           if(pending)return;pending=true;try{const {error}=await db.rpc('darturnio_v4_pair_tiebreak',
+             {p_tournament_id:tid,p_group:t.group,p_pairs:t.ids});if(error)throw error;await refresh()}
+           catch(e){status(e.message,true)}finally{pending=false}
+         });control.append(btn);
+       }
+     }else{
+       const btn=elem('button','action','VYTVOŘIT PLAY-OFF Z POSTUPUJÍCÍCH DVOJIC');
+       btn.addEventListener('click',async()=>{
+         if(pending||!confirm('Vytvořit KO pro '+qualifiers.length+' postupujících dvojic?'))return;
+         pending=true;try{const {error}=await db.rpc('darturnio_v4_pair_playoff',
+            {p_tournament_id:tid,p_pairs:qualifiers});if(error)throw error;await refresh()}
+         catch(e){status(e.message,true)}finally{pending=false}
+       });control.append(btn);
+     }
+     out.prepend(control);
+   }
+   const stats=await db.rpc('darturnio_v2_pair_player_stats',{p_tournament_id:tid});
+   if(request!==seq||tid!==field.value)return;
+   if(!stats.error&&(stats.data||[]).length){
+     const sec=elem('section','pair-ko-round');sec.append(elem('h4','','Statistiky hráčů'));
+     const table=elem('table'),tr=elem('tr');['Hráč','Náhozy','Šipky','Ø3','Zavření'].forEach(x=>tr.append(elem('th','',x)));table.append(tr);
+     for(const s of stats.data){const r=elem('tr');[s.player_name,s.visits,s.darts,s.average_3dart??'–',s.checkouts].forEach(x=>r.append(elem('td','',x)));table.append(r)}
+     sec.append(table);out.append(sec);
+   }
+ }
+ document.addEventListener('click',async e=>{
+   const button=e.target.closest('button');if(!button||!(isPair||(typeof tournaments!=='undefined'&&tournaments.some(t=>t.id===field.value&&t.participant_mode==='pairs'))))return;
+   let format=Object.keys(buttons).find(k=>buttons[k]===button.id);
+   const isReset=['cancelDrawBtn','redrawGroupsBtn','darturnioResetPairKo'].includes(button.id);
+   if(!format&&!isReset)return;
+   e.preventDefault();e.stopImmediatePropagation();
+   if(pending)return;
+   const tid=field.value,db=dbClient();if(!tid||!db)return;
+   if(isReset){
+     if(!rows.length){status('Zatím nebyly vytvořeny zápasy.');return}
+     if(!confirm('Zrušit celé rozlosování dvojic včetně výsledků? Sestavené dvojice zůstanou.'))return;
+     pending=true;
+     try{const {error}=await db.rpc('darturnio_v2_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;
+       const clear=await db.from('darturnio_tournament_pairs').update({group_name:null}).eq('tournament_id',tid);
+       if(clear.error)throw clear.error;
+       status('Losování zrušeno.');await refresh()
+     }catch(err){status('Losování nelze zrušit: '+err.message,true)}finally{pending=false}
+     return;
+   }
+   if(rows.length){status('Turnaj už má vytvořené zápasy. Nejprve bezpečně zruš losování.',true);return}
+   try{
+     const c=config(format),labels={groups:'SKUPINY + PAVOUK',single_ko:'KO',double_ko:'DKO',round_robin:'KAŽDÝ S KAŽDÝM'};
+     if(!confirm(`Rozlosovat ${teams.length} dvojic · ${labels[format]} · ${c.rule==='fixed'?c.legs+' pevných legů':'na '+c.legs+' vítězných legů'}${format==='groups'?' · '+c.groups+' skupin':''}?`))return;
+     pending=true;
+     const {error}=await db.rpc('darturnio_v4_draw_pairs',{
+       p_tournament_id:tid,p_format:format,p_rule:c.rule,p_legs:c.legs,p_groups:c.groups,
+       p_dko_nodes:format==='double_ko'?dkoNodes(teams.length):[]
+     });if(error)throw error;
+     status('Dvojice úspěšně rozlosovány.');await refresh();
+   }catch(err){status('Losování se nepodařilo: '+err.message,true)}finally{pending=false}
+ },true);
+ field.addEventListener('change',refresh);
+ const observer=new MutationObserver(()=>{if(field.value!==active)refresh()});observer.observe(field,{childList:true});
+ const list=$('darturnioPairList');if(list){let queued=false;
+  new MutationObserver(()=>{if(!queued){queued=true;queueMicrotask(()=>{queued=false;refresh()})}})
+  .observe(list,{childList:true});}
+ // Ovládání počtu skupin a popisu se přizpůsobuje početnímu stavu.
+ const legRule=$('dtDrawLegRule'),legHelp=$('dtDrawHelp'),legCap=$('dtDrawLegCaption');
+ legRule?.addEventListener('change',()=>{
+  if(legCap?.firstChild)legCap.firstChild.textContent=legRule.value==='fixed'?'Pevný počet odehraných legů':'Počet vítězných legů';
+  if(legHelp)legHelp.textContent=legRule.value==='fixed'?'Remíza 1:1 nebo 2:2 je možná jen ve skupinách a v systému každý s každým.':'KO a DKO vyžaduje vítěze; remízy ve skupinách a KK jsou volitelné.';
+ });
+ refresh();
+})();
+
+</script>
 </body></html>
