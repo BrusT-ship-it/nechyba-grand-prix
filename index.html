@@ -250,7 +250,7 @@ body.public-tournament-view #legacyApp>.secondary:first-child{display:none!impor
 #legacyApp>.public-tournament-back{display:none;padding:14px 18px;background:#111;color:#fff;text-decoration:none;font-size:15px;font-weight:700;border-bottom:1px solid #444}
  .tablet-aggregate-pad button.selected{background:var(--red)!important;border-color:#FF4646!important;color:#fff!important}
 </style><style id="training-v1-style">#trainingPanel .training-pick{cursor:pointer;color:#fff;text-align:center;min-height:100px;border:1px solid #444;background:#191919;border-radius:12px;padding:18px}#trainingPanel .training-pick b{display:block;font-size:32px;color:#E11D1D}#trainingPanel .training-pick span{display:block;color:#aaa}#trainingPanel #trainingCounter[hidden],#trainingPanel #trainingChoice[hidden],#trainingPanel #trainingDartChoice[hidden]{display:none!important}#trainingPanel .training-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}#trainingPanel .training-toolbar button,#trainingPanel .training-actions button,#trainingPanel .training-finish button,#trainingPanel .training-choice-buttons button,#trainingPanel #trainingCancel{background:#292929;color:white;border:1px solid #555;border-radius:8px;padding:13px;cursor:pointer}#trainingPanel .training-score{font-size:clamp(80px,19vw,160px);font-weight:900;line-height:1.2;text-align:center;color:#fff}#trainingPanel .training-meta,#trainingPanel .training-visits{text-align:center;color:#aaa;margin:8px 0}#trainingPanel .training-display{font-size:44px;font-weight:bold;text-align:center;background:#111;border:1px solid #555;border-radius:8px;margin:15px auto;padding:8px;max-width:340px}#trainingPanel .training-keypad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:460px;margin:auto}#trainingPanel .training-keypad button{background:#242424;color:#fff;border:1px solid #555;border-radius:8px;font-size:28px;padding:15px;cursor:pointer}#trainingPanel .training-actions,#trainingPanel .training-finish,#trainingPanel .training-choice-buttons{display:flex;gap:8px;justify-content:center;max-width:460px;margin:10px auto}#trainingPanel .training-actions button,#trainingPanel .training-finish button,#trainingPanel .training-choice-buttons button{flex:1}#trainingPanel #trainingSubmit,#trainingPanel #trainingClose{background:#C51D1D}#trainingPanel .training-message{text-align:center;min-height:25px;color:#FF4646}#trainingPanel #trainingDartChoice{text-align:center;margin-top:14px}@media(max-width:480px){#trainingPanel .training-toolbar button{font-size:11px;padding:10px 7px}#trainingPanel .training-actions button,#trainingPanel .training-finish button{font-size:12px}}</style><style id="501live-route-separation">
-/* Only the explicit ?tablet=1 or ?tablet=2 route may show the board counter. */
+/* Only the explicit ?tablet=N route (N=1..64) may show the board counter. */
 body.tablet-mode #landingHome{display:none!important}
 body.tablet-mode #legacyApp{display:block!important;max-width:none!important;padding:0!important}
 body.tablet-mode #legacyApp>header,body.tablet-mode #legacyApp>nav,body.tablet-mode #legacyApp>main,body.tablet-mode #legacyApp>footer,body.tablet-mode #legacyApp>.public-tournament-back,body.tablet-mode #legacyApp>.moje-med-ale-banner{display:none!important}
@@ -1021,22 +1021,7 @@ body.tablet-mode .tcr-submit{min-height:clamp(48px,6.1dvh,62px);font-size:clamp(
 <div class="panel">
 <strong>Otevření počítadel na jednotlivých terčích</strong>
 <p class="small">Otevři počítadlo na zařízení, které bude u daného terče zapisovat šipky.</p>
-<div class="tablet-counter-grid">
-<div class="tablet-counter-item">
-<a class="action" href="/?tablet=1" rel="noopener" target="_blank">Otevřít počítadlo – terč 1</a>
-<div class="tablet-qr-wrap">
-<img alt="QR kód pro otevření počítadla – terč 1" class="tablet-qr" data-qr-path="/?tablet=1" height="180" loading="lazy" width="180"/>
-<span class="small">Naskenuj a otevři počítadlo terče 1</span>
-</div>
-</div>
-<div class="tablet-counter-item">
-<a class="action" href="/?tablet=2" rel="noopener" target="_blank">Otevřít počítadlo – terč 2</a>
-<div class="tablet-qr-wrap">
-<img alt="QR kód pro otevření počítadla – terč 2" class="tablet-qr" data-qr-path="/?tablet=2" height="180" loading="lazy" width="180"/>
-<span class="small">Naskenuj a otevři počítadlo terče 2</span>
-</div>
-</div>
-</div>
+<div class="tablet-counter-grid" id="darturnioTabletLinks"></div>
 </div>
 </details>
 <details class="admin-section" id="admin501PlayersSection">
@@ -1193,7 +1178,12 @@ let clockOffset = 0;            // rozdíl serverového a lokálního času (ms)
 let loadSeq = 0, loadTimer = null, lastLoadOk = 0, realtimeOk = false;
 let entryById = new Map(), playerById = new Map();
 let adminOpBusy = false;
-const tabletBoard = (()=>{const q=new URLSearchParams(location.search).get("tablet");if(q==="1"||q==="2")return Number(q);const m=location.pathname.match(/^\/tablet\/terc([12])\/?$/i);return m?Number(m[1]):0;})();
+const tabletBoard = (()=>{
+  const q=new URLSearchParams(location.search).get('tablet');
+  const m=location.pathname.match(/^\/tablet\/terc(\d{1,2})\/?$/i);
+  const board=Number(q||m?.[1]||0);
+  return Number.isInteger(board)&&board>=1&&board<=64?board:0;
+})();
 // Potvrzene informace o aktivnim legu drzime v pameti tabletu.
 // Vstup z klavesnice se nikdy nema cekat na sit (Supabase).
 let tabletFastCache=null;
@@ -1275,6 +1265,10 @@ function playerName(entryId){
   return player?.name||"—";
 }
 function darturnioSoftTournament(id=selectedTournament){return tournaments.find(t=>t.id===id)?.dart_type==='soft';}
+function darturnioBoardCount(id=selectedTournament){
+  const raw=Number(tournaments.find(t=>t.id===id)?.board_count);
+  return Number.isFinite(raw)&&raw>=1?Math.min(64,Math.floor(raw)):2;
+}
 function tournamentMatches(){
   return matches.filter(m=>m.tournament_id===selectedTournament);
 }
@@ -1300,67 +1294,68 @@ function eligibleWaitingMatches(matchRows,excludedEntryIds=[]){
 }
 
 /*
- * Plánování terčů:
- * 1. hráči z aktivních zápasů jsou vždy vyloučeni,
- * 2. druhý současný zápas nesmí sdílet hráče s prvním,
- * 3. přednost dostávají hráči, kteří hráli nejdéle předtím,
- * 4. při shodě rozhoduje pořadí kola a zápasu.
- * includeOccupied=false: jen volné terče (co lze spustit hned),
- * includeOccupied=true: veřejná fronta ukazuje další zápas i na obsazeném terči.
+ * Darturnio – plánovač pro všechny hry a 1–64 terčů.
+ * Rozvrh respektuje skutečně rozehrané WB/LB zápasy a přidělené
+ * volné terče. Pokud lze hrát současně na obou stranách DKO,
+ * přednost má dosud méně obsazená strana. Žádný hráč nehraje
+ * na dvou terčích zároveň. Není-li zapisovatel, hra se přesto spustí.
  */
+function dkoSchedulingSide(match){
+  const key=String(match?.group_name||'');
+  if(key.startsWith('DE:LB:'))return 'LB';
+  if(key.startsWith('DE:WB:'))return 'WB';
+  return null; // finále a všechny ostatní druhy zápasů
+}
 function planMatches(matchRows,includeOccupied){
-   const active=matchRows.filter(m=>m.status==="live");
-   const isSoft=darturnioSoftTournament(matchRows[0]?.tournament_id);
-  // Pro nasazení do hry jsou obsazeni pouze hráči, kteří právě hrají.
-  // Zapisovatel na druhém terči může být současně nasazen jako hráč.
+  if(!matchRows.length)return [];
+  const tournamentId=matchRows[0].tournament_id;
+  const isSoft=darturnioSoftTournament(tournamentId);
+  const active=matchRows.filter(m=>m.status==='live');
   const busy=new Set(active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id].filter(Boolean)));
-  // Zapisovatel ale nemůže současně zapisovat na dvou terčích.
-   const busyScorekeepers=new Set(isSoft?[]:active.map(m=>m.scorekeeper_entry_id).filter(Boolean));
-  const allBoards=Array.from({length:isSoft?Math.max(1,Math.min(64,Number(tournaments.find(t=>t.id===matchRows[0]?.tournament_id)?.board_count)||2)):2},(_,i)=>i+1);
-  const freeBoards=allBoards.filter(board=>!active.some(m=>Number(m.board_no)===board));
-  const occupiedBoards=allBoards.filter(board=>active.some(m=>Number(m.board_no)===board));
-  const boards=includeOccupied?[...freeBoards,...occupiedBoards]:freeBoards;
+  const busyScorekeepers=new Set(isSoft?[]:active.map(m=>m.scorekeeper_entry_id).filter(Boolean));
+  const allBoards=Array.from({length:darturnioBoardCount(tournamentId)},(_,i)=>i+1);
+  const occupied=new Set(active.map(m=>Number(m.board_no)));
+  const freeBoards=allBoards.filter(board=>!occupied.has(board));
+  const busyBoards=allBoards.filter(board=>occupied.has(board));
+  const boards=includeOccupied?[...freeBoards,...busyBoards]:freeBoards;
+  const laneCount={WB:0,LB:0};
+  for(const m of active){const side=dkoSchedulingSide(m);if(side)laneCount[side]++;}
   const lastPlayedAt=new Map();
-  matchRows.filter(m=>m.status==="finished").forEach(m=>{
+  for(const m of matchRows){
+    if(m.status!=='finished')continue;
     const stamp=new Date(m.ended_at||m.started_at||0).getTime()||0;
-    [m.player1_entry_id,m.player2_entry_id].forEach(id=>{if(id)lastPlayedAt.set(id,Math.max(lastPlayedAt.get(id)||0,stamp));});
-  });
+    for(const id of [m.player1_entry_id,m.player2_entry_id]){
+      if(id)lastPlayedAt.set(id,Math.max(lastPlayedAt.get(id)||0,stamp));
+    }
+  }
   const result=[];
   for(const board of boards){
-    const candidates=eligibleWaitingMatches(matchRows,[...busy]);
+    const candidates=eligibleWaitingMatches(matchRows,[...busy]).filter(m=>m.player1_entry_id!==m.player2_entry_id);
+    if(!candidates.length)continue;
     candidates.sort((a,b)=>{
+      const sideA=dkoSchedulingSide(a),sideB=dkoSchedulingSide(b);
+      if(sideA&&sideB&&sideA!==sideB){
+        const balance=laneCount[sideA]-laneCount[sideB];
+        if(balance!==0)return balance;
+      }
       const restA=Math.max(lastPlayedAt.get(a.player1_entry_id)||0,lastPlayedAt.get(a.player2_entry_id)||0);
       const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
-      const dkoA=String(a.group_name||'').startsWith('DE:');
-      const dkoB=String(b.group_name||'').startsWith('DE:');
-      if(dkoA&&dkoB){
-        const sideA=String(a.group_name).includes(':LB:')?'LB':'WB';
-        const sideB=String(b.group_name).includes(':LB:')?'LB':'WB';
-        const liveSides=result.map(x=>String(x.match.group_name||'').includes(':LB:')?'LB':'WB');
-        if(sideA!==sideB&&liveSides.includes(sideA)!==liveSides.includes(sideB))return liveSides.includes(sideA)?1:-1;
-      }
-      return restA-restB||(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0);
+      return restA-restB||(Number(a.round_no)||0)-(Number(b.round_no)||0)||
+        (Number(a.match_no)||0)-(Number(b.match_no)||0);
     });
-    let chosen=null;
-    // Nejprve naplánujeme zápasy na VŠECHNY dostupné terče.
-    // Zapisovatele vybereme až potom, aby nikdo nebyl určen k zápisu,
-    // pokud má podle souběžného rozpisu nastoupit jako hráč na druhém terči.
-    for(const candidate of candidates){
-      chosen=candidate;
-      break;
-    }
-    if(!chosen)break;
+    const chosen=candidates[0];
     result.push({board,match:chosen,scorekeeper_entry_id:null});
     busy.add(chosen.player1_entry_id);busy.add(chosen.player2_entry_id);
+    const side=dkoSchedulingSide(chosen);
+    if(side)laneCount[side]++;
   }
-  // Všichni hráči naplánovaní k souběžné hře jsou pro zapisování nedostupní.
-  const plannedPlayers=new Set(result.flatMap(x=>[x.match.player1_entry_id,x.match.player2_entry_id]).filter(Boolean));
-  const unavailableForScoring=new Set([...busy,...busyScorekeepers,...plannedPlayers]);
-   for(const item of result){
-     if(isSoft){item.scorekeeper_entry_id=null;continue;}
-     const scorekeeper=pickFairScorekeeper(matchRows,item.match,item.board,[...unavailableForScoring]);
-    item.scorekeeper_entry_id=scorekeeper||null;
-    if(scorekeeper)unavailableForScoring.add(scorekeeper);
+  // Teprve po sestavení celého rozpisu určíme případné zapisovatele.
+  // Hra má vždy přednost před zapisováním.
+  const unavailable=new Set([...busy,...busyScorekeepers]);
+  for(const item of result){
+    if(isSoft)continue;
+    const scorekeeper=pickFairScorekeeper(matchRows,item.match,item.board,[...unavailable]);
+    if(scorekeeper){item.scorekeeper_entry_id=scorekeeper;unavailable.add(scorekeeper);}
   }
   return result;
 }
@@ -1380,7 +1375,7 @@ function renderLive(){
   const active=activeMatches();
   const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
    const soft=darturnioSoftTournament();
-   const boardCount=Math.max(1,Math.min(64,Number(tournaments.find(t=>t.id===selectedTournament)?.board_count)||2));
+   const boardCount=darturnioBoardCount(selectedTournament);
    const cards=Array.from({length:boardCount},(_,i)=>i+1).map(board=>{
     const playing=active.find(m=>Number(m.board_no)===board);
     const next=scheduled.get(board);
@@ -2090,10 +2085,14 @@ async function createDoubleEliminationNextPhase(tournamentId,rows){
       board_no:null,player1_entry_id:entry.player1,player2_entry_id:entry.player2,
       legs1:0,legs2:0,target_legs:target,status:'waiting'
     }));
-    // Každé hrané utkání má číslo pevně odvozené z mapy; žádné přelosování.
-    const {error}=await db.from('matches').insert(newRows);
-    if(error)throw new Error('Pevné návaznosti UŠO se nepodařilo uložit: '+error.message);
-    return true;
+    // Uložení přes jednu atomickou SQL transakci. Na více tabletech se stejný
+    // cílový zápas může připravit současně: unikátní DB index + transakční zámek
+    // zabrání duplicitám. Staré DKO zůstávají beze změny.
+    const {data:created,error}=await db.rpc('darturnio_insert_dko_matches',{
+      p_tournament_id:tournamentId,p_matches:newRows
+    });
+    if(error)throw new Error('Navazující DKO se nepodařilo bezpečně uložit. Spusť SQL migraci Darturnio_DKO_bezpecne_planovani.sql. '+error.message);
+    return Number(created)>0;
   }finally{dkoProgressBusy.delete(tournamentId);}
 }
 
@@ -2494,13 +2493,19 @@ function pickFairScorekeeper(matchRows,playing,board=playing?.board_no,busyEntry
   return candidates[0]?.id||null;
 }
 function chooseBoardScorekeeper(playing,next,active,scheduled,board){
-  if(playing)return playing.scorekeeper_entry_id||null;
-  return next?.scorekeeper_entry_id||null;
+  if(!playing)return next?.scorekeeper_entry_id||null;
+  const assigned=playing.scorekeeper_entry_id;
+  // Pokud byl zapisovatel povolán do hry na jiném terči, nezobrazuj
+  // ho jako dostupného pro současný zápis.
+  if(assigned&&active.some(m=>m.id!==playing.id&&
+    (m.player1_entry_id===assigned||m.player2_entry_id===assigned)))return null;
+  return assigned||null;
 }
 
  function renderAdminBoards(){
    const soft=darturnioSoftTournament();
-   const boardCount=Math.max(1,Math.min(64,Number(tournaments.find(t=>t.id===selectedTournament)?.board_count)||2));
+   const boardCount=darturnioBoardCount(selectedTournament);
+   renderDarturnioTabletLinks(boardCount);
    const tabletSection=$("admin501TabletSection");if(tabletSection){tabletSection.hidden=soft;if(soft)tabletSection.open=false;}
    const active=activeMatches();
   const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
@@ -3204,6 +3209,8 @@ window.startNextMatch=async function(board,matchId){
   startInProgress=true;
   try{
     const tournamentId=selectedTournament;
+    if(!Number.isInteger(Number(board))||Number(board)<1||Number(board)>darturnioBoardCount(tournamentId))
+      throw new Error('Tento terč není v turnaji povolen. Zkontroluj nastavený počet terčů.');
     const {data:freshMatches,error:readError}=await db.from("matches").select("*").eq("tournament_id",tournamentId);
     if(readError)throw new Error("Nepodařilo se ověřit stav terčů: "+readError.message);
     const rows=freshMatches||[];
@@ -3431,7 +3438,7 @@ async function renderTablet(localOnly=false){
     }
     return;
   }
-  $("tabletTitle").textContent=`NECHYBA – TERČ ${tabletBoard}`;
+  $("tabletTitle").textContent=`DARTURNIO – TERČ ${tabletBoard}`;
   $("tabletLogin").classList.toggle("hidden",isAdmin);
   $("tabletApp").classList.toggle("hidden",!isAdmin);
   $("tabletLogoutBtn").classList.toggle("hidden",!isAdmin);
@@ -3445,6 +3452,10 @@ async function renderTablet(localOnly=false){
     if(tournamentSelect.value)selectedTournament=tournamentSelect.value;
   }
   if(!selectedTournament){tabletFastCache=null;app.innerHTML='<div class="panel">Není vybraný turnaj.</div>';return;}
+  if(tabletBoard>darturnioBoardCount(selectedTournament)){
+    app.innerHTML=`<div class="panel warning">Terč ${tabletBoard} není v tomto turnaji zapnutý. Turnaj má nastaveno ${darturnioBoardCount(selectedTournament)} terčů. Vyber jiný turnaj nebo otevři správný odkaz.</div>`;
+    return;
+  }
   if(darturnioSoftTournament()){tabletFastCache=null;app.innerHTML='<div class="panel"><h2>SOFT turnaj</h2><p>Na elektronických automatech se skóre zapisuje přímo na automatu. Výsledek zápasu po dohrání zadává pořadatel v administraci. Tabletové počítadlo není dostupné.</p></div>';return;}
   $("tabletTournament").textContent=tournaments.find(t=>t.id===selectedTournament)?.name||"";
   const {data:active,error}=await db.from("matches").select("*").eq("tournament_id",selectedTournament).eq("board_no",tabletBoard).eq("status","live").limit(1);
@@ -3651,11 +3662,11 @@ async function submitTabletVisit(mode){
   finally{tabletBusy=false;void renderTablet(true);}
 }
 
-if(tabletBoard && !new URLSearchParams(location.search).has("turnaj")){
+if(tabletBoard){
   document.body.classList.add("tablet-mode");
   document.getElementById("legacyApp").hidden=false;
   document.getElementById("landingHome").hidden=true;
-  document.title=`NECHYBA – TERČ ${tabletBoard}`;
+  document.title=`Darturnio – terč ${tabletBoard}`;
   const tabletManifest=document.querySelector('link[rel="manifest"]');if(tabletManifest)tabletManifest.href=`/manifest-terc${tabletBoard}.webmanifest`;
   const tabletIcon=document.querySelector('link[rel="apple-touch-icon"]');if(tabletIcon)tabletIcon.href=`/icons/terc${tabletBoard}-192.png`;
   const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href=`/icons/terc${tabletBoard}-192.png`;
@@ -3745,11 +3756,30 @@ if(tabletBoard && !new URLSearchParams(location.search).has("turnaj")){
   });
 }
 
-function initTabletQrCodes(){
-  document.querySelectorAll(".tablet-qr[data-qr-path]").forEach(img=>{
+function initTabletQrCodes(root=document){
+  root.querySelectorAll('.tablet-qr[data-qr-path]').forEach(img=>{
     const targetUrl=new URL(img.dataset.qrPath,window.location.origin).href;
-    img.src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data="+encodeURIComponent(targetUrl);
+    const url='https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data='+encodeURIComponent(targetUrl);
+    if(img.src!==url)img.src=url;
   });
+}
+function renderDarturnioTabletLinks(count=darturnioBoardCount()){
+  const root=$('darturnioTabletLinks');
+  if(!root)return;
+  if(darturnioSoftTournament()){root.replaceChildren();delete root.dataset.signature;return;}
+  const signature=selectedTournament+':'+count;
+  if(root.dataset.signature===signature)return;
+  root.dataset.signature=signature;
+  root.innerHTML=Array.from({length:count},(_,i)=>i+1).map(board=>{
+    const link='/?tablet='+board+'&turnaj='+encodeURIComponent(selectedTournament);
+    return `<div class="tablet-counter-item">
+      <a class="action" href="${esc(link)}" rel="noopener" target="_blank">Otevřít počítadlo – terč ${board}</a>
+      <div class="tablet-qr-wrap">
+        <img alt="QR kód – terč ${board}" class="tablet-qr" data-qr-path="${esc(link)}" width="180" height="180" loading="lazy" />
+        <span class="small">Počítadlo terče ${board}</span>
+      </div></div>`;
+  }).join('');
+  initTabletQrCodes(root);
 }
 
 async function init(){
@@ -3794,7 +3824,7 @@ init();
  if(directTournamentId && !new URLSearchParams(location.search).has('tablet')){document.body.classList.add('public-tournament-view');}
  const directBack=document.createElement('a');directBack.className='public-tournament-back';directBack.href=window.location.pathname;directBack.textContent='← ZPĚT NA DARTURNIO';
  $('legacyApp').prepend(directBack);
- if(directTournamentId && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(directTournamentId)){
+ if(directTournamentId && !new URLSearchParams(location.search).has('tablet') && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(directTournamentId)){
    showLegacy();
    const liveTab=document.querySelector('#legacyApp [data-tab="live"]');
    if(liveTab)liveTab.click();
