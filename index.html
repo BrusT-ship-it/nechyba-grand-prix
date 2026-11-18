@@ -3833,13 +3833,15 @@ guardClick("addPlayerBtn",async()=>{
   if(!name)return notify('Zadej jméno nového hráče.');
   if(players.some(p=>String(p.name).trim().toLocaleLowerCase('cs')===name.toLocaleLowerCase('cs')) &&
       !confirm(`Hráč se jménem „${name}“ už existuje. Chceš přesto založit nového hráče bez registrace?`))return;
-  const {data:created,error}=await db.from('players').insert({name}).select('id').single();
-  if(error)return notify('Hráče se nepodařilo založit: '+error.message);
-  const {error:entryError}=await db.from('tournament_entries').insert({player_id:created.id,tournament_id,group_name:null});
-  if(entryError){
-    notify('Hráč byl vytvořen, ale na startovní listinu se nepřidal: '+entryError.message+'; zkus ho přidat ručně.');
-    await loadData();return;
-  }
+  // Běžný pořadatel nemá přímé INSERT oprávnění do globální tabulky players.
+  // Jediná zabezpečená RPC funkce ověří vlastnictví turnaje a atomicky vytvoří
+  // neregistrovaného hráče včetně položky na startovní listině.
+  const {data:createdPlayerId,error}=await db.rpc('darturnio_create_guest_player',{
+    p_tournament_id:tournament_id,
+    p_name:name
+  });
+  if(error)return notify('Hráče se nepodařilo založit a přidat: '+error.message);
+  if(!createdPlayerId)return notify('Hráče se nepodařilo vytvořit: databáze nevrátila ID.');
   selectedTournament=tournament_id;
   $("playerName").value='';
   await loadData();
