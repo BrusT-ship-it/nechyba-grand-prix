@@ -5818,6 +5818,9 @@ body{max-width:100%;overflow-x:hidden}
 #ownedCompetitions{padding:20px;max-width:800px;margin:0 auto;color:#eee}#ownedCompetitions h3{color:#E11D1D}
 #ownedCompetitions .owned-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;margin:10px 0;border:1px solid #444;border-radius:8px;background:#181818}
 #ownedCompetitions .owned-row a{color:#E11D1D;font-weight:700}
+#ownedCompetitions .owned-one-delete{flex:none;border-radius:8px;border:1px solid #c94545;background:#8d2020;color:white;font-weight:700;padding:10px 12px;cursor:pointer}
+#ownedCompetitions .owned-one-delete:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:520px){#ownedCompetitions .owned-one-delete{width:100%;min-height:43px}}
 </style>
 <script id="501live-owned-tournaments">
 (()=>{
@@ -5922,6 +5925,42 @@ body{max-width:100%;overflow-x:hidden}
       $('ownedSelectAll').checked=false;
       $('ownedDeleteSelected').disabled=true;
       $('ownedDeleteSelected').textContent='SMAZAT VYBRANÉ (0)';
+      let deleteBusy=false;
+      async function deleteTargets(targets){
+        if(deleteBusy || !targets.length)return;
+        const question=targets.length===1
+          ?`Opravdu TRVALE smazat turnaj „${targets[0].name}“ včetně rozlosování, výsledků, legů a startovní listiny? Pro potvrzení napiš SMAZAT 1.`
+          :`Opravdu TRVALE smazat ${targets.length} turnajů včetně všech rozlosování, výsledků, legů a startovních listin? Pro potvrzení napiš SMAZAT ${targets.length}.`;
+        if(window.prompt(question)!=='SMAZAT '+targets.length)return;
+        deleteBusy=true;
+        const del=$('ownedDeleteSelected'),message=$('ownedDeleteStatus');
+        del.disabled=true;
+        panel.querySelectorAll('.owned-one-delete').forEach(b=>b.disabled=true);
+        message.textContent='Mažu celý turnaj včetně souvisejících dat…';
+        let completed=0;
+        const errors=[];
+        try{
+          for(const item of targets){
+            try{
+              const {data:result,error:deleteError}=await client.rpc('darturnio_delete_full_tournament',{
+                p_tournament_id:item.id,p_confirm_name:item.name
+              });
+              if(deleteError)throw deleteError;
+              if(result!==true)throw new Error('Databáze nepotvrdila odstranění.');
+              completed++;
+            }catch(error){errors.push(item.name+': '+(error?.message||String(error)));}
+          }
+          const summary=`Smazáno ${completed} z ${targets.length}.`+
+            (errors.length?' Chyby: '+errors.join(' | '):'');
+          if(!panel.hidden)await showOwned();
+          $('ownedDeleteStatus').textContent=summary;
+        }catch(error){
+          message.textContent='Nepodařilo se obnovit seznam: '+(error?.message||String(error));
+        }finally{
+          deleteBusy=false;
+          panel.querySelectorAll('.owned-one-delete').forEach(b=>b.disabled=false);
+        }
+      }
       function appendRows(rows){
       for (const tournament of rows) {
         const row = document.createElement('div');
@@ -5946,7 +5985,13 @@ body{max-width:100%;overflow-x:hidden}
         url.searchParams.set('turnaj', tournament.id);
         link.href = url.toString();
         link.textContent = 'OTEVŘÍT';
-        row.append(tick, info, link);
+        const deleteOne=document.createElement('button');
+        deleteOne.type='button';
+        deleteOne.className='owned-one-delete';
+        deleteOne.textContent='SMAZAT TURNAJ';
+        deleteOne.setAttribute('aria-label','Smazat celý turnaj '+(tournament.name||'Turnaj'));
+        deleteOne.addEventListener('click',()=>{void deleteTargets([tournament]);});
+        row.append(tick, info, link, deleteOne);
         list.append(row);
       }
       }
@@ -5979,28 +6024,7 @@ body{max-width:100%;overflow-x:hidden}
         });
         selectionStatus();
       };
-      $('ownedDeleteSelected').onclick=async()=>{
-        const targets=[...selected.values()];if(!targets.length)return;
-        const question=targets.length===1
-          ?`Opravdu TRVALE smazat turnaj „${targets[0].name}“ včetně výsledků? Pro potvrzení napiš SMAZAT 1.`
-          :`Opravdu TRVALE smazat ${targets.length} turnajů včetně výsledků? Pro potvrzení napiš SMAZAT ${targets.length}.`;
-        if(window.prompt(question)!=='SMAZAT '+targets.length)return;
-        const del=$('ownedDeleteSelected'),message=$('ownedDeleteStatus');
-        del.disabled=true;message.textContent='Mažu vybrané turnaje…';
-        let completed=0;const errors=[];
-        for(const item of targets){
-          try{
-            const {data:result,error:deleteError}=await client.rpc('darturnio_delete_owned_tournament',{p_tournament_id:item.id,p_confirm_name:item.name});
-            if(deleteError)throw deleteError;
-            if(result!==true)throw new Error('Databáze nepotvrdila odstranění.');
-            completed++;
-          }catch(error){errors.push(item.name+': '+(error?.message||String(error)));}
-        }
-        message.textContent=`Smazáno ${completed} z ${targets.length}.`+(errors.length?' Chyby: '+errors.join(' | '):'');
-        // Precteme aktualni seznam z DB: nikdy nezobrazujeme neoverene mazani.
-        if(!panel.hidden)await showOwned();
-        const fresh=$('ownedDeleteStatus');if(fresh)fresh.textContent=message.textContent;
-      };
+      $('ownedDeleteSelected').onclick=()=>{void deleteTargets([...selected.values()]);};
     } catch (error) {
       if (serial === loadSerial && !panel.hidden) {
         list.textContent = 'Nepodařilo se načíst turnaje: ' + (error?.message || String(error));
