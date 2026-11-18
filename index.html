@@ -4349,10 +4349,10 @@ async function renderCricketTournament(match,leg,app,localOnly=false){
  <div class="tcr-matrix">${rows}</div><div class="tcr-turn">NA TAHU: ${esc(playerName(current))}</div>
  <div class="tcr-targets">${targetButtons}</div>
  <div class="tcr-multipliers"><button data-tcr-mult="1">SINGLE</button><button data-tcr-mult="2">DOUBLE</button><button data-tcr-mult="3" ${cricketTournamentSegment===25?'disabled':''}>TRIPLE</button><button data-tcr-mult="0">MIMO</button></div>
- <div class="tcr-draft">${cricketPendingGet()?'⚠ Čeká na potvrzení posledního náhozu · ':''}${draftLabels||'Vyber číslo a zásah'} ${preview.winner?'<b> · ZAVŘENO</b>':''}</div>
+ <div class="tcr-draft">${cricketPendingGet()?'⚠ Čeká na potvrzení posledního náhozu · ':''}${draftLabels||'Vyber číslo a zásah'} ${preview.winner?'<b> · VÍTĚZ: '+esc(playerName(preview.winner))+(cricketTournamentBusy?' · AUTOMATICKY UKLÁDÁM…':'')+'</b>':''}</div>
  <div class="tcr-actions"><button class="secondary" data-tcr-undo-dart ${!cricketTournamentDraft.length||cricketTournamentBusy?'disabled':''}>1 ŠIPKA ZPĚT</button><button class="secondary" data-tcr-undo-visit ${cricketTournamentBusy?'disabled':''}>VRÁTIT NÁHOZ</button></div>
- <button class="action tcr-submit" data-tcr-save ${(!cricketTournamentDraft.length&&!cricketPendingGet())||cricketTournamentBusy?'disabled':''}>POTVRDIT NÁHOZ (${cricketTournamentDraft.length}/3)</button>
- <p class="small">Zápis se potvrzuje po 1–3 šipkách. Po vítězné šipce se další zásah nepovolí.</p></div>`;
+ <button class="action tcr-submit" data-tcr-save ${(!cricketTournamentDraft.length&&!cricketPendingGet())||cricketTournamentBusy?'disabled':''}>${cricketTournamentBusy?'UKLÁDÁM…':`POTVRDIT NÁHOZ (${cricketTournamentDraft.length}/3)`}</button>
+ <p class="small">Běžný nához potvrď po 1–3 šipkách. Po vítězné šipce se leg automaticky uloží a ukončí, i když byla první.</p></div>`;
  cricketTournamentCurrent={matchId:match.id,legId:leg.id,current,state,closed:stop};
 }
 const cricketPendingKey='501live-cricket-pending-v1';
@@ -4364,15 +4364,26 @@ async function saveCricketTournamentVisit(){
  if(cricketTournamentBusy||!cricketTournamentCurrent||(!cricketTournamentDraft.length&&!cricketPendingGet()))return;
  if(!navigator.onLine){notify('Bez internetu nelze bezpečně uložit cricketový nához.');return;}
  cricketTournamentBusy=true;
+ // Behem potvrzovani uzamknout tlacitka a okamzite ukazat stav UKLADAM.
+ void renderTablet(true);
  const cur=cricketTournamentCurrent;
  try{
   let pending=cricketPendingGet();
   if(pending&&pending.legId!==cur.legId)throw new Error('Na jiném legu čeká nepotvrzený nához. Nejprve ověř jeho stav.');
   if(!pending){pending={legId:cur.legId,args:{p_request_id:crypto.randomUUID(),p_leg_id:cur.legId,p_player_entry_id:cur.current,p_darts:[...cricketTournamentDraft]}};cricketPendingPut(pending);}
-  const {error}=await darturnioTabletRpc('record_cricket_visit_safe',pending.args);
+  const {data:confirmed,error}=await darturnioTabletRpc('record_cricket_visit_safe',pending.args);
   if(error)throw error;
+  // Server zapis potvrdil vcetne prepocitaneho stavu. Bezpecne vycistime cekajici navstevu.
   cricketPendingClear();
   cricketTournamentDraft=[];
+  // Behem bezneho legu neni duvod znovu nacitat vsechny turnaje, hrace a statistiky.
+  // Pouzijeme AUTORITATIVNI stav ze serveru a hned prepneme na dalsiho hrace.
+  if(confirmed?.state && confirmed.leg_finished===false && confirmed.match_finished===false
+     && cricketTournamentCurrent?.legId===cur.legId && tabletFastCache?.leg?.id===cur.legId){
+    cricketTournamentCurrent.state=confirmed.state;
+    return;
+  }
+  // Jen pri konci legu/zapasu (nebo u starsiho DB rozhrani) je nutne nacist novy stav.
   const {data:fm}=await db.from('matches').select('*').eq('id',cur.matchId).maybeSingle();
   if(fm?.status==='finished'){
    darturnioResultNotice.put(fm.tournament_id,tabletBoard,'singles',fm.id);
@@ -4734,7 +4745,17 @@ if(tabletBoard){
        if(cricketPendingGet()||cricketTournamentDraft.length>=3||p.winner)return;
        if(n===25&&x===3)return;
        cricketTournamentDraft.push({segment:x===0?null:n,multiplier:x});
-        void renderTablet(true);return;
+       // Vitezstvi vypocitavame po KAZDE sipce. Pokud je podminka splnena,
+       // okamzite odesleme jen skutecne hozene sipky (1, 2 nebo 3).
+       // Neni nutne stisknout POTVRDIT NAHOZ ani dohazovat zbytecne sipky.
+       const afterDart=cricketTournamentPreview(cricketTournamentCurrent.state,
+         cricketTournamentCurrent.current,cricketTournamentDraft);
+       if(afterDart.winner){
+         void saveCricketTournamentVisit();
+       }else{
+         void renderTablet(true);
+       }
+       return;
      }
      if(event.target.closest('[data-tcr-undo-dart]')){if(cricketPendingGet())return;cricketTournamentDraft.pop();void renderTablet(true);return;}
      if(event.target.closest('[data-tcr-undo-visit]')){
@@ -4895,8 +4916,23 @@ async function init(){
     if(event==="SIGNED_OUT"&&isAdmin){setAdminUi(false);setStatus("Přihlášení pořadatele vypršelo, přihlas se znovu.");if(tabletBoard)renderTablet();}
     if(event==="SIGNED_IN"&&tabletBoard){verifyAdmin().then(ok=>{isAdmin=ok;renderTablet();});}
   });
+  let tabletCricketUpdateTimer=null;
   db.channel("grand-prix-live")
-    .on("postgres_changes",{event:"*",schema:"public"},()=>{scheduleLoad();if(tabletBoard&&!tabletBusy&&!cricketTournamentBusy)renderTablet();})
+    .on("postgres_changes",{event:"*",schema:"public"},payload=>{
+      if(tabletBoard && (payload?.table==="cricket_darts" || payload?.table==="cricket_visit_requests")){
+        // Jeden cricketovy nahoz vytvori az tri radky: nespoustej cely globalni reload.
+        // Cizi tablet na stejnem terci se pritom muze aktualizovat z DB.
+        if(!cricketTournamentBusy && !tabletBusy){
+          clearTimeout(tabletCricketUpdateTimer);
+          tabletCricketUpdateTimer=setTimeout(()=>{
+            if(!cricketTournamentBusy && !tabletBusy) void renderTablet();
+          },450);
+        }
+        return;
+      }
+      scheduleLoad();
+      if(tabletBoard&&!tabletBusy&&!cricketTournamentBusy)void renderTablet();
+    })
     .subscribe(state=>{realtimeOk=state==="SUBSCRIBED";if(lastLoadOk)updateConnectionStatus();});
   // Záložní obnova: při výpadku realtime kanálu nebo po delším klidu
   setInterval(()=>{if(!realtimeOk||Date.now()-lastLoadOk>60000)scheduleLoad();},15000);
