@@ -1515,6 +1515,12 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   <select aria-label="Hráč" id="entryPlayer"></select>
   <button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
 </details>
+<details class="darturnio-entry-manual" id="darturnioPlayerLinkRequests">
+  <summary>🔗 ŽÁDOSTI O PROPOJENÍ HISTORICKÝCH HRÁČŮ</summary>
+  <p class="small">Tady schválíš žádosti hráčů o propojení jejich starších výsledků s novým účtem. Kvůli žádostem nemusíš spouštět fotoaparát.</p>
+  <button class="secondary" id="linkRefreshRequests" type="button">NAČÍST / OBNOVIT ŽÁDOSTI</button>
+  <div id="linkOrganizerMount"></div>
+</details>
 <div id="playerQrScanner" hidden class="player-qr-panel">
   <strong>Načíst osobní QR kód hráče</strong>
   <p class="small">Vybraný turnaj: <span id="playerQrTournamentName">–</span>. Fotoaparát vyžaduje HTTPS a povolení přístupu. Pokud prohlížeč skenování nepodporuje, můžeš vložit obsah QR kódu ručně.</p>
@@ -6392,7 +6398,7 @@ const organizerPanel=el('section');organizerPanel.id='linkOrganizerPanel';
 const profile=$('profileMe'), qr=$('playerQrScanner');
 if(!profile||!qr)return;
 profile.appendChild(playerPanel);
-qr.parentNode.insertBefore(organizerPanel,qr.nextSibling);
+const mount=$('linkOrganizerMount');if(mount)mount.appendChild(organizerPanel);else qr.parentNode.insertBefore(organizerPanel,qr.nextSibling);
 let activePlayer=false,activeOrganizer=false;
 const statusNames={pending:'Čeká na pořadatele',organizer_approved:'Schváleno pořadatelem – potvrď propojení',completed:'Propojeno',rejected:'Zamítnuto'};
 async function me(){const c=dbClient();if(!c)throw Error('Databáze není připravena.');const {data,error}=await c.auth.getUser();if(error||!data?.user)throw Error('Nejdříve se přihlas.');return {c,user:data.user}}
@@ -6460,6 +6466,8 @@ async function renderOrganizer(){
 async function renderOrganizerRefresh(){activeOrganizer=false;await renderOrganizer()}
 $('profileOpenMe')?.addEventListener('click',()=>{setTimeout(renderPlayer,0)});
 $('openPlayerQrScanner')?.addEventListener('click',()=>{setTimeout(renderOrganizer,0)});
+$('linkRefreshRequests')?.addEventListener('click',()=>{renderOrganizerRefresh()});
+$('darturnioPlayerLinkRequests')?.addEventListener('toggle',e=>{if(e.currentTarget.open)renderOrganizerRefresh()});
 })();
 </script>
 
