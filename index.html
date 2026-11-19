@@ -8125,14 +8125,20 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
   $('ctPlayers').style.setProperty('--ct-count',n);
   $('ctPlayers').innerHTML=players.map((p,i)=>`<div class="ct-player ${i===active&&phase==='playing'?'active':''}"><div class="ct-player-name">${escapeHtml(p.name)}</div><div class="ct-player-score">${p.score}</div><div class="ct-player-meta">Legy: ${p.legs} · Šipky: ${p.darts}</div></div>`).join('');
   const matrix=$('ctMatrix');matrix.dataset.playerCount=String(n);matrix.style.setProperty('--ct-count',n);
-  const heads=['ČÍSLO',...players.map(p=>escapeHtml(p.name))];
-  let html=heads.map((h,i)=>`<div class="ct-cell ct-col-head ${i-1===active&&phase==='playing'?'active':''}">${h}</div>`).join('');
+  // Cricket tabulka: cil uprostred, zasahy hracu po obou stranach.
+  // Hráči zachovávají původní indexy, pouze se vizuálně mění pořadí sloupců.
+  const leftCount=Math.ceil(n/2);
+  const columns=[...Array.from({length:leftCount},(_,i)=>i),-1,...Array.from({length:n-leftCount},(_,i)=>leftCount+i)];
+  let html=columns.map(i=>`<div class="ct-cell ct-col-head ${i===active&&phase==='playing'?'active':''}">${i===-1?'ČÍSLO':escapeHtml(players[i].name)}</div>`).join('');
   for(let k=0;k<nums.length;k++){
    const num=nums[k];const isLast=k===nums.length-1;
-   html+=`<div class="ct-cell ct-target-num ${isLast?'last-row':''}">${lab(num)}</div>`;
-   for(const p of players){
-    const m=p.marks[num];
-    html+=`<div class="ct-cell ${m===3?'ct-mark-closed':''} ${isLast?'last-row':''}" aria-label="${escapeHtml(p.name)} ${lab(num)} ${m} ze 3 zásahů">${Array.from({length:3},(_,i)=>`<span class="ct-dot ${i<m?'hit':''}"></span>`).join('')}</div>`;
+   for(const i of columns){
+    if(i===-1){
+     html+=`<div class="ct-cell ct-target-num ${isLast?'last-row':''}">${lab(num)}</div>`;
+    }else{
+     const p=players[i],m=p.marks[num];
+     html+=`<div class="ct-cell ${m===3?'ct-mark-closed':''} ${isLast?'last-row':''}" aria-label="${escapeHtml(p.name)} ${lab(num)} ${m} ze 3 zásahů">${Array.from({length:3},(_,j)=>`<span class="ct-dot ${j<m?'hit':''}"></span>`).join('')}</div>`;
+    }
    }
   }
   matrix.innerHTML=html;
@@ -9675,4 +9681,32 @@ body.tablet-mode .tcr-panel .tcr-multipliers button.active{background:#a51b21!im
 body.tablet-mode .tcr-panel .tcr-targets button:active{background:#a51b21;border-color:#ff6262;}
 </style>
 
+
+<style id="darturnio-cricket-targets-between-players-20261119">
+/* Vizualni usporadani Cricketu: zasahy | 20-15/BULL | zasahy. */
+#cricketPanel #ctGame .ct-matrix[data-player-count="2"]{
+  grid-template-columns:minmax(0,1fr) 52px minmax(0,1fr)!important;
+  min-width:0!important;width:100%!important;
+}
+#cricketPanel #ctGame .ct-matrix[data-player-count="3"]{
+  grid-template-columns:repeat(2,minmax(95px,1fr)) 52px minmax(95px,1fr)!important;
+  min-width:0!important;width:100%!important;
+}
+#cricketPanel #ctGame .ct-matrix[data-player-count="4"]{
+  grid-template-columns:repeat(2,minmax(105px,1fr)) 52px repeat(2,minmax(105px,1fr))!important;
+  min-width:472px!important;width:100%!important;
+}
+#cricketPanel #ctGame .ct-target-num{
+  background:#30323a;
+  border-inline:1px solid #545762;
+  font-size:clamp(18px,3vw,24px);
+  letter-spacing:0;
+}
+#cricketPanel #ctGame .ct-target-num.last-row{font-size:clamp(12px,2.5vw,15px)}
+@media(max-width:580px){
+  #cricketPanel #ctGame .ct-matrix[data-player-count="2"]{
+    grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr)!important;
+  }
+}
+</style>
 </body></html>
