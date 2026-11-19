@@ -1338,7 +1338,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
    <label class="ct-field ct-player-input" data-ct-player="2" hidden>Hráč 3<input id="ctName2" maxlength="32" placeholder="Jméno hráče 3" value="Hráč 3"></label>
    <label class="ct-field ct-player-input" data-ct-player="3" hidden>Hráč 4<input id="ctName3" maxlength="32" placeholder="Jméno hráče 4" value="Hráč 4"></label>
   </div>
-  <p class="ct-hint">SINGLE = 1 značka, DOUBLE = 2, TRIPLE = 3. Vnější BULL = 1, vnitřní BULL = 2. Hra se nikam neukládá.</p>
+  <p class="ct-hint">Číslo = SINGLE. Pro DOUBLE/TRIPLE nejdřív klepni na násobitel, pak na číslo. BULL: vnější = 1, vnitřní = 2. Hra se nikam neukládá.</p>
   <button class="ct-primary" type="submit">SPUSTIT CRICKET</button>
  </form>
  <div id="ctGame" class="ct-card" hidden>
@@ -1350,9 +1350,8 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   <div id="ctScoring">
    <div class="ct-pick-row" id="ctTargets" aria-label="Vyber číslo"></div>
    <div class="ct-multipliers">
-    <button type="button" class="ct-mult" data-ct-mult="1">SINGLE</button>
-    <button type="button" class="ct-mult" data-ct-mult="2">DOUBLE</button>
-    <button type="button" class="ct-mult" data-ct-mult="3">TRIPLE</button>
+    <button type="button" class="ct-mult" data-ct-mult="2" aria-pressed="false">DOUBLE</button>
+    <button type="button" class="ct-mult" data-ct-mult="3" aria-pressed="false">TRIPLE</button>
     <button type="button" class="ct-mult" data-ct-mult="0">MIMO (0)</button>
    </div>
    <p id="ctVisitInfo" class="ct-hint" aria-live="polite"></p>
@@ -1676,7 +1675,7 @@ async function darturnioTabletRpc(name,args={}){return db.rpc(name,args);}
 // Potvrzene informace o aktivnim legu drzime v pameti tabletu.
 // Vstup z klavesnice se nikdy nema cekat na sit (Supabase).
 let tabletFastCache=null;
-let cricketTournamentDraft=[];let cricketTournamentSegment=20;let cricketTournamentLegId=null;let cricketTournamentBusy=false;
+let cricketTournamentDraft=[];let cricketTournamentMultiplier=1;let cricketTournamentLegId=null;let cricketTournamentBusy=false;
 let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;let tabletAggregateValue="";let tabletSpecialType="";let tabletSpecialDart=0;let tabletDoubleAttempts=0;
 // Souhrn predchozich legu nacteme pouze pri zmene legu, ne po kazdem stisku klavesy.
 let tabletPastVisitCache={key:null,visits:[]};
@@ -4475,7 +4474,7 @@ function cricketTournamentPreview(state,who,darts){
  return {m1,m2,s1,s2,winner:null};
 }
 async function renderCricketTournament(match,leg,app,localOnly=false){
- if(cricketTournamentLegId!==leg.id){cricketTournamentDraft=[];cricketTournamentLegId=leg.id;cricketTournamentSegment=20;}
+ if(cricketTournamentLegId!==leg.id){cricketTournamentDraft=[];cricketTournamentLegId=leg.id;cricketTournamentMultiplier=1;}
  let state;
  if(localOnly && cricketTournamentCurrent?.legId===leg.id && cricketTournamentCurrent?.matchId===match.id){
    // Pri kazdem jednotlivem stisku se score a znacky prepocitaji lokalne.
@@ -4491,14 +4490,14 @@ async function renderCricketTournament(match,leg,app,localOnly=false){
  const rows=CRICKET_TOURNEY_TARGETS.map((n,i)=>`<div class="tcr-row">${marks(preview.m1[i])}<strong>${n===25?'BULL':n}</strong>${marks(preview.m2[i])}</div>`).join('');
  const n1=esc(playerName(match.player1_entry_id)),n2=esc(playerName(match.player2_entry_id));
  const draftLabels=cricketTournamentDraft.map(d=>d.segment===null?'MIMO':`${d.multiplier===1?'S':d.multiplier===2?'D':'T'}${d.segment===25?'BULL':d.segment}`).join(' · ');
- const targetButtons=CRICKET_TOURNEY_TARGETS.map(n=>`<button type="button" class="${cricketTournamentSegment===n?'chosen':''}" data-tcr-target="${n}">${n===25?'BULL':n}</button>`).join('');
+ const targetButtons=CRICKET_TOURNEY_TARGETS.map(n=>`<button type="button" data-tcr-target="${n}">${n===25?'BULL':n}</button>`).join('');
  const stop=Boolean(preview.winner)||cricketTournamentDraft.length>=3;
  app.innerHTML=`<div class="panel tcr-panel"><div class="tcr-label">CUT-THROAT CRICKET · ${leg.leg_no}. LEG · ${esc(String(match.legs1))}:${esc(String(match.legs2))}</div>
  <div class="tcr-scores"><div class="${current===match.player1_entry_id?'active':''}"><b>${n1}</b><strong>${preview.s1}</strong></div><div class="${current===match.player2_entry_id?'active':''}"><b>${n2}</b><strong>${preview.s2}</strong></div></div>
  <div class="tcr-matrix">${rows}</div><div class="tcr-turn">NA TAHU: ${esc(playerName(current))}</div>
  <div class="tcr-targets">${targetButtons}</div>
- <div class="tcr-multipliers"><button data-tcr-mult="1">SINGLE</button><button data-tcr-mult="2">DOUBLE</button><button data-tcr-mult="3" ${cricketTournamentSegment===25?'disabled':''}>TRIPLE</button><button data-tcr-mult="0">MIMO</button></div>
- <div class="tcr-draft">${cricketPendingGet()?'⚠ Čeká na potvrzení posledního náhozu · ':''}${draftLabels||'Vyber číslo a zásah'} ${preview.winner?'<b> · VÍTĚZ: '+esc(playerName(preview.winner))+(cricketTournamentBusy?' · AUTOMATICKY UKLÁDÁM…':'')+'</b>':''}</div>
+ <div class="tcr-multipliers"><button data-tcr-mult="2" class="${cricketTournamentMultiplier===2?'active':''}" aria-pressed="${cricketTournamentMultiplier===2}">DOUBLE</button><button data-tcr-mult="3" class="${cricketTournamentMultiplier===3?'active':''}" aria-pressed="${cricketTournamentMultiplier===3}">TRIPLE</button><button data-tcr-mult="0">MIMO</button></div>
+ <div class="tcr-draft">${cricketPendingGet()?'⚠ Čeká na potvrzení posledního náhozu · ':''}${draftLabels||'Číslo = SINGLE'} ${preview.winner?'<b> · VÍTĚZ: '+esc(playerName(preview.winner))+(cricketTournamentBusy?' · AUTOMATICKY UKLÁDÁM…':'')+'</b>':''}</div>
  <div class="tcr-actions"><button class="secondary" data-tcr-undo-dart ${!cricketTournamentDraft.length||cricketTournamentBusy?'disabled':''}>1 ŠIPKA ZPĚT</button><button class="secondary" data-tcr-undo-visit ${cricketTournamentBusy?'disabled':''}>VRÁTIT NÁHOZ</button></div>
  <button class="action tcr-submit" data-tcr-save ${(!cricketTournamentDraft.length&&!cricketPendingGet())||cricketTournamentBusy?'disabled':''}>${cricketTournamentBusy?'UKLÁDÁM…':`POTVRDIT NÁHOZ (${cricketTournamentDraft.length}/3)`}</button>
  <p class="small">Běžný nához potvrď po 1–3 šipkách. Po vítězné šipce se leg automaticky uloží a ukončí, i když byla první.</p></div>`;
@@ -4525,6 +4524,7 @@ async function saveCricketTournamentVisit(){
   // Server zapis potvrdil vcetne prepocitaneho stavu. Bezpecne vycistime cekajici navstevu.
   cricketPendingClear();
   cricketTournamentDraft=[];
+  cricketTournamentMultiplier=1;
   // Behem bezneho legu neni duvod znovu nacitat vsechny turnaje, hrace a statistiky.
   // Pouzijeme AUTORITATIVNI stav ze serveru a hned prepneme na dalsiho hrace.
   if(confirmed?.state && confirmed.leg_finished===false && confirmed.match_finished===false
@@ -4887,30 +4887,33 @@ if(tabletBoard){
        await loadData();await renderTablet();return;
      }
      const ctTarget=event.target.closest('[data-tcr-target]');
-     if(ctTarget&&!cricketPendingGet()&&!cricketTournamentBusy){cricketTournamentSegment=Number(ctTarget.dataset.tcrTarget);void renderTablet(true);return;}
      const ctMult=event.target.closest('[data-tcr-mult]');
-     if(ctMult&&cricketTournamentCurrent&&!cricketTournamentBusy){
-       const x=Number(ctMult.dataset.tcrMult), n=cricketTournamentSegment;
+     if((ctTarget||ctMult)&&cricketTournamentCurrent&&!cricketTournamentBusy){
        const p=cricketTournamentPreview(cricketTournamentCurrent.state,cricketTournamentCurrent.current,cricketTournamentDraft);
        if(cricketPendingGet()||cricketTournamentDraft.length>=3||p.winner)return;
-       if(n===25&&x===3)return;
-       cricketTournamentDraft.push({segment:x===0?null:n,multiplier:x});
-       // Vitezstvi vypocitavame po KAZDE sipce. Pokud je podminka splnena,
-       // okamzite odesleme jen skutecne hozene sipky (1, 2 nebo 3).
-       // Neni nutne stisknout POTVRDIT NAHOZ ani dohazovat zbytecne sipky.
+       if(ctMult&&Number(ctMult.dataset.tcrMult)!==0){
+         const choice=Number(ctMult.dataset.tcrMult);
+         cricketTournamentMultiplier=cricketTournamentMultiplier===choice?1:choice;
+         void renderTablet(true);return;
+       }
+       // Samotne cislo je SINGLE. Predem zvoleny DOUBLE/TRIPLE plati jen na jednu sipku.
+       const n=ctTarget?Number(ctTarget.dataset.tcrTarget):null;
+       const x=ctTarget?cricketTournamentMultiplier:0;
+       if(n===25&&x===3){notify('Na BULL nelze zapsat TRIPLE. Zvol DOUBLE, nebo TRIPLE zrus dalsim klepnutim.');return;}
+       cricketTournamentDraft.push({segment:n,multiplier:x});
+       cricketTournamentMultiplier=1;
+       // Vitezstvi vypocitavame po KAZDE sipce. Po vitezne sipce
+       // automaticky ulozime jen skutecne hozeny pocet sipek.
        const afterDart=cricketTournamentPreview(cricketTournamentCurrent.state,
          cricketTournamentCurrent.current,cricketTournamentDraft);
-       if(afterDart.winner){
-         void saveCricketTournamentVisit();
-       }else{
-         void renderTablet(true);
-       }
+       if(afterDart.winner){void saveCricketTournamentVisit();}
+       else{void renderTablet(true);}
        return;
      }
-     if(event.target.closest('[data-tcr-undo-dart]')){if(cricketPendingGet())return;cricketTournamentDraft.pop();void renderTablet(true);return;}
+     if(event.target.closest('[data-tcr-undo-dart]')){if(cricketPendingGet())return;cricketTournamentDraft.pop();cricketTournamentMultiplier=1;void renderTablet(true);return;}
      if(event.target.closest('[data-tcr-undo-visit]')){
        if(cricketTournamentBusy||!cricketTournamentCurrent||cricketPendingGet())return;
-       if(cricketTournamentDraft.length){cricketTournamentDraft=[];void renderTablet(true);return;}
+       if(cricketTournamentDraft.length){cricketTournamentDraft=[];cricketTournamentMultiplier=1;void renderTablet(true);return;}
        if(!confirm('Vrátit poslední potvrzený cricketový nához?'))return;
        cricketTournamentBusy=true;
        try{const {error}=await darturnioTabletRpc('undo_last_cricket_visit',{p_leg_id:cricketTournamentCurrent.legId});if(error)throw error;cricketTournamentDraft=[];await loadData();await renderTablet();}
@@ -8001,7 +8004,7 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
  const val=n=>n;
  const copy=obj=>JSON.parse(JSON.stringify(obj));
  const escapeHtml=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- let state=null,history=[],selected=20,lastTurnStart=0;
+ let state=null,history=[],selectedMultiplier=1,lastTurnStart=0;
  function configureNames(){
    const n=Number($('ctCount').value);
    document.querySelectorAll('#ctSetup .ct-player-input').forEach((el)=>{
@@ -8016,7 +8019,7 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
    state.players.forEach(p=>{p.score=0;p.marks=Object.fromEntries(nums.map(n=>[n,0]));p.darts=0;p.hits=0;p.marksThrown=0;p.visits=0;p.pointsGiven=0;});
    state.active=start; state.visitDarts=0;state.visitRecords=[];state.phase='playing';
    state.turnStarter=start;
-   selected=20;history=[];lastTurnStart=0;
+   selectedMultiplier=1;history=[];lastTurnStart=0;
  }
  function start(e){
    e.preventDefault(); const n=Number($('ctCount').value);
@@ -8133,7 +8136,11 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
    }
   }
   matrix.innerHTML=html;
-  $('ctTargets').querySelectorAll('button[data-ct-target]').forEach(b=>b.classList.toggle('chosen',Number(b.dataset.ctTarget)===selected));
+  $('ctGame').querySelectorAll('[data-ct-mult="2"],[data-ct-mult="3"]').forEach(b=>{
+   const active=Number(b.dataset.ctMult)===selectedMultiplier;
+   b.classList.toggle('active',active);
+   b.setAttribute('aria-pressed',String(active));
+  });
   $('ctScoring').hidden=phase!=='playing';
   $('ctNextLeg').hidden=phase!=='leg-finished';
   $('ctFinal').hidden=phase!=='finished';
@@ -8151,7 +8158,7 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
   $('ctUndoVisit').disabled=history.length===0;
   $('ctNext').disabled=state.visitDarts===0;
   $('ctNext').textContent=state.visitDarts===3?'POTVRDIT NÁHOZ · 3/3':'POTVRDIT NÁHOZ · '+state.visitDarts+'/3';
-  $('ctGame').querySelectorAll('[data-ct-mult]').forEach(b=>b.disabled=phase!=='playing'||state.visitDarts===3||(selected===25&&b.dataset.ctMult==='3'));
+  $('ctGame').querySelectorAll('[data-ct-mult]').forEach(b=>b.disabled=phase!=='playing'||state.visitDarts===3);
  }
  $('ctCount').addEventListener('change',configureNames);
  $('ctSetup').addEventListener('submit',start);
@@ -8164,13 +8171,20 @@ window.addEventListener('501live-cricket-drill-save-status',e=>{if(!game||game.i
  $('ctUndoVisit').addEventListener('click',undoVisit);
  $('ctNext').addEventListener('click',nextTurn);
  $('ctNextLeg').addEventListener('click',nextLeg);
- $('ctTargets').innerHTML=nums.map(n=>`<button type="button" class="ct-pick" data-ct-target="${n}">${lab(n)}</button>`).join('')+'<button class="ct-pick" type="button" data-ct-target="0" style="display:none">MIMO</button>';
+ $('ctTargets').innerHTML=nums.map(n=>`<button type="button" class="ct-pick" data-ct-target="${n}">${lab(n)}</button>`).join('');
  $('ctTargets').addEventListener('click',e=>{
-   const b=e.target.closest('button[data-ct-target]');if(!b)return;selected=Number(b.dataset.ctTarget);render();
+   const b=e.target.closest('button[data-ct-target]');if(!b||!state||state.phase!=='playing'||state.visitDarts>=3)return;
+   const n=Number(b.dataset.ctTarget),mult=selectedMultiplier;
+   if(n===25&&mult===3){alert('Na BULL nelze zapsat TRIPLE. Vyber DOUBLE nebo znovu klepni na TRIPLE pro obyčejný zásah.');return;}
+   selectedMultiplier=1; // Volba platí jen pro jednu šipku.
+   hit(n,mult);
  });
  $('ctGame').querySelectorAll('[data-ct-mult]').forEach(b=>b.addEventListener('click',()=>{
+   if(!state||state.phase!=='playing'||state.visitDarts>=3)return;
    const mult=Number(b.dataset.ctMult);
-   if(mult===0)miss();else hit(selected,mult);
+   if(mult===0){selectedMultiplier=1;miss();return;}
+   selectedMultiplier=selectedMultiplier===mult?1:mult;
+   render();
  }));
  configureNames();
 })();
@@ -9574,4 +9588,91 @@ body.tablet-mode #tabletApp .dt-pair-double.dt-compact-double button{min-height:
 .dt-optional-rules[open] summary::after{content:"  ▴"}
 .dt-optional-rules p{margin:7px 0 3px;line-height:1.5;font-size:13px;color:#c0c4cd}
 </style>
+
+<style id="darturnio-cricket-clean-layout-20261119">
+/* CISTSI CRICKET: pouze prezentace, bez zasahu do herni logiky nebo dat. */
+/* Samostatny Cricket pro 2 az 4 hrace. */
+#cricketPanel #ctGame.ct-card{padding:clamp(8px,1.5vw,13px)!important}
+#cricketPanel #ctGame .ct-toolbar{gap:7px;margin:0 0 7px}
+#cricketPanel #ctGame .ct-kicker{font-size:clamp(11px,1.8vw,13px);letter-spacing:0;font-weight:800}
+#cricketPanel #ctGame .ct-players{gap:6px;margin:3px 0 7px}
+#cricketPanel #ctGame .ct-player{padding:6px 4px;border-width:2px;border-radius:10px}
+#cricketPanel #ctGame .ct-player-name{font-size:clamp(12px,2.5vw,17px);line-height:1.2}
+#cricketPanel #ctGame .ct-player-score{font-size:clamp(30px,5.9vw,45px);line-height:1;margin:3px 0}
+#cricketPanel #ctGame .ct-player-meta{font-size:clamp(10px,1.7vw,12px);line-height:1.3}
+#cricketPanel #ctGame .ct-matrix-scroll{border-radius:10px}
+#cricketPanel #ctGame .ct-cell{min-height:38px;padding:3px 2px;gap:3px}
+#cricketPanel #ctGame .ct-target-num{font-size:clamp(17px,2.7vw,22px)}
+#cricketPanel #ctGame .ct-target-num.last-row{font-size:clamp(12px,2vw,17px)}
+#cricketPanel #ctGame .ct-dot{width:clamp(18px,2.6vw,24px);height:clamp(18px,2.6vw,24px);border-width:2px}
+#cricketPanel #ctGame .ct-dot.hit{box-shadow:inset 0 0 0 2px #b21313}
+#cricketPanel #ctGame .ct-mark-closed .ct-dot.hit{box-shadow:inset 0 0 0 2px #168245}
+/* Jmena jsou nad tabulkou ve skorovacich kartach: pro dva hrace se hlavicka neopakuje. */
+#cricketPanel #ctGame .ct-matrix[data-player-count="2"] .ct-col-head{
+  min-height:0!important;height:0!important;line-height:0!important;
+  font-size:0!important;padding:0!important;border:0!important;overflow:hidden!important
+}
+#cricketPanel #ctGame .ct-turn{font-size:clamp(12px,2.2vw,15px);padding:6px 3px 5px}
+/* Sedm cilu = sedm stejne sirokych tlacitek, zadne prazdne osme misto. */
+#cricketPanel #ctGame .ct-pick-row{grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:5px 0 6px}
+#cricketPanel #ctGame .ct-pick{min-width:0;min-height:47px;padding:7px 2px;border-radius:8px;font-size:clamp(12px,2.5vw,17px)}
+#cricketPanel #ctGame .ct-multipliers{gap:5px}
+#cricketPanel #ctGame .ct-mult{min-width:0;min-height:47px;padding:8px 2px;font-size:clamp(11px,1.95vw,15px);border-radius:8px}
+#cricketPanel #ctGame #ctVisitInfo{min-height:17px;font-size:12px;line-height:1.3;margin:5px 1px 4px;color:#c4c7d0}
+#cricketPanel #ctGame .ct-action-row{gap:6px;margin-top:4px}
+#cricketPanel #ctGame .ct-action-row button{min-height:43px;padding:7px 4px;font-size:clamp(11px,1.9vw,14px)}
+#cricketPanel #ctGame #ctNext{min-height:49px!important;margin-top:6px!important;padding:10px 6px!important;font-size:clamp(14px,2.3vw,17px)}
+/* Turnajovy Cut-Throat Cricket na tabletu: stejna jednoducha hierarchie. */
+body.tablet-mode .tcr-panel{max-width:830px;padding:clamp(7px,1.5vw,12px)!important}
+body.tablet-mode .tcr-panel .tcr-label{font-size:clamp(12px,1.7vw,15px);margin-bottom:6px}
+body.tablet-mode .tcr-panel .tcr-scores{gap:7px}
+body.tablet-mode .tcr-panel .tcr-scores>div{padding:6px 5px;border-radius:10px;gap:2px}
+body.tablet-mode .tcr-panel .tcr-scores b{font-size:clamp(13px,1.9vw,17px)}
+body.tablet-mode .tcr-panel .tcr-scores strong{font-size:clamp(32px,5.1vw,46px);line-height:1.05}
+body.tablet-mode .tcr-panel .tcr-matrix{margin:7px 0;border-radius:10px}
+body.tablet-mode .tcr-panel .tcr-row{min-height:39px;grid-template-columns:minmax(0,1fr) 66px minmax(0,1fr)}
+body.tablet-mode .tcr-panel .tcr-row strong{font-size:clamp(18px,2.7vw,22px)}
+body.tablet-mode .tcr-panel .tcr-marks{gap:clamp(4px,.8vw,8px)}
+body.tablet-mode .tcr-panel .tcr-dot{width:clamp(19px,2.8vw,26px);height:clamp(19px,2.8vw,26px)}
+body.tablet-mode .tcr-panel .tcr-turn{padding:6px 0;font-size:clamp(13px,1.8vw,16px)}
+body.tablet-mode .tcr-panel .tcr-targets{gap:5px}
+body.tablet-mode .tcr-panel .tcr-targets button{min-width:0;min-height:46px!important;font-size:clamp(13px,2.1vw,18px);border-radius:8px}
+body.tablet-mode .tcr-panel .tcr-multipliers{gap:5px;margin:6px 0}
+body.tablet-mode .tcr-panel .tcr-multipliers button{min-width:0;min-height:46px!important;font-size:clamp(11px,2vw,17px);border-radius:8px}
+body.tablet-mode .tcr-panel .tcr-draft{min-height:21px;font-size:clamp(12px,1.7vw,14px);line-height:1.3;padding:3px 0}
+body.tablet-mode .tcr-panel .tcr-actions{gap:6px;margin:4px 0}
+body.tablet-mode .tcr-panel .tcr-actions button{min-width:0;min-height:44px;font-size:clamp(12px,1.8vw,15px);padding:7px 4px}
+body.tablet-mode .tcr-panel .tcr-submit{min-height:50px!important;margin-top:5px;font-size:clamp(15px,2.1vw,19px)}
+body.tablet-mode .tcr-panel>p.small{font-size:11px;line-height:1.35;margin:5px 1px 0;color:#999aa2}
+/* Cricket Drill: zbytecne mezery, nikoli zasahy do pravidel nebo tlacitek. */
+#cricketDrillArea #cricketDrillPlay .cd-top{margin-bottom:8px}
+#cricketDrillArea #cricketDrillPlay .cd-info{margin-bottom:6px;gap:5px}
+#cricketDrillArea #cricketDrillPlay .cd-info>div{padding:6px 3px;border-radius:8px}
+#cricketDrillArea #cricketDrillPlay .cd-main{padding:9px;margin:7px 0}
+#cricketDrillArea #cricketDrillPlay .cd-slots{margin:6px 0;gap:8px}
+@media(max-width:580px){
+ #cricketPanel #ctGame .ct-matrix[data-player-count="2"]{
+  grid-template-columns:44px repeat(2,minmax(0,1fr))!important;
+  min-width:0!important;width:100%!important
+ }
+ #cricketPanel #ctGame .ct-pick-row{gap:4px}
+ #cricketPanel #ctGame .ct-pick{min-height:46px;font-size:clamp(12px,3.2vw,15px)}
+ #cricketPanel #ctGame .ct-mult{min-height:46px;font-size:clamp(11px,2.8vw,13px)}
+ #cricketPanel #ctGame .ct-cell{min-height:37px;padding:2px 1px}
+ #cricketPanel #ctGame .ct-dot{width:clamp(18px,5.3vw,23px);height:clamp(18px,5.3vw,23px)}
+ body.tablet-mode .tcr-panel .tcr-row{grid-template-columns:minmax(0,1fr) 51px minmax(0,1fr)}
+ body.tablet-mode .tcr-panel .tcr-dot{width:20px;height:20px}
+}
+@media(prefers-reduced-motion:reduce){#cricketPanel button,.tcr-panel button{transition:none!important}}
+</style>
+<!-- Kompaktni volba Cricket: SINGLE je vychozi, DOUBLE/TRIPLE se voli pred cislem. -->
+<style id="darturnio-cricket-single-default-v1">
+#cricketPanel #ctGame .ct-multipliers,
+body.tablet-mode .tcr-panel .tcr-multipliers{grid-template-columns:repeat(3,minmax(0,1fr));}
+#cricketPanel #ctGame .ct-mult.active,
+body.tablet-mode .tcr-panel .tcr-multipliers button.active{background:#a51b21!important;border:2px solid #ff6262!important;color:#fff!important;box-shadow:0 0 0 1px #ff626244;}
+#cricketPanel #ctGame .ct-pick:active,
+body.tablet-mode .tcr-panel .tcr-targets button:active{background:#a51b21;border-color:#ff6262;}
+</style>
+
 </body></html>
