@@ -6396,9 +6396,15 @@ const el=(tag,txt,cls)=>{const n=document.createElement(tag);if(txt!==undefined)
 const playerPanel=el('section');playerPanel.id='linkPlayerPanel';
 const organizerPanel=el('section');organizerPanel.id='linkOrganizerPanel';
 const profile=$('profileMe'), qr=$('playerQrScanner');
-if(!profile||!qr)return;
-profile.appendChild(playerPanel);
-const mount=$('linkOrganizerMount');if(mount)mount.appendChild(organizerPanel);else qr.parentNode.insertBefore(organizerPanel,qr.nextSibling);
+// Schvalovani zadosti musi fungovat nezavisle na inicializaci hracskeho profilu.
+if(profile)profile.appendChild(playerPanel);
+const mount=$('linkOrganizerMount');
+if(mount)mount.appendChild(organizerPanel);
+else if(qr)qr.parentNode.insertBefore(organizerPanel,qr.nextSibling);
+else return;
+organizerPanel.setAttribute('role','status');
+organizerPanel.setAttribute('aria-live','polite');
+organizerPanel.appendChild(el('p','Žádosti zatím nejsou načtené. Klikni na NAČÍST / OBNOVIT ŽÁDOSTI.','link-muted'));
 let activePlayer=false,activeOrganizer=false;
 const statusNames={pending:'Čeká na pořadatele',organizer_approved:'Schváleno pořadatelem – potvrď propojení',completed:'Propojeno',rejected:'Zamítnuto'};
 async function me(){const c=dbClient();if(!c)throw Error('Databáze není připravena.');const {data,error}=await c.auth.getUser();if(error||!data?.user)throw Error('Nejdříve se přihlas.');return {c,user:data.user}}
@@ -6463,7 +6469,13 @@ async function renderOrganizer(){
   const {data:requests,error}=await organizerWithTimeout(c.from('player_link_requests').select('id,player_id,profile_id,status,created_at').eq('organizer_id',user.id).order('created_at',{ascending:false}));
   if(error)throw Error(error.message);
   organizerPanel.replaceChildren(organizerTitle());
-  if(!requests?.length){organizerPanel.appendChild(el('p','Zatím nemáš žádné žádosti.','link-muted'));return}
+  if(!requests?.length){
+   organizerPanel.appendChild(el('p','Načteno: 0 žádostí pro právě přihlášený účet.','link-muted'));
+   organizerPanel.appendChild(el('p','ID přihlášeného účtu: '+user.id,'link-muted'));
+   organizerPanel.appendChild(el('p','Alešova žádost v databázi existuje. Pokud se zde nezobrazuje, porovnej ID účtu s organizer_id žádosti. Může být také potřeba znovu se přihlásit.','link-muted'));
+   return;
+  }
+  organizerPanel.appendChild(el('p','Načteno: '+requests.length+' '+(requests.length===1?'žádost':requests.length<5?'žádosti':'žádostí')+'.','link-success'));
   const ids=[...new Set(requests.map(r=>r.player_id))],names={};
   const {data:players,error:ple}=await organizerWithTimeout(c.from('players').select('id,name').in('id',ids));if(ple)throw Error(ple.message);
   (players||[]).forEach(p=>names[p.id]=p.name);
@@ -6480,7 +6492,11 @@ async function renderOrganizer(){
    }
    organizerPanel.appendChild(item);
   });
- }catch(e){organizerPanel.replaceChildren(organizerTitle());message(organizerPanel,e.message||'Nepodařilo se načíst žádosti. Zkus obnovit stránku.')}
+ }catch(e){
+  organizerPanel.replaceChildren(organizerTitle());
+  message(organizerPanel,'Načtení selhalo: '+(e.message||'Neznámá chyba')+' · Zkus se odhlásit a znovu přihlásit.');
+  console.warn('Darturnio: chybne nacitani zadosti o propojeni:',e);
+ }
  finally{
   activeOrganizer=false;
   if(organizerRefreshButton){
@@ -6489,10 +6505,17 @@ async function renderOrganizer(){
   }
  }
 }
-async function renderOrganizerRefresh(){activeOrganizer=false;await renderOrganizer()}
+async function renderOrganizerRefresh(){
+ // Nespoustej druhy soubezny dotaz, ktery muze prepsat vysledek prvniho.
+ if(activeOrganizer)return;
+ await renderOrganizer();
+}
 $('profileOpenMe')?.addEventListener('click',()=>{setTimeout(renderPlayer,0)});
 $('openPlayerQrScanner')?.addEventListener('click',()=>{setTimeout(renderOrganizer,0)});
-$('linkRefreshRequests')?.addEventListener('click',()=>{renderOrganizerRefresh()});
+$('linkRefreshRequests')?.addEventListener('click',event=>{
+ event.preventDefault();
+ renderOrganizerRefresh();
+});
 $('darturnioPlayerLinkRequests')?.addEventListener('toggle',e=>{if(e.currentTarget.open)renderOrganizerRefresh()});
 })();
 </script>
