@@ -1001,7 +1001,7 @@ body:has(#ctGame:not([hidden])) #appBrandFooter{
   </section>
   <div class="portal-account-hint" id="portalAccountHint" data-member-only hidden>Jsi přihlášený</div>
 </main><section class="panel" id="aboutDarturnioPanel" aria-labelledby="dtAboutTitle">
-  <span class="ui-section-kicker">DARTURNIO</span><h2 id="dtAboutTitle">O Darturnio</h2>
+  <h2 id="dtAboutTitle">O Darturnio</h2>
   <p>Darturnio pomáhá pořadatelům připravovat šipkové turnaje, zapisovat zápasy a sdílet výsledky živě.</p>
   <div class="dt-about-tabs" role="group" aria-label="Informace o Darturnio">
    <button type="button" data-about-tab="author" class="selected">Autor</button>
@@ -1214,12 +1214,12 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   <form id="newCompetitionForm" class="competition-form" novalidate>
     <section class="comp-wizard-step" data-comp-step="0" aria-label="Základní informace">
       <h4>Co budeme pořádat?</h4>
-      <p class="comp-step-desc">Vyber název a typ soutěže. Jednorázový turnaj nastavíš nejrychleji.</p>
+      
       <label>Název turnaje nebo série<input id="competitionName" required maxlength="120" placeholder="Např. Friday Darts Open" autocomplete="off"></label>
       <label>Typ soutěže<select id="competitionType"><option value="single">Samostatný turnaj</option><option value="series">Série několika turnajů</option><option value="final">Série turnajů se závěrečným finále</option></select></label>
       <p id="competitionSeriesAvailabilityNote" class="small" hidden role="note">Placené série budou pro veřejnost dostupné po spuštění platební brány. Zatím je může zakládat pouze majitel při testování.</p>
       <label>Účastníci turnaje<select id="competitionParticipantMode"><option value="singles">Jednotlivci (1 proti 1)</option><option value="pairs">Dvojice (2 proti 2)</option></select></label>
-      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci. Stejně jako u jednotlivců vybereš formát až při losování: skupiny, KO, DKO nebo každý s každým.</p>
+      <p id="competitionPairsNote" class="small" hidden>Dvojice sestavíš v administraci turnaje.</p>
       <div id="competitionSeriesFields" class="comp-conditional" hidden>
         <label>Počet kvalifikačních večerů / kol<input id="competitionRounds" type="number" min="2" max="30" value="5" inputmode="numeric"></label>
         <div id="competitionFinalFields" hidden><label for="competitionFinalists">Počet postupujících do finále<input id="competitionFinalists" type="number" min="2" max="128" step="1" value="8" inputmode="numeric" required></label><p class="small muted">Zadej libovolný celý počet 2–128. Pro dvě skupiny je potřeba alespoň 4 finalistů; 2–3 hráči mohou hrát KO, DKO nebo každý s každým.</p></div>
@@ -1228,23 +1228,23 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
     </section>
     <section class="comp-wizard-step" data-comp-step="1" aria-label="Nastavení hry" hidden>
       <h4>Jak se bude hrát?</h4>
-      <p class="comp-step-desc">Předvyplnili jsme běžné nastavení. Všechno můžeš upravit.</p>
+      
        <label>Typ terčů<select id="competitionDartType"><option value="steel">STEEL – klasické terče (tablet a zapisovatel)</option><option value="soft">SOFT – elektronické automaty (výsledky zadává pořadatel)</option></select></label>
        <div class="competition-pair">
          <label>Počet terčů<input id="competitionBoards" type="number" min="1" max="64" value="2" required inputmode="numeric"></label>
         <label>Hra<select id="competitionGame"><option value="501">501 Double Out</option><option value="301">301 Double Out</option><option value="701">Cut-Throat Cricket</option></select></label>
       </div>
       <input id="competitionLegs" type="hidden" value="2"><p class="small">Počet legů, remízy a skupiny nastavíš až při losování po přidání účastníků.</p>
-      <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span id="darturnioDartTypeInfo">Pro každý terč později získáš vlastní odkaz a QR kód počítadla.</span></div>
+      <div class="comp-help-box"><span aria-hidden="true">ⓘ</span><span id="darturnioDartTypeInfo">Na STEEL terčích se zapisuje přes tablet.</span></div>
     </section>
     <section class="comp-wizard-step" data-comp-step="2" aria-label="Termíny" hidden>
       <h4>Kdy se hraje?</h4>
-      <p class="comp-step-desc">Vyber termín turnaje. U série nastavíš termíny všech večerů a případného finále.</p>
+      
       <div id="competitionDates"></div>
     </section>
     <section class="comp-wizard-step" data-comp-step="3" aria-label="Kontrola" hidden>
       <h4>Všechno sedí?</h4>
-      <p class="comp-step-desc">Před potvrzením zkontroluj nastavení. Samostatný turnaj: 1× za kalendářní měsíc zdarma. Série: placené podle počtu hracích večerů; dokud nebude spuštěna platební brána, nové série mohou zakládat jen testovací účty majitele.</p>
+      <p class="comp-step-desc">Před vytvořením ověř všechny údaje.</p>
       <div id="compWizardSummary" class="comp-summary" aria-live="polite"></div>
       <p class="comp-auth-note">K dokončení vytvoření turnaje musíš být přihlášený.</p>
       <button type="button" class="comp-login-shortcut" data-panel="accountPanel">Přihlásit se / vytvořit účet <span aria-hidden="true">↗</span></button>
@@ -1258,15 +1258,15 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
       <button type="submit" class="primary comp-final-submit" hidden>VYTVOŘIT TURNAJ</button>
     </div>
   </form>
-</section><section class="panel" id="accountPanel"><div class="ui-section-kicker">ÚČET DARTURNIO</div><h3>Můj účet Darturnio</h3><p class="hint">Jeden účet pro hráče i pořadatele. Přihlas se, nebo si vytvoř nový účet.</p>
+</section><section class="panel" id="accountPanel"><h3>Můj účet Darturnio</h3>
 <div class="tabs"><button class="mini-tab active" data-auth="loginView" type="button">Přihlášení</button><button class="mini-tab" data-auth="registerView" type="button">Nová registrace</button></div>
 <div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input autocomplete="username" aria-label="Přihlašovací e-mail" class="field wide" placeholder="E-mail" required="" type="email"/><input autocomplete="current-password" aria-label="Přihlašovací heslo" class="field wide" placeholder="Heslo" required="" type="password"/><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů Darturnio.</div></form></div>
 <div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input autocomplete="nickname" aria-label="Jméno hráče" class="field" placeholder="Jméno hráče" required="" type="text"/><input autocomplete="email" aria-label="Registrační e-mail" class="field" placeholder="E-mail" required="" type="email"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Heslo (min. 8 znaků)" required="" type="password"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Potvrzení hesla" required="" type="password"/><label class="choice wide"><input required="" type="checkbox"/> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
-</section><section class="panel" id="trainingPanel"><div class="ui-section-kicker">TRÉNINK</div><h3>TRÉNINK</h3><p class="ui-section-subtitle">Vyber si Double Out, SEGMENT, CHECKOUT nebo CRICKET DRILL. Dokončené tréninky se mohou uložit do tvého profilu.</p><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button><button type="button" class="training-item training-pick" id="segmentTrainingOpen"><b>SEGMENT</b><span>Přesnost na číslo</span></button><button type="button" class="training-item training-pick" id="checkoutTrainingOpen"><b>CHECKOUT</b><span>Zavírání do 3 šipek</span></button><button type="button" class="training-item training-pick" id="cricketDrillOpen"><b>CRICKET DRILL</b><span>2 ze 3 · 3× každý segment</span></button></div>
+</section><section class="panel" id="trainingPanel"><h3>TRÉNINK</h3><p class="ui-section-subtitle">Výsledky tréninků se mohou uložit do tvého profilu.</p><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button><button type="button" class="training-item training-pick" id="segmentTrainingOpen"><b>SEGMENT</b><span>Přesnost na číslo</span></button><button type="button" class="training-item training-pick" id="checkoutTrainingOpen"><b>CHECKOUT</b><span>Zavírání do 3 šipek</span></button><button type="button" class="training-item training-pick" id="cricketDrillOpen"><b>CRICKET DRILL</b><span>2 ze 3 · 3× každý segment</span></button></div>
 <div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div><div id="segmentTrainingArea" hidden>
   <div id="segmentSetup" class="segment-setup">
     <div class="segment-toolbar"><button type="button" id="segmentSetupBack" class="secondary">← VÝBĚR TRÉNINKU</button><strong>SEGMENT</strong></div>
-    <div class="segment-intro"><span class="ui-section-kicker">TRÉNINK PŘESNOSTI</span><h4>Vyber číslo nebo střed</h4><p>Čísla 1–20: single = 1 bod, double = 2 body, triple = 3 body. STŘED (BULL): vnější střed = 1 bod, vnitřní střed = 2 body. Mimo vybraný segment = 0 bodů.</p></div>
+    <div class="segment-intro"><h4>Vyber číslo nebo střed</h4><p>Čísla 1–20: single = 1 bod, double = 2 body, triple = 3 body. STŘED (BULL): vnější střed = 1 bod, vnitřní střed = 2 body. Mimo vybraný segment = 0 bodů.</p></div>
     <div class="segment-number-grid" id="segmentNumberGrid" role="group" aria-label="Číslo na terči"></div>
     <h4 class="segment-darts-heading">Kolik šipek chceš hodit?</h4>
     <div id="segmentDartOptions" class="segment-option-row" role="group" aria-label="Počet šipek">
@@ -1307,9 +1307,9 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   </div>
 </div></section>
 <section class="panel local-game-panel" id="localDuelPanel" aria-labelledby="localDuelHeading">
-  <div class="ui-section-kicker">DARTURNIO / HRA BEZ TURNAJE</div>
+  
   <h3 id="localDuelHeading">Hra pro dva hráče</h3>
-  <p class="ui-section-subtitle">Zahrajte si bez registrace. Výsledky a statistiky této hry se nikam neukládají.</p>
+  <p class="ui-section-subtitle">Hra bez registrace a ukládání výsledků.</p>
   <form id="localDuelSetup" class="local-setup">
     <div class="local-setup-grid">
       <label>První hráč <input class="field" name="playerOne" type="text" required maxlength="36" placeholder="Jméno prvního hráče" autocomplete="off"></label>
@@ -1326,9 +1326,9 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   </div>
 </section>
 <section class="panel" id="cricketPanel" aria-labelledby="cricketHeading">
- <div class="ui-section-kicker">DARTURNIO / SAMOSTATNÁ HRA</div>
+ 
  <h3 id="cricketHeading">CUT-THROAT CRICKET</h3>
- <p class="ui-section-subtitle">Uzavři 20–15 a BULL. Body za zásahy nad uzavření se přičítají soupeřům, kteří mají číslo stále otevřené. Vyhrává hráč s uzavřenými čísly a nejnižším skóre.</p>
+ <details class="dt-optional-rules"><summary>Pravidla hry</summary><p>Uzavři 20–15 a BULL. Body za zásahy nad uzavření se přičítají soupeřům, kteří mají číslo stále otevřené. Vyhrává hráč s uzavřenými čísly a nejnižším skóre.</p></details>
  <form id="ctSetup" class="ct-card">
   <div class="ct-setup-grid">
    <label class="ct-field">Počet hráčů<select id="ctCount"><option value="2" selected>2 hráči</option><option value="3">3 hráči</option><option value="4">4 hráči</option></select></label>
@@ -1361,10 +1361,10 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   </div>
   <button type="button" class="ct-primary" id="ctNextLeg" hidden style="width:100%;margin-top:12px">DALŠÍ LEG</button>
   <div id="ctFinal" class="ct-result" hidden></div>
-  <p class="ct-hint">Na úzkých telefonech lze tabulku se značkami posunout vodorovně. Na tabletu zůstává přehledná v jednom celku.</p>
+  
  </div>
 </section>
-<section class="panel" id="findPanel"><div class="ui-section-kicker">01 / TURNAJE</div><h3>Najít turnaj</h3><p class="ui-section-subtitle">Vyhledej turnaj a sleduj živé výsledky. Registrace není pro sledování nutná.</p><p class="hint">Vyhledej turnaj podle názvu, místa nebo veřejného kódu.</p>
+<section class="panel" id="findPanel"><h3>Najít turnaj</h3>
 <form id="findForm"><div class="formrow"><input class="field" id="findQuery" placeholder="Název turnaje, místo nebo kód" required=""/><button class="primary" type="submit">VYHLEDAT</button></div><div class="notice" id="findNotice"></div></form>
 </section>
 </div>
@@ -1403,7 +1403,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 
 <section id="live" role="tabpanel">
 <h2>Právě se hraje</h2>
-<p class="ui-page-subtitle">Sleduj aktuálně hrané zápasy a stav jednotlivých terčů.</p>
+
 <div class="panel"><label for="liveTournamentSelect">Turnaj: </label><select id="liveTournamentSelect"></select></div>
 <div class="boards" id="liveBoards">
 <div class="board">Načítám stav terčů…</div>
@@ -1411,7 +1411,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 </section>
 <section class="hidden" id="group" role="tabpanel">
 <h2>Skupiny</h2>
-<p class="ui-page-subtitle">Pořadí ve skupinách a výsledky jednotlivých utkání.</p>
+
 <div class="panel">
 <label for="tournamentSelect">Turnaj: </label><select id="tournamentSelect"></select>
 <div class="muted" id="groupsContent">Načítám skupiny…</div>
@@ -1419,18 +1419,18 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 </section>
 <section class="hidden" id="bracket" role="tabpanel">
 <h2>Vyřazovací pavouk</h2>
-<p class="ui-page-subtitle">Postup hráčů vyřazovací částí turnaje.</p>
+
 <div class="panel"><label for="bracketTournamentSelect">Turnaj: </label><select id="bracketTournamentSelect"></select><div class="muted" id="bracketInfo" aria-live="polite"></div></div>
 <div class="panel" id="bracketContent">Vyřazovací pavouk zatím není vytvořen.</div>
 </section>
 <section class="hidden" id="start" role="tabpanel">
 <h2>KK – Každý s každým</h2>
-<p class="ui-page-subtitle">Rozpis a tabulka systému každý s každým.</p>
+
 <div class="panel" id="startContent">Načítám tabulku…</div>
 </section>
 <section class="hidden" id="results" role="tabpanel">
 <h2>Celkové výsledky série</h2>
-<p class="ui-page-subtitle">Konečné pořadí a export výsledků pro pořadatele.</p>
+
 <div class="panel"><div class="export-actions no-print"><button class="action" id="exportSeriesBtn">Pořadí do Excelu</button><button class="secondary" id="exportMatchesBtn">Výsledky zápasů do Excelu</button><button class="secondary" id="printResultsBtn">Tisk / PDF</button></div><div id="resultsContent">Načítám průběžné pořadí…</div></div>
 </section>
 <section class="hidden" id="players" role="tabpanel">
@@ -1440,12 +1440,12 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   <small>šipek</small>
 </div>
 <h2>Hráči a statistiky</h2>
-<p class="ui-page-subtitle">Přehled výkonů, průměrů a statistik jednotlivých hráčů.</p>
+
 <div class="panel"><div class="export-actions no-print"><button class="action" id="exportPlayersBtn">Stáhnout statistiky (CSV)</button><button class="secondary" id="printPlayersBtn">Tisk / PDF</button></div><div id="playerStatsContent">Načítám statistiky…</div><div id="playerProfileContent"></div></div>
 </section>
 <section class="hidden" id="admin" role="tabpanel">
 <h2>Admin</h2>
-<p class="ui-page-subtitle">Správa turnaje, terčů a výsledků na jednom místě.</p>
+
 <div class="panel" id="loginPanel">
 <p>Přihlášení pořadatele</p>
 <input aria-label="E-mail" autocomplete="username" id="email" placeholder="E-mail" type="email"/>
@@ -1477,23 +1477,23 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 </div>
 <details class="admin-section admin501-board-section" id="admin501BoardSection" open><summary>Aktuální zápasy a terče</summary>
 <div class="panel">
-<strong>Terče – zápis výsledků</strong>
-<p class="small">Zde můžeš spustit zápas na terči nebo zadat jeho výsledek ručně, pokud se nebude hrát přes tablet. Ruční výsledek zadávej u zápasu, který ještě nebyl spuštěn.</p>
+
+
 <div id="adminBoards"></div>
 </div></details>
 <details class="admin-section" id="admin501TabletSection">
 <summary>Tabletová počítadla</summary>
 <div class="panel">
-<strong>Otevření počítadel na jednotlivých terčích</strong>
-<p class="small">Na tabletu se přihlas jako pořadatel a zde vyber číslo terče. Počítadlo se otevře ve stejné kartě a nahradí administraci. QR kód není potřeba.</p>
+
+<p class="small">Na každém tabletu vyber jeho terč.</p>
 <div class="tablet-counter-grid" id="darturnioTabletLinks"></div>
 </div>
 </details>
 <details class="admin-section" id="admin501PlayersSection">
 <summary>Hráči</summary>
 <div class="panel">
-<strong>Správa hráčů a přihlášení do turnajů</strong>
-<p class="small">Tady jsou pouze tvoji hráči. Přes QR kód můžeš přidat další registrované hráče rovnou na startovní listinu. Nového hráče bez účtu můžeš založit ručně níže.</p><input id="darturnioRosterFilter" type="search" placeholder="Hledat v mých hráčích…" aria-label="Filtrovat moje hráče" autocomplete="off"/><p class="small" id="darturnioRosterCount"></p>
+
+<input id="darturnioRosterFilter" type="search" placeholder="Hledat v mých hráčích…" aria-label="Filtrovat moje hráče" autocomplete="off"/><p class="small" id="darturnioRosterCount"></p>
 <div id="adminPlayers"></div>
 </div>
 </details>
@@ -1501,25 +1501,25 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <summary>Startovní listina a losování</summary>
 <div class="panel">
 <div id="dtFinalManualControls"><strong>Startovní listina turnaje</strong>
-<p class="small">Vyber hráče a turnaj. Skupiny zatím nevyplňuješ – vytvoří je automaticky losování.</p>
+
 <label class="darturnio-entry-tournament-label" for="entryTournament">Turnaj</label>
 <select aria-label="Turnaj" id="entryTournament"></select>
-<div class="darturnio-entry-qr-action"><button class="action" id="openPlayerQrScanner" type="button">📷 PŘIDAT HRÁČE PŘES QR KÓD</button><p class="small">Doporučeno: hráč ukáže osobní QR kód ze svého profilu.</p></div>
+<div class="darturnio-entry-qr-action"><button class="action" id="openPlayerQrScanner" type="button">📷 PŘIDAT HRÁČE PŘES QR KÓD</button></div>
 <details class="darturnio-entry-manual" id="darturnioNewPlayerEntry">
   <summary>＋ NOVÝ HRÁČ BEZ REGISTRACE</summary>
-  <p class="small">Vyber turnaj nahoře, napiš jméno a potvrď. Hráče rovnou přidáme na startovní listinu tohoto turnaje. Účet ani QR kód zatím nepotřebuje.</p>
+  
   <label for="playerName">Jméno nového hráče</label>
   <input aria-label="Jméno nového hráče" id="playerName" maxlength="100" autocomplete="off" placeholder="Jméno a příjmení / přezdívka"/>
   <button class="action" id="addPlayerBtn" type="button">VYTVOŘIT A PŘIDAT DO TURNAJE</button>
 </details> <details class="darturnio-entry-manual" id="darturnioManualEntry"><summary>✍️ Přidat ručně z mých hráčů</summary>
-  <p class="small">Zobrazuje jen hráče z tvých turnajů nebo hráče, které jsi přidal. Nového hráče založíš výše přes „Nový hráč bez registrace“.</p>
+  
   <label for="entryPlayer">Hráč</label>
   <select aria-label="Hráč" id="entryPlayer"></select>
   <button class="action" id="addEntryBtn">Přidat na startovní listinu</button>
 </details>
 <details class="darturnio-entry-manual" id="darturnioPlayerLinkRequests">
   <summary>🔗 ŽÁDOSTI O PROPOJENÍ HISTORICKÝCH HRÁČŮ</summary>
-  <p class="small">Tady schválíš žádosti hráčů o propojení jejich starších výsledků s novým účtem. Kvůli žádostem nemusíš spouštět fotoaparát.</p>
+  
   <button class="secondary" id="linkRefreshRequests" type="button">NAČÍST / OBNOVIT ŽÁDOSTI</button>
   <div id="linkOrganizerMount"></div>
 </details>
@@ -1535,7 +1535,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 </div>
 <div class="darturnio-pairs-panel" id="darturnioPairsPanel" hidden>
   <h3>Turnaj dvojic – sestavení týmů</h3>
-  <p class="small">Vyber dva různé hráče do týmu. Každý hráč může být jen v jedné dvojici. KO je připravené pro STEEL 301/501 s tabletovým počítadlem; SOFT lze zapisovat ručně. Formát dvojic vyber níže při losování. Remízy jsou možné jen ve skupinách nebo v systému každý s každým.</p>
+  <p class="small">Každý hráč může být v turnaji jen v jedné dvojici.</p>
   <div class="darturnio-pairs-fields">
     <label>První hráč<select id="darturnioPairPlayer1" aria-label="První hráč dvojice"></select></label>
     <label>Druhý hráč<select id="darturnioPairPlayer2" aria-label="Druhý hráč dvojice"></select></label>
@@ -1545,7 +1545,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
   <div id="darturnioPairList"></div>
   <section id="darturnioPairKnockout" class="darturnio-pair-ko">
     <h3>Losování a zápasy dvojic</h3>
-    <p class="small">Pro dvojice použij stejná čtyři tlačítka losování jako pro jednotlivce. STEEL 301/501 podporuje tabletové počítadlo se střídáním obou hráčů v týmu.</p>
+    
     <button type="button" class="action" id="darturnioDrawPairKo" hidden>KO – původní ovládání</button>
     <button type="button" class="secondary" id="darturnioResetPairKo" hidden>Zrušit KO rozlosování dvojic</button>
     <p class="small" id="darturnioPairKoFeedback" role="status" aria-live="polite"></p>
@@ -1562,8 +1562,8 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <label>Počet skupin<input type="number" id="dtDrawGroups" min="1" max="8" value="2" inputmode="numeric"></label>
 <label class="dt-advance-setting">Postupujících z každé skupiny<input type="number" id="dtDrawAdvancers" min="1" max="128" step="1" value="4" inputmode="numeric" aria-describedby="dtDrawAdvancersHint"></label>
 </div>
-<p class="small" id="dtDrawAdvancersHint" aria-live="polite">Při 2 skupinách a 4 postupujících z každé skupiny vznikne pavouk pro 8 účastníků. Platí pro skupiny + KO i skupiny + DKO.</p>
-<p class="small" id="dtDrawHelp">Vyber formát níže. Remíza je možná jen pro skupiny a každý s každým. KO/DKO vyžaduje vítěze.</p>
+<p class="small" id="dtDrawAdvancersHint" aria-live="polite">2 skupiny × 4 postupující = pavouk pro 8.</p>
+<p class="small" id="dtDrawHelp">Remíza pouze ve skupinách a KK.</p>
 </div>
 <div id="dtFinalSeedingBanner" class="dt-final-seeding" hidden></div>
 <div id="dtFinalAdvanceChoice" hidden>
@@ -1592,7 +1592,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <details class="admin-section" id="admin501AdvancedSection">
 <summary>Pořadí a body</summary>
 <div class="panel">
-<strong>Automatické pořadí a body</strong>
+
 <p class="small">Počet postupujících z každé skupiny nastavíš před losováním. Nastavení se uloží k turnaji a platí pro KO i DKO. Ostatní mají 1 bod. Vyřazení v 1. kole pavouka mají 2 body, v každém dalším kole o bod více.</p>
 <div class="muted" id="automaticPlacementsStatus">Pořadí se dopočítá po dokončení všech zápasů pavouka.</div>
 </div>
@@ -1606,7 +1606,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <details class="admin-section" id="admin501HistorySection">
 <summary>Historie zápasů a opravy výsledků</summary>
 <div class="panel">
-<p class="small">Zde najdeš čekající zápasy pro ruční zadání výsledku bez tabletu a možnost opravit už uložené výsledky. Zápasy hrané přes tablet se zapisují automaticky.</p>
+
 <div id="adminMatches"></div>
 </div>
 </details>
@@ -9565,4 +9565,13 @@ body.tablet-mode #tabletApp .dt-pair-double.dt-compact-double button{min-height:
 }
 </style>
 
+<style id="dt-ui-clean-subtitles-20261119">
+/* Clean low-priority text without hiding match status, alerts, validation, statistics or forms. */
+.dt-optional-rules{margin:6px 0 12px;padding:0;border:0;background:none}
+.dt-optional-rules summary{display:inline-block;cursor:pointer;color:#b6bbc5;font-size:13px;font-weight:650;list-style:none;padding:3px 0;text-decoration:underline;text-decoration-color:#525866;text-underline-offset:3px}
+.dt-optional-rules summary::-webkit-details-marker{display:none}
+.dt-optional-rules summary::after{content:"  ▾";font-weight:normal}
+.dt-optional-rules[open] summary::after{content:"  ▴"}
+.dt-optional-rules p{margin:7px 0 3px;line-height:1.5;font-size:13px;color:#c0c4cd}
+</style>
 </body></html>
