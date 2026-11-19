@@ -6438,14 +6438,34 @@ async function renderPlayer(){
  finally{activePlayer=false}
 }
 async function renderPlayerRefresh(){activePlayer=false;await renderPlayer()}
+const organizerRefreshButton=$('linkRefreshRequests');
+const organizerTitle=()=>el('h3','Žádosti o propojení historických hráčů');
+// Při pomalé síti musí být okamžitě vidět, že kliknutí proběhlo.
+function organizerLoading(text){
+ organizerPanel.replaceChildren(organizerTitle(),el('p',text,'link-muted'));
+ if(organizerRefreshButton){
+  organizerRefreshButton.textContent='NAČÍTÁM ŽÁDOSTI…';
+  organizerRefreshButton.setAttribute('aria-busy','true');
+ }
+}
+function timeoutAfter(ms){return new Promise((_,reject)=>setTimeout(()=>reject(new Error('Načítání trvá příliš dlouho. Zkontroluj internet a stiskni OBNOVIT ŽÁDOSTI znovu.')),ms));}
+async function organizerWithTimeout(promise){return Promise.race([promise,timeoutAfter(12000)]);}
 async function renderOrganizer(){
- if(activeOrganizer)return;activeOrganizer=true;
+ if(activeOrganizer){
+  const messageElement=organizerPanel.querySelector('.link-muted');
+  if(messageElement&&messageElement.textContent.startsWith('Načítám'))messageElement.textContent='Načítání již probíhá, zkontroluj připojení…';
+  return;
+ }
+ activeOrganizer=true;
+ organizerLoading('Načítám žádosti z databáze…');
  try{
-  const {c,user}=await me();organizerPanel.replaceChildren(el('h3','Žádosti o propojení historických hráčů'));
-  const {data:requests,error}=await c.from('player_link_requests').select('id,player_id,profile_id,status,created_at').eq('organizer_id',user.id).order('created_at',{ascending:false});if(error)throw Error(error.message);
+  const {c,user}=await organizerWithTimeout(me());
+  const {data:requests,error}=await organizerWithTimeout(c.from('player_link_requests').select('id,player_id,profile_id,status,created_at').eq('organizer_id',user.id).order('created_at',{ascending:false}));
+  if(error)throw Error(error.message);
+  organizerPanel.replaceChildren(organizerTitle());
   if(!requests?.length){organizerPanel.appendChild(el('p','Zatím nemáš žádné žádosti.','link-muted'));return}
   const ids=[...new Set(requests.map(r=>r.player_id))],names={};
-  const {data:players,error:ple}=await c.from('players').select('id,name').in('id',ids);if(ple)throw Error(ple.message);
+  const {data:players,error:ple}=await organizerWithTimeout(c.from('players').select('id,name').in('id',ids));if(ple)throw Error(ple.message);
   (players||[]).forEach(p=>names[p.id]=p.name);
   requests.forEach(r=>{
    const item=el('div',undefined,'link-entry');
@@ -6460,8 +6480,14 @@ async function renderOrganizer(){
    }
    organizerPanel.appendChild(item);
   });
- }catch(e){organizerPanel.replaceChildren(el('h3','Žádosti o propojení historických hráčů'));message(organizerPanel,e.message)}
- finally{activeOrganizer=false}
+ }catch(e){organizerPanel.replaceChildren(organizerTitle());message(organizerPanel,e.message||'Nepodařilo se načíst žádosti. Zkus obnovit stránku.')}
+ finally{
+  activeOrganizer=false;
+  if(organizerRefreshButton){
+   organizerRefreshButton.textContent='NAČÍST / OBNOVIT ŽÁDOSTI';
+   organizerRefreshButton.removeAttribute('aria-busy');
+  }
+ }
 }
 async function renderOrganizerRefresh(){activeOrganizer=false;await renderOrganizer()}
 $('profileOpenMe')?.addEventListener('click',()=>{setTimeout(renderPlayer,0)});
@@ -6471,6 +6497,13 @@ $('darturnioPlayerLinkRequests')?.addEventListener('toggle',e=>{if(e.currentTarg
 })();
 </script>
 
+<style id="darturnio-link-refresh-tap-fix">
+#darturnioPlayerLinkRequests #linkRefreshRequests{position:relative;z-index:2;pointer-events:auto;touch-action:manipulation;min-height:48px;max-width:100%;white-space:normal}
+#darturnioPlayerLinkRequests #linkOrganizerMount{min-height:26px;margin-top:12px}
+#darturnioPlayerLinkRequests #linkOrganizerPanel .link-muted{padding:8px 0;line-height:1.5}
+#darturnioPlayerLinkRequests #linkOrganizerPanel .link-error{padding:10px;border:1px solid #a04040;border-radius:8px;line-height:1.5}
+@media(max-width:650px){#darturnioPlayerLinkRequests #linkRefreshRequests{width:100%}}
+</style>
 <style id="501live-admin-refresh">
 #adminPanel{--ad-bg:#111216;--ad-surface:#1a1b20;--ad-border:#303139;--ad-red:#E11D1D;--ad-text:#f6f6f8;color:var(--ad-text);max-width:1180px;margin:auto;padding:12px 10px 26px}
 #adminPanel .admin-hero{padding:20px 18px 17px;margin:0 0 14px;background:linear-gradient(115deg,#252127,#17181c 70%);border:1px solid #3C3030;border-radius:15px;position:relative;overflow:hidden}
