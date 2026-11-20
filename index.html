@@ -9758,4 +9758,176 @@ body.tablet-mode .tcr-panel .tcr-targets button:active{background:#a51b21;border
   }
 }
 </style>
+
+<style id="darturnio-pairs-mobile-layout-fix-20261120">
+/* Dvojice: mobilni rozlozeni. Pouze vizualni upravy, beze zmen herni logiky. */
+@media (max-width:600px), (max-height:600px) and (max-width:900px) {
+  body.tablet-mode #legacyApp>#tabletRoot {
+    padding:5px 7px 70px!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-toolbar {
+    margin:0 0 5px!important;
+    gap:7px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-toolbar strong {
+    font-size:clamp(15px,4vw,20px)!important;
+    text-align:right;
+  }
+  body.tablet-mode #tabletApp .dt-pair-toolbar button {
+    min-height:36px!important;
+    padding:5px 9px!important;
+    font-size:14px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel {
+    margin:0!important;
+    padding:8px 8px 72px!important;
+    min-height:0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel h3 {
+    font-size:clamp(16px,4.1vw,20px)!important;
+    line-height:1.2!important;
+    margin:2px 0 5px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-scorecards {
+    gap:6px!important;
+    margin:4px 0 6px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-card {
+    padding:5px 4px!important;
+    border-radius:10px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-cardname {
+    font-size:clamp(14px,3.8vw,17px)!important;
+    line-height:1.12!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-bigscore {
+    font-size:clamp(46px,14vw,66px)!important;
+    line-height:1.02!important;
+    margin:3px 0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-cardlabel {
+    min-height:0!important;
+    font-size:clamp(11px,3.1vw,14px)!important;
+    line-height:1.15!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-active {
+    padding:7px 4px!important;
+    margin:5px 0!important;
+    line-height:1.16!important;
+    font-size:clamp(15px,4vw,19px)!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel>p.small {
+    margin:4px 0!important;
+    font-size:12px!important;
+    line-height:1.2!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel .tablet-mode-switch {
+    margin:5px 0!important;
+    gap:5px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel .tablet-mode-switch button {
+    min-height:39px!important;
+    padding:5px 3px!important;
+    font-size:clamp(12px,3.6vw,16px)!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-aggval {
+    font-size:clamp(27px,8vw,35px)!important;
+    line-height:1.1!important;
+    margin:3px 0 6px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-digits {
+    gap:4px!important;
+    max-width:none!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-digits button {
+    min-height:43px!important;
+    padding:3px!important;
+    font-size:clamp(20px,6vw,25px)!important;
+    line-height:1!important;
+    border-radius:7px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-special {
+    gap:5px!important;
+    margin:6px 0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-special>div {
+    padding:5px 3px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-specialrow {
+    gap:4px!important;
+    margin-top:4px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-special button {
+    min-height:37px!important;
+    padding:4px 0!important;
+    font-size:14px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-double.dt-compact-double {
+    margin:5px 0!important;
+    padding:4px 0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-darts {
+    gap:4px!important;
+    margin:6px 0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-darts>div {
+    padding:5px!important;
+    font-size:20px!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-bases {
+    gap:3px!important;
+    margin:4px 0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-bases button {
+    min-height:35px!important;
+    padding:2px 0!important;
+    font-size:clamp(13px,3.9vw,16px)!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-mults {
+    gap:5px!important;
+    margin:5px 0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-mults button {
+    min-height:39px!important;
+    padding:4px 1px!important;
+    font-size:clamp(11px,3.2vw,14px)!important;
+  }
+  /* Potvrzeni a ZPET dostupne i pri rolovani maleho telefonu. */
+  body.tablet-mode #tabletApp .dt-pair-panel>.tablet-counter-actions {
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    position:fixed!important;
+    left:7px!important;
+    right:7px!important;
+    bottom:calc(5px + env(safe-area-inset-bottom,0px))!important;
+    z-index:4100!important;
+    background:#151516!important;
+    border:1px solid #45454b!important;
+    border-radius:11px!important;
+    padding:6px!important;
+    gap:6px!important;
+    margin:0!important;
+    box-shadow:0 -5px 15px rgba(0,0,0,.75)!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel>.tablet-counter-actions button {
+    min-width:0!important;
+    min-height:47px!important;
+    padding:4px 2px!important;
+    font-size:clamp(11px,3.25vw,15px)!important;
+    line-height:1.15!important;
+    margin:0!important;
+  }
+  body.tablet-mode #tabletApp .dt-pair-panel .dt-pair-message {
+    min-height:0!important;
+    margin:4px 0!important;
+  }
+}
+/* Logo nesmi prekryvat ovladani pocitadla dvojic. */
+body.tablet-mode:has(#tabletApp .dt-pair-panel) #appBrandFooter {
+  display:none!important;
+}
+</style>
+
 </body></html>
