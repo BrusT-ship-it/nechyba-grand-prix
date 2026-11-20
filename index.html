@@ -3403,20 +3403,36 @@ async function saveAutomaticPlacements(tournamentId,freshMatches){
   const eventMatches=freshMatches||matches.filter(m=>m.tournament_id===tournamentId);
   const placements=calculateFinalPlacements(tournamentId,eventEntries,eventMatches);
   if(!placements)return false;
-  const isQualifier=qualificationTournaments().some(t=>t.id===tournamentId);
+  const isQualifier=qualificationTournamentsFor(tournamentId).some(t=>t.id===tournamentId);
   const jobs=[];
+  const protectedPoints=[];
   for(const item of placements){
     const entry=eventEntries.find(e=>e.id===item.entryId);
+    if(!entry)throw new Error('Chybí účast hráče pro automatické pořadí.');
     const points=isQualifier?pointsForElimination(item.entryId,eventEntries,eventMatches,item.place):null;
     if(isQualifier&&points===null)return false;
-    if(Number(entry?.final_place)===item.place&&(isQualifier?Number(entry?.series_points)===points:true))continue;
-    const update={final_place:item.place};
-    if(isQualifier)update.series_points=points;
-    jobs.push(db.from("tournament_entries").update(update).eq("id",item.entryId));
+    const existing=entry.series_points;
+    const stored=existing!==null&&existing!==undefined;
+    // Neexistuje DB příznak původu bodů. Žádné existující odlišné body
+    // proto nesmějí být automaticky přepsány (mohou být zadány ručně).
+    const keepPoints=isQualifier&&stored&&Number(existing)!==points;
+    if(keepPoints)protectedPoints.push(item.entryId);
+    const changePlace=Number(entry.final_place)!==item.place;
+    const changePoints=isQualifier&&!keepPoints&&(!stored||Number(existing)!==points);
+    if(!changePlace&&!changePoints)continue;
+    const update={};
+    if(changePlace)update.final_place=item.place;
+    if(changePoints)update.series_points=points;
+    let query=db.from('tournament_entries').update(update).eq('id',item.entryId);
+    // Souběžně nově zapsané ruční body nemohou být přepsány.
+    if(changePoints&&!stored)query=query.is('series_points',null);
+    jobs.push(query.select('id'));
   }
   const results=await Promise.all(jobs);
   const failed=results.find(r=>r.error);
-  if(failed)throw new Error("Automatické uložení pořadí se nepodařilo: "+failed.error.message);
+  if(failed)throw new Error('Automatické uložení pořadí se nepodařilo: '+failed.error.message);
+  if(results.some(r=>!r.data?.length))throw new Error('Pořadí se mezitím změnilo; obnov turnaj a ověř body.');
+  if(protectedPoints.length)notify(`U ${protectedPoints.length} hráčů zůstaly zachovány dříve uložené body. Pokud mají být přepočítány, uprav je ručně.`);
   return true;
 }
 const darturnioFinalSetupPending=new Set();
@@ -4401,6 +4417,7 @@ window.editMatchResult=async function(matchId){
   if(String(m.group_name)==="DE:GF:1"&&winner!==m.winner_entry_id)return notify("Změna vítěze velkého finále by vyžadovala vytvoření nebo zrušení rozhodujícího finále. Tuto opravu proto nelze provést automaticky.");
   if(m.stage==="group"&&matches.some(x=>x.tournament_id===m.tournament_id&&x.stage==="playoff"))return notify("Skupinový zápas už ovlivnil nasazení vytvořeného pavouka. Kvůli ochraně pavouka lze skupinový výsledek opravit pouze před jeho vytvořením.");
 
+  const fixed=m.leg_rule==='fixed'&&['group','round_robin'].includes(m.stage);
   const {data:updated,error}=fixed?
      await db.rpc('darturnio_v4_singles_result',{p_match_id:matchId,p_legs1:a,p_legs2:b}).then(r=>({data:!r.error?{id:matchId}:null,error:r.error})):
      await db.from("matches").update({legs1:a,legs2:b,winner_entry_id:winner}).eq("id",matchId).eq("status","finished").select("id").maybeSingle();
@@ -4749,12 +4766,25 @@ const tabletPendingKey="501live-pending-visit-v1";
 function tabletPendingGet(){try{return JSON.parse(localStorage.getItem(tabletPendingKey)||"null");}catch(_){return null;}}
 function tabletPendingPut(item){localStorage.setItem(tabletPendingKey,JSON.stringify(item));}
 function tabletPendingClear(){localStorage.removeItem(tabletPendingKey);}
-async function tabletPendingRetry(){
+ // Jen explicitní databázové odmítnutí; výpadek sítě / 23505 může
+ // znamenat, že server zápis přijal, proto se čekající nához ponechá.
+ function tabletDefinitiveRejection(error){
+   const code=String(error?.code||'').toUpperCase();
+   if(code==='23505')return false;
+   return /^(?:22[0-9A-Z]{3}|23[0-9A-Z]{3}|28[0-9A-Z]{3}|42[0-9A-Z]{3}|P0001|PGRST1[0-9]{2}|PGRST2[0-9]{2})$/.test(code);
+ }
+ async function tabletPendingRetry(){
   const item=tabletPendingGet();if(!item)return true;
   if(!navigator.onLine){notify("OFFLINE: poslední nához je bezpečně uložen v tomto zařízení. Další zápis je dočasně pozastaven.");return false;}
   const {error}=await darturnioTabletRpc(item.rpc||"record_dart_visit_safe",item.args);
-  if(error){notify("Čekající nához nebylo možné potvrdit: "+error.message+". Nepokračuj v zápisu, dokud stav neověříš.");return false;}
-  tabletPendingClear();
+   if(error){
+     if(tabletDefinitiveRejection(error)){
+       tabletPendingClear();
+       notify('Server čekající nához odmítl: '+error.message+'. Nához nebyl uložen; můžeš ho opravit a zadat znovu.');
+     }else notify('Doručení náhozu nelze ověřit: '+error.message+'. Zápis je z bezpečnostních důvodů pozastaven.');
+     return false;
+   }
+   tabletPendingClear();
   if(item.args?.p_leg_id){
    try{
     const leg=await db.from('match_legs').select('match_id').eq('id',item.args.p_leg_id).maybeSingle();
@@ -4826,8 +4856,14 @@ async function submitTabletVisit(mode){
     // Ulož před odesláním: odpověď serveru se může ztratit i po úspěšném zápisu.
     tabletPendingPut({args,rpc:"record_dart_visit_with_double",created_at:new Date().toISOString()});
     const {error:saveError}=await darturnioTabletRpc("record_dart_visit_with_double",args);
-    if(saveError)throw new Error(saveError.message);
-    tabletPendingClear();
+     if(saveError){
+       if(tabletDefinitiveRejection(saveError)){
+         tabletPendingClear();
+         throw new Error('Server nához odmítl (nebyl uložen): '+saveError.message+'. Zkontroluj zadání a opakuj.');
+       }
+       throw new Error('Potvrzení náhozu se nezdařilo: '+saveError.message+'. Další zápis je pozastaven, aby se nához neuložil dvakrát.');
+     }
+     tabletPendingClear();
     const refreshedMatch=await db.from("matches").select("*").eq("id",active.data.id).maybeSingle();
     if(refreshedMatch.data?.status==="finished"){
       darturnioResultNotice.put(refreshedMatch.data.tournament_id,tabletBoard,'singles',refreshedMatch.data.id);
@@ -5174,18 +5210,33 @@ async function init(){
    const box=$('findNotice');box.classList.add('show');box.textContent='';
    if(!client){box.textContent='Databáze se ještě připojuje.';return;}
    try{
-     const {data,error}=await client.from('tournaments').select('*').order('event_date',{ascending:true}).limit(300);if(error)throw error;
-     const found=(data||[]).filter(t=>[t.name,t.location,t.event_location,t.public_code].some(v=>String(v||'').toLowerCase().includes(q)));
-     if(!found.length){box.textContent='Žádný turnaj nenalezen.';return;}
-     box.innerHTML='<div class="tournament-results">'+found.map((t,i)=>`<button type="button" class="tournament-result" data-found-index="${i}"><b>${String(t.name||'Turnaj').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</b><span>${[t.event_date,t.location||t.event_location,t.status].filter(Boolean).join(' · ')}</span></button>`).join('')+'</div>';
-     box.querySelectorAll('[data-found-index]').forEach(btn=>btn.addEventListener('click',()=>{
-       const t=found[Number(btn.dataset.foundIndex)];
-       if(!t?.id)return;
-       const url=new URL(window.location.href);
-       url.searchParams.set('turnaj',t.id);
-       url.hash='';
-       window.location.assign(url.toString());
-     }));
+      // Serverové vyhledávání až před limitem; v aktuální tabulce je zaručen sloupec name.
+      // Případné hledání podle místa/kódu vyžaduje potvrzené DB sloupce nebo serverové RPC.
+      const safePattern=q.slice(0,100).replace(/[\\%_]/g,'\\$&');
+      const {data,error}=await client.from('tournaments')
+        .select('id,name,event_date,status')
+        .ilike('name',`%${safePattern}%`)
+        .order('event_date',{ascending:false}).limit(100);
+      if(error)throw error;
+      const found=data||[];
+      if(!found.length){box.textContent='Žádný turnaj nenalezen podle názvu.';return;}
+      // textContent místo innerHTML: žádná data organizátora nesmějí být parsována jako HTML.
+      const list=document.createElement('div');list.className='tournament-results';
+      found.forEach(t=>{
+        const btn=document.createElement('button');btn.type='button';btn.className='tournament-result';
+        const name=document.createElement('b');name.textContent=String(t.name||'Turnaj');
+        const desc=document.createElement('span');
+        desc.textContent=[t.event_date,t.status].filter(Boolean).join(' · ');
+        btn.append(name,desc);
+        btn.addEventListener('click',()=>{
+          if(!t.id)return;
+          const url=new URL(window.location.href);
+          url.searchParams.set('turnaj',t.id);url.hash='';
+          window.location.assign(url.toString());
+        });
+        list.appendChild(btn);
+      });
+      box.replaceChildren(list);
    }catch(err){box.textContent='Turnaje se nepodařilo načíst: '+(err.message||err);}
  });
  // Jednoduchá navigace zpět na hlavní stranu z původní turnajové aplikace.
