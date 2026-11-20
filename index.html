@@ -1676,7 +1676,7 @@ async function darturnioTabletRpc(name,args={}){return db.rpc(name,args);}
 // Vstup z klavesnice se nikdy nema cekat na sit (Supabase).
 let tabletFastCache=null;
 let cricketTournamentDraft=[];let cricketTournamentMultiplier=1;let cricketTournamentLegId=null;let cricketTournamentBusy=false;
-let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;let tabletAggregateValue="";let tabletSpecialType="";let tabletSpecialDart=0;let tabletDoubleAttempts=0;
+let tabletDraft=[];let tabletBase=null;let tabletMultiplier=1;let tabletMode="per_dart";let tabletBusy=false;let tabletAutoStartInProgress=false;let tabletAutoStartBlockedMatchId=null;let tabletDraftLegId=null;let tabletAggregateValue="";let tabletSpecialType="";let tabletSpecialDart=0;let tabletDoubleAttempts=null;
 // Souhrn predchozich legu nacteme pouze pri zmene legu, ne po kazdem stisku klavesy.
 let tabletPastVisitCache={key:null,visits:[]};
 // Výsledková obrazovka je lokální pro konkrétní tablet/terč. Nezastavuje jiné terče.
@@ -4764,7 +4764,7 @@ async function renderTablet(localOnly=false){
   const {data:legs,error:legError}=await db.from("match_legs").select("*").eq("match_id",match.id).order("leg_no",{ascending:false}).limit(1);
   if(legError){app.innerHTML=`<div class="panel warning">${esc(legError.message)}<p class="small">Nejdříve je nutné spustit SQL migraci.</p></div>`;return;}
   const leg=legs?.[0]||null;
-  if(!leg||tabletDraftLegId!==leg.id){tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=leg?.id||null;tabletDoubleAttempts=0;}
+  if(!leg||tabletDraftLegId!==leg.id){tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=leg?.id||null;tabletDoubleAttempts=null;}
   const scorekeeper=match.scorekeeper_entry_id?playerName(match.scorekeeper_entry_id):"neurčen";
   const p1=playerName(match.player1_entry_id),p2=playerName(match.player2_entry_id);
   if(!leg){
@@ -4864,7 +4864,7 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
     ${tabletMode==="aggregate"?`<div class="tablet-digit-entry">${tabletAggregateValue||"Zadej body"}</div>`:`<div class="tablet-darts">${dartsMarkup}</div>`}
     ${tabletMode==="aggregate"?`<div class="tablet-aggregate-layout dt-simplified-pad"><div class="tablet-aggregate-pad">${digitButtons}</div></div>`:`<div class="tablet-counter-layout"><div class="tablet-number-pad">${perDartButtons}</div></div>`}
     <div class="dt-compact-special"><div class="dt-compact-special-line"><span>ZAVŘENO <small>šipkou</small></span><div class="tablet-special-group">${specialButtons("checkout")}</div></div><div class="dt-compact-special-line"><span>PŘEHOZENO <small>šipkou</small></span><div class="tablet-special-group">${specialButtons("bust")}</div></div></div>
-    <div class="tablet-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">${[0,1,2,3].map(n=>`<button type="button" data-tablet-double="${n}" class="${tabletDoubleAttempts===n?"selected":""}" title="${n===0?'Bez pokusu na double':n+' pokus/y na double'}">${n}</button>`).join("")}</div></div>
+    <div class="tablet-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">${[1,2,3].map(n=>`<button type="button" data-tablet-double="${n}" class="${tabletDoubleAttempts===n?"selected":""}" aria-pressed="${tabletDoubleAttempts===n}" title="${n} pokus/y na double; opakovaným stisknutím zrušíš volbu">${n}</button>`).join("")}</div></div>
     <div class="tablet-special-note">${remaining===1?'Chybný uložený zůstatek 1. Použij ZPĚT a oprav nához.':invalidSpecial?esc(invalidSpecial):onePointWarning?'Zůstatek 1 = PŘEHOZENO (0 bodů). Vyber šipku, kterou přehoz nastal.':preview.bust&&tabletMode==='per_dart'?'PŘEHOZENO '+preview.dart+'. šipkou · skóre se vrací na '+remaining:preview.checkout&&tabletMode==='per_dart'?'ZAVŘENO '+preview.dart+'. šipkou':specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:''}</div>
     <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy||tabletPendingGet()?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy||tabletPendingGet()?"disabled":""}>POTVRDIT NÁHOZ</button></div>
     ${tabletPendingGet()?'<div class="notice warning">⚠ ČEKÁ NA SYNCHRONIZACI – další zápis a ZPĚT jsou pozastaveny. Po obnovení internetu se nához bezpečně odešle.</div>':""}
@@ -4959,13 +4959,11 @@ async function submitTabletVisit(mode){
         "Zůstatek 1 je PŘEHOZENO: zvol počet hozených šipek.":
         "Přehoz nebo zavření zadej pomocí příslušného tlačítka.");
     }
-    // Zaznamenání double je dobrovolné; při zavření se úspěšná šipka počítá mezi pokusy.
+    // Statistiky pokusu na double jsou volitelne i pri zavreni. Nevybrano = NULL.
     const selectedAttempts=tabletDoubleAttempts;
     const countedDarts=tabletSpecialType?tabletSpecialDart:mode==='per_dart'?(tabletPreview(before,tabletDraft).stop?tabletPreview(before,tabletDraft).dart:3):3;
     if(selectedAttempts!==null&&selectedAttempts>countedDarts)throw new Error('Pokusů na double nemůže být víc než skutečně hozených šipek.');
-    const checkoutNow=tabletSpecialType==="checkout" || (mode==="per_dart" && tabletPreview(before,tabletDraft).checkout);
-    // Bez stisku = 0 pokusu; uspesne zavreni znamena alespon jeden zasazeny double.
-    args.p_double_attempts=checkoutNow?Math.max(1,selectedAttempts??0):(selectedAttempts??0);
+    args.p_double_attempts=selectedAttempts;
     args.p_request_id=crypto.randomUUID();
     // Ulož před odesláním: odpověď serveru se může ztratit i po úspěšném zápisu.
     tabletPendingPut({args,rpc:"record_dart_visit_with_double",created_at:new Date().toISOString()});
@@ -4988,7 +4986,7 @@ async function submitTabletVisit(mode){
         if(!fresh.error){try{await saveAutomaticPlacements(refreshedMatch.data.tournament_id,fresh.data||[]);}catch(err){notify("Zápas je dokončen, ale pořadí se nepodařilo přepočítat: "+err.message);}}
       }
     }
-    tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDoubleAttempts=0;
+    tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDoubleAttempts=null;
     tabletBusy=false;
     await loadData();await renderTablet();
   }catch(err){notify("Návštěvu se nepodařilo uložit: "+err.message);}
@@ -5079,9 +5077,9 @@ if(tabletBoard){
 
     const digitBack=event.target.closest("[data-tablet-delete-digit]");if(digitBack){if(tabletBusy)return;if(tabletMode==="aggregate"){if(tabletSpecialType){tabletSpecialType="";tabletSpecialDart=0;}else{tabletAggregateValue=tabletAggregateValue.slice(0,-1);}void renderTablet(true);}return;}
     const doubleClear=event.target.closest("[data-tablet-double-clear]");
-    if(doubleClear){if(tabletBusy)return;tabletDoubleAttempts=0;void renderTablet(true);return;}
+    if(doubleClear){if(tabletBusy)return;tabletDoubleAttempts=null;void renderTablet(true);return;}
     const doubleButton=event.target.closest("[data-tablet-double]");
-    if(doubleButton){if(tabletBusy)return;tabletDoubleAttempts=Number(doubleButton.dataset.tabletDouble);void renderTablet(true);return;}
+    if(doubleButton){if(tabletBusy)return;const n=Number(doubleButton.dataset.tabletDouble);tabletDoubleAttempts=tabletDoubleAttempts===n?null:n;void renderTablet(true);return;}
     const undoMatch=event.target.closest("[data-tablet-undo-match]");
     if(undoMatch){
       if(tabletPendingGet()){notify("Nejdříve je nutné potvrdit čekající nához. ZPĚT je zatím zablokováno.");return;}
@@ -5784,7 +5782,7 @@ for(let count=1;count<=3;count++){
 const sessions={solo:null,duel:null};
 let gameId=0;
 function createGame(kind,score,names,target){
- return {kind,initial:score,names,target,events:[],mode:'aggregate',draft:[],mult:1,aggregate:'',special:null,specialDart:0,doubleAttempts:0,id:++gameId,dartSessionId:crypto.randomUUID()};
+ return {kind,initial:score,names,target,events:[],mode:'aggregate',draft:[],mult:1,aggregate:'',special:null,specialDart:0,doubleAttempts:null,id:++gameId,dartSessionId:crypto.randomUUID()};
 }
 function model(g){
  const scores=g.names.map(()=>g.initial),wins=g.names.map(()=>0),all=[],legVisits=[];
@@ -5822,7 +5820,7 @@ function model(g){
 function localThrowPreview(before,darts){
  return window.darturnioX01.preview(before,darts);
 }
-function clearEntry(g){g.draft=[];g.mult=1;g.aggregate='';g.special=null;g.specialDart=0;g.doubleAttempts=0;}
+function clearEntry(g){g.draft=[];g.mult=1;g.aggregate='';g.special=null;g.specialDart=0;g.doubleAttempts=null;}
 function rootFor(kind){return kind==='solo'?$('trainingTabletRoot'):$('localDuelRoot');}
 function showFeedback(kind,msg){const box=rootFor(kind)?.querySelector('[data-local-feedback]');if(box)box.textContent=msg;}
 function render(kind){
@@ -5863,7 +5861,7 @@ function render(kind){
  const ready=!invalidSpecial&&(!!g.special||(g.mode==='aggregate'?numeric!==null&&curScore-numeric>=2:g.draft.length===3||perDartPreview.action!=='score'));
  const onePointWarning=!g.special&&g.mode==='aggregate'&&numeric!==null&&curScore-numeric===1;
  const specialSection=`<div class="dt-compact-special"><div class="dt-compact-special-line"><span>ZAVŘENO <small>šipkou</small></span><div class="tablet-special-group">${specialButtons('checkout')}</div></div><div class="dt-compact-special-line"><span>PŘEHOZENO <small>šipkou</small></span><div class="tablet-special-group">${specialButtons('bust')}</div></div></div>`;
- const attempts=`<div class="tablet-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">${[0,1,2,3].map(n=>`<button type="button" data-local-double="${n}" class="${g.doubleAttempts===n?'selected':''}">${n}</button>`).join('')}</div></div>`;
+ const attempts=`<div class="tablet-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">${[1,2,3].map(n=>`<button type="button" data-local-double="${n}" class="${g.doubleAttempts===n?'selected':''}" aria-pressed="${g.doubleAttempts===n}" title="Opakovaným stisknutím zrušíš volbu">${n}</button>`).join('')}</div></div>`;
  root.innerHTML=`<div class="panel tablet-counter-panel local-counter">${header}
  <div class="tablet-live-top ${m.current===0?'player-one-active':'player-two-active'}">${playerCard(0)}${g.names.length===2?playerCard(1):`<div class="tablet-score-card is-inactive"><div class="tablet-player">CÍL HRY</div><div class="tablet-card-score">${g.initial}</div><div class="tablet-player-stats"><span>DOUBLE OUT</span><span>${m.leg}. LEG</span></div></div>`}</div>
  <div class="local-last-visit">Poslední nához: ${last?html(g.names[last.player])+' · '+(last.isCheckout?'ZAVŘENO '+last.dartsCount+'. šipkou':last.isBust?'PŘEHOZENO '+last.dartsCount+'. šipkou':last.countedPoints+' bodů'):'—'}</div>
@@ -5901,10 +5899,9 @@ function submit(kind){
  }
  if(g.doubleAttempts!==null){
   if(g.doubleAttempts>dartsCount)return fail('Pokusů na double nemůže být více než hozených šipek.');
-  // Uspech na double automaticky zahrnuje nejmene jeden pokus.
  }
  const v={dartsCount,countedPoints:kindAction?(kindAction==='checkout'?before:0):input,
-  isCheckout:kindAction==='checkout',isBust:kindAction==='bust',doubleAttempts:kindAction==='checkout'?Math.max(1,g.doubleAttempts??0):(g.doubleAttempts??0),
+  isCheckout:kindAction==='checkout',isBust:kindAction==='bust',doubleAttempts:g.doubleAttempts,
   enteredPoints:input??0};
  g.events.push({type:'visit',visit:v});clearEntry(g);render(kind);
  // Turnajové zápisy zůstávají beze změn. Lokální hra se odešle do veřejného součtu až po dokončení.
@@ -5970,8 +5967,8 @@ for(const kind of ['solo','duel'])rootFor(kind)?.addEventListener('click',e=>{
   if(g.draft.length>=3||g.special||localThrowPreview(model(g).scores[model(g).current],g.draft).action!=='score'||n===25&&g.mult===3||points>60)return;
   g.draft.push({base:n,mult:g.mult,points});g.mult=1;render(kind);return;}
  if('localSpecial' in d){const err=window.darturnioX01.specialError(d.localSpecial,model(g).scores[model(g).current],Number(d.localDart));if(err){showFeedback(kind,err);return;}g.special=d.localSpecial;g.specialDart=Number(d.localDart);render(kind);return;}
- if('localDouble' in d){g.doubleAttempts=Number(d.localDouble);render(kind);return;}
- if('localDoubleClear' in d){g.doubleAttempts=0;render(kind);return;}
+ if('localDouble' in d){const n=Number(d.localDouble);g.doubleAttempts=g.doubleAttempts===n?null:n;render(kind);return;}
+ if('localDoubleClear' in d){g.doubleAttempts=null;render(kind);return;}
  if('localSubmit' in d)submit(kind);
 });
 })();
@@ -8744,7 +8741,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const $=id=>document.getElementById(id);
  const getDb=()=>typeof db!=='undefined'?db:window.db;
  const escHtml=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
- const state={tid:'',board:0,session:null,match:null,leg:null,visits:[],pairs:[],players:new Map(),history:[],legHistory:[],busy:false,mode:'aggregate',total:'',darts:[],mult:1,special:null,specialCount:3,attempts:0,draftLeg:'',loadNumber:0,loadError:''};
+ const state={tid:'',board:0,session:null,match:null,leg:null,visits:[],pairs:[],players:new Map(),history:[],legHistory:[],busy:false,mode:'aggregate',total:'',darts:[],mult:1,special:null,specialCount:3,attempts:null,draftLeg:'',loadNumber:0,loadError:''};
  const pendingKey='darturnio-pair-pending-v1';
  const getPending=()=>{try{return JSON.parse(localStorage.getItem(pendingKey)||'null')}catch{return null}};
  const setPending=o=>localStorage.setItem(pendingKey,JSON.stringify(o));
@@ -8752,7 +8749,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const pairById=id=>state.pairs.find(p=>p.id===id);
  const nameOf=id=>state.players.get(id)||'Hráč';
  const pairName=id=>{const p=pairById(id);return p?nameOf(p.player1_id)+' + '+nameOf(p.player2_id):'Čeká na dvojici'};
- const resetDraft=()=>{state.total='';state.darts=[];state.mult=1;state.special=null;state.specialCount=3;state.attempts=0};
+ const resetDraft=()=>{state.total='';state.darts=[];state.mult=1;state.special=null;state.specialCount=3;state.attempts=null};
  const app=()=>$("tabletApp");
  const twoPairs=()=>state.match?[state.match.pair1_id,state.match.pair2_id]:[];
  function score(pairId){
@@ -8837,7 +8834,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   const onePointWarning=state.mode==='aggregate'&&!state.special&&state.total!==''&&p.action==='needs_special'&&(turn.remaining-Number(state.total)===1);
   const last=state.visits[state.visits.length-1];
   const lastLabel=last?nameOf(last.player_id)+' · '+last.action+' · '+last.entered_points+' b.':'Zatím žádný nához';
-  app().innerHTML=toolbar()+'<section class="panel dt-pair-panel"><h3>'+escHtml(names)+' · '+escHtml(matchScore)+' · '+l.leg_no+'. leg</h3><div class="dt-pair-scorecards">'+card(m.pair1_id)+card(m.pair2_id)+'</div><p class="dt-pair-active">NA ŘADĚ: '+escHtml(nameOf(turn.player))+' ('+escHtml(pairName(turn.pairId))+')</p><p class="small">Poslední nához: '+escHtml(lastLabel)+'</p>'+modeButtons+input+special+'<div class="dt-pair-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">'+[0,1,2,3].map(n=>'<button data-dtp-attempt="'+n+'" class="'+(state.attempts===n?'selected':'')+'">'+n+'</button>').join('')+'</div></div><p class="small dt-pair-message">'+(turn.remaining===1?'Chybný uložený zbytek 1. Použij ZPĚT a oprav nához.':invalidSpecial|| (onePointWarning?'Zbytek 1 je PŘEHOZENO: vyber šipku, kterou došlo k přehozu.':state.special==='checkout'?'Zavřeno '+state.specialCount+'. šipkou':state.special==='bust'?'Přehozeno '+state.specialCount+'. šipkou':p.action==='needs_special'?'Vyber ZAVŘENO nebo PŘEHOZENO podle skutečného náhozu':p.action==='checkout'?'Přesné zavření potvrď':p.action==='bust'?'Přehozeno – 0 bodů, původní skóre se vrací':''))+'</p><div class="tablet-counter-actions"><button class="secondary" data-dtp-undo '+(pending||state.busy?'disabled':'')+'>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-dtp-save '+(canSave?'':'disabled')+'>POTVRDIT NÁHOZ</button></div>'+(pending?'<p class="notice warning">Nához čeká na potvrzení. Další vstup je uzamčen. <button data-dtp-retry>OVĚŘIT ZÁPIS</button> <button data-dtp-discard class="secondary">VYŘEŠIT CHYBNÝ ZÁPIS</button></p>':'')+'<details><summary>Statistiky hráčů</summary><table class="dt-pair-stats"><tr><th>Hráč</th><th>Náhozy</th><th>Šipky</th><th>Ø 3 šipky</th></tr>'+statRows+'</table></details></section>';
+  app().innerHTML=toolbar()+'<section class="panel dt-pair-panel"><h3>'+escHtml(names)+' · '+escHtml(matchScore)+' · '+l.leg_no+'. leg</h3><div class="dt-pair-scorecards">'+card(m.pair1_id)+card(m.pair2_id)+'</div><p class="dt-pair-active">NA ŘADĚ: '+escHtml(nameOf(turn.player))+' ('+escHtml(pairName(turn.pairId))+')</p><p class="small">Poslední nához: '+escHtml(lastLabel)+'</p>'+modeButtons+input+special+'<div class="dt-pair-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">'+[1,2,3].map(n=>'<button data-dtp-attempt="'+n+'" aria-pressed="'+(state.attempts===n)+'" title="Opakovaným stisknutím zrušíš volbu" class="'+(state.attempts===n?'selected':'')+'">'+n+'</button>').join('')+'</div></div><p class="small dt-pair-message">'+(turn.remaining===1?'Chybný uložený zbytek 1. Použij ZPĚT a oprav nához.':invalidSpecial|| (onePointWarning?'Zbytek 1 je PŘEHOZENO: vyber šipku, kterou došlo k přehozu.':state.special==='checkout'?'Zavřeno '+state.specialCount+'. šipkou':state.special==='bust'?'Přehozeno '+state.specialCount+'. šipkou':p.action==='needs_special'?'Vyber ZAVŘENO nebo PŘEHOZENO podle skutečného náhozu':p.action==='checkout'?'Přesné zavření potvrď':p.action==='bust'?'Přehozeno – 0 bodů, původní skóre se vrací':''))+'</p><div class="tablet-counter-actions"><button class="secondary" data-dtp-undo '+(pending||state.busy?'disabled':'')+'>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-dtp-save '+(canSave?'':'disabled')+'>POTVRDIT NÁHOZ</button></div>'+(pending?'<p class="notice warning">Nához čeká na potvrzení. Další vstup je uzamčen. <button data-dtp-retry>OVĚŘIT ZÁPIS</button> <button data-dtp-discard class="secondary">VYŘEŠIT CHYBNÝ ZÁPIS</button></p>':'')+'<details><summary>Statistiky hráčů</summary><table class="dt-pair-stats"><tr><th>Hráč</th><th>Náhozy</th><th>Šipky</th><th>Ø 3 šipky</th></tr>'+statRows+'</table></details></section>';
  }
  async function fetchNow(tid,board){
   const database=getDb();if(!database)throw new Error('Databáze není připojena.');
@@ -8916,8 +8913,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
      throw new Error(turn.remaining-Number(state.total)===1?'Zůstatek 1 je přehoz. Zvol PŘEHOZENO a číslo šipky.':'Zavření či přehoz potvrď zvlášť.');
    }
    if(!state.special&&state.mode==='per_dart'&&state.attempts!==null&&state.attempts>state.darts.length)throw new Error('Pokusy na double nemohou překročit počet hozených šipek.');
-   // Pri uspechu musi byt alespon jeden double pokus, jinak 0 bez volby.
-   if(state.special==='checkout'||(state.mode==='per_dart'&&p.action==='checkout'))args.p_double_attempts=Math.max(1,state.attempts??0);
+    // Volitelna statistika: NULL zustava NULL i pri zavreni legu.
    if(args.p_action==='checkout'&&!confirm('Potvrdit zavření '+turn.remaining+' bodů '+args.p_darts_count+'. šipkou pro '+nameOf(turn.player)+'?'))return;
    setPending(args);
    const saved=await rpc('darturnio_v2_pair_visit',args);clearPending();
@@ -8978,7 +8974,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    else{state.special=sp;state.specialCount=n;state.total='';state.darts=[];state.mult=1}
    renderLocal();return;
   }
-  if(target.hasAttribute('data-dtp-attempt')){state.attempts=Number(target.dataset.dtpAttempt);renderLocal();return}
+  if(target.hasAttribute('data-dtp-attempt')){const n=Number(target.dataset.dtpAttempt);state.attempts=state.attempts===n?null:n;renderLocal();return}
   if(target.hasAttribute('data-dtp-undo')){
    if(!confirm('Vrátit poslední potvrzený nához?'))return;
    void action(async()=>{await rpc('darturnio_v2_pair_undo',{p_session_id:state.session.id})});return;
