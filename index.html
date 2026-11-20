@@ -2106,63 +2106,78 @@ function darturnioSeedGroupQualifiers(tournamentId,groups,entriesCount){
   // původní kvalifikační nasazení. I když postupují všichni.
   return selected;
 }
-const creatingGroupTiebreaks = new Set();
-async function ensureGroupTiebreaks(groupName, members, groupMatches){
-  if(!isAdmin)return;
-  const creationKey = `${selectedTournament}:${groupName}`;
-  if(creatingGroupTiebreaks.has(creationKey))return;
-  const regular=groupMatches.filter(m=>m.stage==="group");
-  if(!regular.length||!regular.every(m=>m.status==="finished"))return;
-  const allTies=groupMatches.filter(m=>m.stage==="tiebreak");
-  if(allTies.some(m=>m.status!=="finished"))return;
+// Postupová hranice musí být výslovně rozhodnutá i po opakovaných rozhodovacích zápasech.
+// Úmyslně nepoužíváme abecedu / náhodné pořadí pro výběr osmého postupujícího.
+function darturnioBoundaryTie(tournamentId, groupName, members, groupMatches){
+  const regular=groupMatches.filter(m=>m.stage==='group');
+  if(!regular.length||!regular.every(m=>m.status==='finished'))return null;
+  if(groupMatches.some(m=>m.stage==='tiebreak'&&m.status!=='finished'))return null;
   const ordered=orderGroupStandings(members.map(entry=>({entry})),groupMatches);
-  const allGroups=[...new Set(entries.filter(e=>e.tournament_id===selectedTournament).map(e=>e.group_name).filter(Boolean))].sort();
+  const allGroups=[...new Set(entries.filter(e=>e.tournament_id===tournamentId).map(e=>e.group_name).filter(Boolean))].sort();
   const groupIndex=allGroups.indexOf(groupName);
-  const totalEntries=entries.filter(e=>e.tournament_id===selectedTournament).length;
-  const perGroup=Number(tournaments.find(t=>t.id===selectedTournament)?.draw_qualifiers_per_group);
+  if(groupIndex<0||!allGroups.length)return null;
+  const totalEntries=entries.filter(e=>e.tournament_id===tournamentId).length;
+  const perGroup=Number(tournaments.find(t=>t.id===tournamentId)?.draw_qualifiers_per_group);
   const qualifiers=Math.min(8,totalEntries);
-  const seats=perGroup===-1&&darturnioFinalData(selectedTournament)?ordered.length:
-    Number.isInteger(perGroup)&&perGroup>=1&&perGroup<=128
-      ?perGroup
-      :Math.floor(qualifiers/allGroups.length)+(groupIndex<qualifiers%allGroups.length?1:0);
-  if(seats<1||seats>=ordered.length)return;
+  const seats=perGroup===-1&&darturnioFinalData(tournamentId)?ordered.length:
+    Number.isInteger(perGroup)&&perGroup>=1&&perGroup<=128?perGroup:
+      Math.floor(qualifiers/allGroups.length)+(groupIndex<qualifiers%allGroups.length?1:0);
+  if(seats<1||seats>=ordered.length)return null;
   const key=darturnioRankingKey(ordered[seats-1]);
-  if(key!==darturnioRankingKey(ordered[seats]))return;
+  if(key!==darturnioRankingKey(ordered[seats]))return null;
   const tied=ordered.filter(r=>darturnioRankingKey(r)===key).map(r=>r.entry.id);
-  if(tied.length<2)return;
-  // Pokud již proběhl rozhodovací zápas a stále je shoda, vyžaduje individuální dořešení.
-  if(groupMatches.some(m=>m.stage==='tiebreak'))return;
-  const tiedBlocks=[tied];
-  // match_no je jedinečné v rámci turnaje, nikoli pouze uvnitř skupiny.
-  // Počty pro skupinu A a B se proto nesmějí překrývat.
-  creatingGroupTiebreaks.add(creationKey);
-  try {
-    for(let attempt=0;attempt<2;attempt++){
-      const {data:current,error:readError}=await db.from("matches")
-        .select("id,stage,group_name,round_no,match_no,status")
-        .eq("tournament_id",selectedTournament);
-      if(readError){notify("Rozhodovací zápasy: chyba načtení: "+readError.message);return;}
-      const all=current||[];
-      const existing=all.filter(m=>m.stage==="tiebreak"&&m.group_name===groupName);
-      if(existing.some(m=>m.status!=="finished"))return;
-      // Nepřidávat další várku, pokud se už některý rozhodovací zápas vytvořil.
-      // Druhé kolo lze případně spustit samostatným vědomým krokem.
-      if(existing.length)return;
-      let matchNo=Math.max(0,...all.map(m=>Number(m.match_no)||0));
-      const round=1;
-      const next=[];
-      tiedBlocks.forEach(ids=>{
-        for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
-          next.push({tournament_id:selectedTournament,stage:"tiebreak",group_name:groupName,round_no:round,match_no:++matchNo,board_no:null,player1_entry_id:ids[i],player2_entry_id:ids[j],legs1:0,legs2:0,target_legs:1,status:"waiting"});
-        }
-      });
-      if(!next.length)return;
-      const {error}=await db.from("matches").insert(next);
-      if(!error){await loadData();notify(`Ve skupině ${groupName} byly vytvořeny rozhodovací zápasy na jeden leg.`);return;}
-      if(error.code!=="23505"||attempt===1){notify("Rozhodovací zápasy se nepodařilo vytvořit: "+error.message);return;}
-      // Jiné zařízení mezitím mohlo založit zápas se stejným číslem: zkusit znovu.
+  return tied.length>=2?{tied, seats, key}:null;
+}
+const creatingGroupTiebreaks = new Set();
+async function ensureGroupTiebreaks(groupName, members, groupMatches, manual=false, expectedRound=null){
+  if(!isAdmin)return;
+  const tournamentId=selectedTournament;
+  const creationKey=`${tournamentId}:${groupName}`;
+  if(creatingGroupTiebreaks.has(creationKey))return;
+  const boundary=darturnioBoundaryTie(tournamentId,groupName,members,groupMatches);
+  if(!boundary)return;
+  const previous=groupMatches.filter(m=>m.stage==='tiebreak');
+  if(previous.length&&!manual)return; // druhé kolo nikdy nezahajujeme bez rozhodnutí pořadatele
+  const lastRound=Math.max(0,...previous.map(m=>Number(m.round_no)||0));
+  if(manual){
+    if(!previous.length||expectedRound!==lastRound){
+      notify('Rozhodovací zápasy se mezitím změnily. Obnov skupiny a zkontroluj stav.');return;
     }
-  } finally {creatingGroupTiebreaks.delete(creationKey);}
+    if(!confirm(`Skupina ${groupName}: na hranici postupu zůstává shoda. Vytvořit další sérii rozhodovacích zápasů na jeden leg pro ${boundary.tied.length} hráčů?`))return;
+  }
+  creatingGroupTiebreaks.add(creationKey);
+  try{
+    for(let attempt=0;attempt<2;attempt++){
+      const {data:current,error:readError}=await db.from('matches')
+        .select('id,stage,group_name,round_no,match_no,status,player1_entry_id,player2_entry_id,legs1,legs2')
+        .eq('tournament_id',tournamentId);
+      if(readError){notify('Rozhodovací zápasy: chyba načtení: '+readError.message);return;}
+      const all=current||[];
+      const existing=all.filter(m=>m.stage==='tiebreak'&&m.group_name===groupName);
+      if(existing.some(m=>m.status!=='finished'))return;
+      const currentLastRound=Math.max(0,...existing.map(m=>Number(m.round_no)||0));
+      if(manual&&currentLastRound!==expectedRound){
+        await loadData();notify('Další rozhodovací zápasy už vytvořilo jiné zařízení. Obnovil jsem stav.');return;
+      }
+      if(!manual&&existing.length)return;
+      // Přepočítat pořadí z čerstvých výsledků. Při změně hranice postupu nevytvářet staré zápasy.
+      const refreshed=darturnioBoundaryTie(tournamentId,groupName,members,
+        all.filter(m=>m.group_name===groupName&&(m.stage==='group'||m.stage==='tiebreak')));
+      if(!refreshed)return;
+      let matchNo=Math.max(0,...all.map(m=>Number(m.match_no)||0));
+      const next=[];const ids=refreshed.tied;
+      for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
+        next.push({tournament_id:tournamentId,stage:'tiebreak',group_name:groupName,
+          round_no:currentLastRound+1,match_no:++matchNo,board_no:null,
+          player1_entry_id:ids[i],player2_entry_id:ids[j],legs1:0,legs2:0,target_legs:1,status:'waiting'});
+      }
+      if(!next.length)return;
+      const {error}=await db.from('matches').insert(next);
+      if(!error){await loadData();notify(`Skupina ${groupName}: vytvořeno rozhodovací kolo ${currentLastRound+1} na jeden leg.`);return;}
+      if(error.code!=='23505'||attempt===1){notify('Rozhodovací zápasy se nepodařilo vytvořit: '+error.message);return;}
+      // Jiný klient mohl získat stejná čísla. V další iteraci ověříme stav z databáze.
+    }
+  }finally{creatingGroupTiebreaks.delete(creationKey);}
 }
 function renderGroups(){
   const es=tournamentEntries();
@@ -2173,18 +2188,30 @@ function renderGroups(){
     const members=es.filter(e=>e.group_name===g);
     const orderedStats=orderGroupStandings(members.map(entry=>({entry})),ms.filter(m=>m.group_name===g));
     const matchRows=ms.filter(m=>m.group_name===g).sort((a,b)=>(a.round_no||0)-(b.round_no||0)||(a.match_no||0)-(b.match_no||0));
+    const tieRows=matchRows.filter(m=>m.stage==='tiebreak');
+    const unresolved=tieRows.length&&darturnioBoundaryTie(selectedTournament,g,members,matchRows);
+    const lastTieRound=Math.max(0,...tieRows.map(m=>Number(m.round_no)||0));
     return `<div class="panel"><h3>Skupina ${esc(g)}</h3>
       <table><tr><th>Hráč</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Body</th><th>Legy</th><th>Rozdíl</th></tr>
       ${orderedStats.map(s=>`<tr><td>${esc(players.find(p=>p.id===s.entry.player_id)?.name||"—")}</td><td>${s.played}</td><td>${s.wins}</td><td>${s.draws}</td><td>${s.losses}</td><td><strong>${s.points}</strong></td><td>${s.legsFor}:${s.legsAgainst}</td><td>${s.legsFor-s.legsAgainst}</td></tr>`).join("")}</table>
       <p class="small">Pořadí: body (2/1/0) → rozdíl legů → vyhrané legy → vzájemné zápasy. Rozhodovací leg se hraje při shodě na postupové hranici.</p>
       <h3>Program a výsledky</h3>
       ${matchRows.map(m=>`<p>${m.stage==="tiebreak"?'<strong class="warning">ROZHODOVACÍ · 1 LEG</strong> ':''}${esc(playerName(m.player1_entry_id))} <strong>${m.status==="finished"?`${m.legs1}:${m.legs2}`:"– : –"}</strong> ${esc(playerName(m.player2_entry_id))} <span class="small">(${esc(m.status||"waiting")})</span></p>`).join("")}
+      ${unresolved?`<p class="warning">Na hranici postupu zůstává shoda i po rozhodovacím kole. Pavouk je pozastaven, dokud se nerozhodne postupující.</p>${isAdmin?`<button type="button" class="action" data-dt-tie-group="${esc(g)}" data-dt-tie-round="${lastTieRound}">VYTVOŘIT DALŠÍ ROZHODOVACÍ LEG</button>`:''}`:''}
     </div>`;
   }).join("");
   groups.forEach(g=>{
     const members=es.filter(e=>e.group_name===g);
     const groupRows=ms.filter(m=>m.group_name===g);
     ensureGroupTiebreaks(g,members,groupRows);
+  });
+  $("groupsContent").querySelectorAll('[data-dt-tie-group]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const g=button.dataset.dtTieGroup;
+      const members=es.filter(e=>e.group_name===g);
+      const groupRows=ms.filter(m=>m.group_name===g);
+      ensureGroupTiebreaks(g,members,groupRows,true,Number(button.dataset.dtTieRound));
+    });
   });
 }
 function sortTournaments(list){
@@ -2362,6 +2389,13 @@ function renderBracketSeedControl(){
     target.innerHTML=`<div class="panel"><p class="warning">Losování pavouka nelze připravit. Zkontroluj přiřazení všech hráčů do skupin a jejich zápasy.</p></div>`;
     return;
   }
+  const unresolvedGroups=groupNames.filter(g=>
+    darturnioBoundaryTie(tournamentId,g,es.filter(e=>e.group_name===g),groupMatches.filter(m=>m.group_name===g)));
+  if(unresolvedGroups.length){
+    const hasTie=unresolvedGroups.some(g=>groupMatches.some(m=>m.stage==='tiebreak'&&m.group_name===g));
+    target.innerHTML=`<div class="panel"><p class="warning">Pavouk čeká na rozhodnutí postupu ve skupinách ${esc(unresolvedGroups.join(', '))}. ${hasTie?'Rozhodovací kolo už proběhlo, ale shoda trvá. V záložce Skupiny vypiš další rozhodovací leg.':'V záložce Skupiny se nejdříve odehraje rozhodovací leg.'}</p></div>`;
+    return;
+  }
   target.innerHTML=`<div class="panel"><div class="notice">Všechny skupinové zápasy jsou dokončené. Pavouk se vytváří automaticky.</div></div>`;
 }
 function playoffSeedPositions(size){
@@ -2413,6 +2447,22 @@ async function deletePlayoffBracket(tournamentId){
   notify("Pavouk byl odstraněn. Skupinové zápasy a zadané body zůstaly zachovány.");
 }
 
+// Unikátní konflikt není automaticky úspěch. Ze serveru musí existovat PŘESNĚ
+// očekávané první kolo (čísla zápasů i účastníci), jinak hlásíme skutečný problém.
+async function darturnioSameStoredPlayoff(tournamentId,expected){
+  const {data,error}=await db.from('matches')
+    .select('match_no,stage,group_name,player1_entry_id,player2_entry_id')
+    .eq('tournament_id',tournamentId).eq('stage','playoff');
+  if(error)throw new Error('Kontrola již vytvořeného pavouka selhala: '+error.message);
+  const stored=data||[];
+  if(!expected.length||stored.length<expected.length)return false;
+  const map=new Map(stored.map(m=>[Number(m.match_no),m]));
+  return expected.every(m=>{
+    const hit=map.get(Number(m.match_no));
+    return hit&&String(hit.group_name||'')===String(m.group_name||'')&&
+      hit.player1_entry_id===m.player1_entry_id&&hit.player2_entry_id===m.player2_entry_id;
+  });
+}
 async function seedKnockoutBracket(){
   if(!isAdmin)return notify("Tuto akci může provést pouze pořadatel.");
   const tournamentId=$("entryTournament")?.value||selectedTournament;
@@ -2445,7 +2495,10 @@ async function seedKnockoutBracket(){
     if(!admitted.length||!excluded.length)return false;
     return darturnioRankingKey(admitted[admitted.length-1])===darturnioRankingKey(excluded[0]);
   });
-  if(unstable)return notify('Na hranici postupu je shoda. Nejdříve odehraj rozhodovací leg.');
+   if(unstable){
+     const hadTiebreak=groupMatches.some(m=>m.stage==='tiebreak');
+     return notify(hadTiebreak?'Na hranici postupu zůstává shoda i po rozhodovacím kole. V záložce Skupiny použij VYTVOŘIT DALŠÍ ROZHODOVACÍ LEG.':'Na hranici postupu je shoda. Nejdříve odehraj rozhodovací leg.');
+   }
   if(seededEntries.length!==expectedQualifiers||new Set(seededIds).size!==expectedQualifiers){
     return notify("Losování bylo zastaveno: nepodařilo se správně vybrat postupující hráče. Žádný pavouk nebyl vytvořen.");
   }
@@ -2453,11 +2506,17 @@ async function seedKnockoutBracket(){
   const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,rows,isGroupDko?'DE:WB:1':null);
   const preview=bracketRows.map(m=>m.player1_entry_id===m.player2_entry_id?`${playerName(m.player1_entry_id)} – volný los (automatický postup)`:`${playerName(m.player1_entry_id)} vs. ${playerName(m.player2_entry_id)}`).join("\n");
   if(!confirm(`Vytvořit ${isGroupDko?'DKO (dvě porážky)':'jednostranný KO'} pavouk pro ${seededEntries.length} postupujících po dokončení skupin?\n\n${preview}\n\nOstatní hráči získají 1 bod.`))return;
-  const {error:insertError}=await db.from("matches").insert(bracketRows);
-  if(insertError)return notify("Pavouk se nepodařilo vytvořit: "+insertError.message);
+   const {error:insertError}=await db.from("matches").insert(bracketRows);
+   let alreadyCreated=false;
+   if(insertError){
+     if(insertError.code!=='23505')return notify('Pavouk se nepodařilo vytvořit: '+insertError.message);
+     try{alreadyCreated=await darturnioSameStoredPlayoff(tournamentId,bracketRows)}
+     catch(e){return notify(e.message)}
+     if(!alreadyCreated)return notify('Na jiném zařízení proběhlo souběžné losování, ale vytvořený pavouk se liší. Obnov stránku; nic nepřepisuji.');
+   }
   if(isGroupDko){try{await createNextKnockoutRound(tournamentId)}catch(e){return notify('DKO bylo založeno, ale navazující plánování selhalo: '+e.message)}}
-  await loadData();
-  notify(`${isGroupDko?'DKO':'KO'} pavouk pro ${seededEntries.length} postupujících byl vytvořen.`);
+   await loadData();
+   notify(alreadyCreated?'Pavouk už bezpečně vytvořilo jiné zařízení. Načetl jsem ho.':`${isGroupDko?'DKO':'KO'} pavouk pro ${seededEntries.length} postupujících byl vytvořen.`);
 }
 
 
@@ -2847,13 +2906,21 @@ async function createNextKnockoutRound(tournamentId){
       const a=admitted[admitted.length-1],b=excluded[0];
       return darturnioRankingKey(a)===darturnioRankingKey(b);
     });
-    if(unstable)return;
+    if(unstable){
+      // Podrobné upozornění a další krok se zobrazí v Skupiny / Pavouk.
+      // Nevybírat postupující podle abecedy ani nepokračovat s neúplným pavoukem.
+      return;
+    }
     if(seededEntries.length!==count||new Set(seededEntries.map(e=>e.id)).size!==seededEntries.length)return;
     const selectedDrawFormat=tournaments.find(t=>t.id===tournamentId)?.draw_format;
     const isGroupDko=selectedDrawFormat==='groups_dko';
     const bracketRows=buildInitialPlayoffRows(tournamentId,seededEntries,all,isGroupDko?'DE:WB:1':null);
     const {error:insertError}=await db.from("matches").insert(bracketRows);
-    if(insertError)throw new Error("Skupiny jsou dokončené, ale automatické vytvoření pavouka selhalo: "+insertError.message);
+    if(insertError){
+      if(insertError.code!=='23505')throw new Error('Skupiny jsou dokončené, ale automatické vytvoření pavouka selhalo: '+insertError.message);
+      if(!await darturnioSameStoredPlayoff(tournamentId,bracketRows))
+        throw new Error('Jiné zařízení vytvořilo odlišný pavouk. Je nutná kontrola pořadatelem; nic nepřepisuji.');
+    }
     if(isGroupDko)await createNextKnockoutRound(tournamentId);
     return;
   }
@@ -2865,8 +2932,12 @@ async function createNextKnockoutRound(tournamentId){
   if(winners.length<=1)return;
   const nextRows=makeDoubleEliminationPhaseRows(tournamentId,winners,maxRound+1,null,all);
   nextRows.forEach(r=>r.target_legs=Number(tournaments.find(t=>t.id===tournamentId)?.target_legs)||DEFAULT_TARGET_LEGS);
-  const {error:insertError}=await db.from("matches").insert(nextRows);
-  if(insertError)throw new Error("Výsledky jsou uložené, ale další kolo se nepodařilo vytvořit: "+insertError.message);
+   const {error:insertError}=await db.from("matches").insert(nextRows);
+   if(insertError){
+     if(insertError.code!=='23505')throw new Error('Výsledky jsou uložené, ale další kolo se nepodařilo vytvořit: '+insertError.message);
+     if(!await darturnioSameStoredPlayoff(tournamentId,nextRows))
+       throw new Error('Další kolo vytvořilo jiné zařízení s odlišnými zápasy. Nic nepřepisuji; obnov stav.');
+   }
 }
 
 function allFinishedMatches(){return matches.filter(m=>m.status==="finished"&&m.winner_entry_id&&m.player1_entry_id!==m.player2_entry_id);}
@@ -4187,18 +4258,32 @@ async function cancelTournamentDraw(tournamentId){
   if(!isAdmin){notify("Tuto akci může provést pouze pořadatel.");return false;}
   if(!tournamentId){notify("Nejdřív vyber turnaj.");return false;}
   const [matchResult,entryResult]=await Promise.all([
-    db.from("matches").select("id,status,stage").eq("tournament_id",tournamentId),
-    db.from("tournament_entries").select("id").eq("tournament_id",tournamentId)
+    db.from("matches").select("id,status,stage,legs1,legs2,winner_entry_id").eq("tournament_id",tournamentId),
+    db.from("tournament_entries").select("id,final_place,series_points").eq("tournament_id",tournamentId)
   ]);
   if(matchResult.error){notify("Zápasy se nepodařilo načíst: "+matchResult.error.message);return false;}
   if(entryResult.error){notify("Startovní listinu se nepodařilo načíst: "+entryResult.error.message);return false;}
   const rows=matchResult.data||[];
-  const live=rows.filter(m=>m.status==="live").length;
-  const finished=rows.filter(m=>m.status==="finished").length;
-  const message=`Opravdu zrušit rozlosování turnaje?\n\nBudou odstraněny všechny ${rows.length} zápasy (z toho ${finished} dokončených a ${live} rozehraných), včetně pavouka. Všem přihlášeným hráčům zůstane účast, ale smažou se skupiny, konečné pořadí a body tohoto turnaje. Tuto akci nelze vrátit.`;
-  if(!confirm(message))return false;
+  const historic=(entryResult.data||[]).some(e=>e.series_points!==null||e.final_place!==null);
+  const played=rows.some(m=>m.status!=='waiting'||Number(m.legs1)>0||Number(m.legs2)>0||m.winner_entry_id);
+  if(played){notify('Rozlosování nelze zrušit: turnaj už má rozehrané nebo dokončené zápasy. Výsledky a statistiky zůstanou chráněné.');return false;}
+  if(historic){notify('Rozlosování nelze zrušit: hráči mají uložené body série nebo konečné umístění. Tyto výsledky nesmí být smazány.');return false;}
+  if(rows.length>=1000||(entryResult.data||[]).length>=1000){notify('Nelze bezpečně ověřit všechny zápasy či hráče. Rozlosování nemažu.');return false;}
+  if(!rows.length){notify('Tento turnaj ještě nemá rozlosování. Není co rušit.');return false;}
+  if(!confirm(`Zrušit pouze dosud neodehrané rozlosování ${rows.length} čekajících zápasů? Odehrané zápasy ani ručně zadané body tato funkce nikdy nemaže.`))return false;
+  // Znovu načíst údaje po potvrzení: na jiném tabletu mohl mezitím začít zápas.
+  const [m2,e2]=await Promise.all([
+    db.from('matches').select('id,status,legs1,legs2,winner_entry_id').eq('tournament_id',tournamentId),
+    db.from('tournament_entries').select('id,final_place,series_points').eq('tournament_id',tournamentId)
+  ]);
+  if(m2.error||e2.error){notify('Stav rozlosování nelze znovu ověřit. Nic nemažu.');return false;}
+  if((m2.data||[]).length!==rows.length||
+    (m2.data||[]).some(m=>m.status!=='waiting'||Number(m.legs1)>0||Number(m.legs2)>0||m.winner_entry_id)||
+    (e2.data||[]).some(e=>e.series_points!==null||e.final_place!==null)){
+    notify('Stav turnaje se mezitím změnil. Rozlosování nemažu; obnov stránku.');return false;
+  }
   if(rows.length){
-    const {error}=await db.from("matches").delete().eq("tournament_id",tournamentId);
+    const {error}=await db.from("matches").delete().eq("tournament_id",tournamentId).eq('status','waiting');
     if(error){notify("Zápasy se nepodařilo odstranit: "+error.message);return false;}
   }
   const {error:entryError}=await db.from("tournament_entries").update({group_name:null,final_place:null,series_points:null}).eq("tournament_id",tournamentId);
@@ -9294,11 +9379,20 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
    e.preventDefault();e.stopImmediatePropagation();
    if(pending)return;
    const tid=field.value,db=dbClient();if(!tid||!db)return;
-   if(isReset){
-     if(!rows.length){status('Zatím nebyly vytvořeny zápasy.');return}
-     if(!confirm('Zrušit celé rozlosování dvojic včetně výsledků? Sestavené dvojice zůstanou.'))return;
-     pending=true;
-     try{const {error}=await db.rpc('darturnio_v2_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;
+    if(isReset){
+      if(!rows.length){status('Zatím nebyly vytvořeny zápasy.');return}
+      pending=true;
+      try{
+        const check=await db.from('darturnio_pair_matches')
+          .select('id,status,legs1,legs2,winner_pair_id').eq('tournament_id',tid);
+        if(check.error)throw check.error;
+        const fresh=check.data||[];
+        if(fresh.length>=1000||fresh.length!==rows.length||fresh.some(m=>
+          !['waiting','pending'].includes(m.status)||Number(m.legs1)>0||Number(m.legs2)>0||m.winner_pair_id)){
+          status('Zrušení zablokováno: turnaj dvojic už obsahuje výsledky, rozehrané zápasy nebo změny z jiného zařízení.',true);return;
+        }
+        if(!confirm('Zrušit pouze dosud neodehrané rozlosování dvojic? Všichni hráči musí mít 0 odehraných legů.'))return;
+        const {error}=await db.rpc('darturnio_v2_reset_pair_ko',{p_tournament_id:tid});if(error)throw error;
        const clear=await db.from('darturnio_tournament_pairs').update({group_name:null}).eq('tournament_id',tid);
        if(clear.error)throw clear.error;
        status('Losování zrušeno.');await refresh()
