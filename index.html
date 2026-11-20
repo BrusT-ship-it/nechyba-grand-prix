@@ -928,7 +928,7 @@ body:has(#ctGame:not([hidden])) #appBrandFooter{
 <meta name="darturnio-tablet-mode" content="admin-same-tab-no-qr-2026-11-18"/>
 <style id="darturnio-no-web-deletion">
 /* Majitel se rozhodl mazat turnaje pouze kontrolovanym SQL. */
-#ownedDeleteSelected, #ownedSelectAll, .owned-one-delete, .owned-tick, #ownedDeleteStatus{display:none!important}
+
 </style>
 <style id="darturnio-monthly-limit-feedback">
 #competitionFeedback.dt-quota-warning{
@@ -3126,7 +3126,7 @@ function setFormHTML(container,html){
   });
   container.querySelectorAll("[data-player-row]").forEach(row=>{
     const out=row.querySelector("[data-attendance-count]");
-    if(out)out.textContent=`${row.querySelectorAll("input[data-tournament-id]:checked").length} / ${tournaments.length} turnajů`;
+    if(out)out.textContent=`${row.querySelectorAll("input[data-tournament-id]:checked").length} / ${row.querySelectorAll("input[data-tournament-id]").length} turnajů`;
   });
   if(activeKey){
     const el=[...container.querySelectorAll("input")].find(x=>formKey(x)===activeKey);
@@ -3208,16 +3208,17 @@ function renderAll(){
     if(rosterCount)rosterCount.textContent=darturnioRosterError||`Moji hráči: ${myPlayers.length} · Zobrazeno: ${visiblePlayers.length}`;
     setFormHTML($("adminPlayers"),visiblePlayers.map(p=>{
       const playerEntries=entries.filter(e=>e.player_id===p.id);
-      const selectedCount=playerEntries.filter(e=>tournaments.some(t=>t.id===e.tournament_id)).length;
-      const choices=tournaments.filter(t=>t.organizer_id===darturnioOrganizerId).map(t=>{
+      const ownTournaments=tournaments.filter(t=>String(t.organizer_id)===String(darturnioOrganizerId));
+      const selectedCount=playerEntries.filter(e=>ownTournaments.some(t=>t.id===e.tournament_id)).length;
+      const choices=ownTournaments.map(t=>{
         const registered=playerEntries.some(e=>e.tournament_id===t.id);
         return `<label class="player-tournament-option"><input type="checkbox" data-player-id="${esc(p.id)}" data-tournament-id="${esc(t.id)}" ${registered?"checked":""}>${esc(t.name)}</label>`;
       }).join("");
       return `<details class="player-admin-row" data-player-row="${esc(p.id)}">
-        <summary><span>${esc(p.name)}</span><span class="small" data-attendance-count="${esc(p.id)}">${selectedCount} / ${tournaments.length} turnajů</span></summary>
+        <summary><span>${esc(p.name)}</span><span class="small" data-attendance-count="${esc(p.id)}">${selectedCount} / ${ownTournaments.length} turnajů</span></summary>
         <div class="player-tournament-grid">${choices}</div>
         <div class="attendance-actions"><button type="button" class="action" data-save-attendance="${esc(p.id)}">Uložit účast</button></div>
-        <div class="attendance-actions"><input type="text" data-player-new-name="${esc(p.id)}" value="${esc(p.name)}" aria-label="Nové jméno hráče"><button type="button" class="secondary" data-rename-player="${esc(p.id)}">Uložit jméno</button></div>
+        ${p.profile_id?'<p class="small">Registrovaný hráč upravuje jméno ve svém profilu.</p>':`<div class="attendance-actions"><input type="text" data-player-new-name="${esc(p.id)}" value="${esc(p.name)}" aria-label="Nové jméno hráče"><button type="button" class="secondary" data-rename-player="${esc(p.id)}">Uložit jméno</button></div>`}
       </details>`;
     }).join("")||(darturnioRosterError?esc(darturnioRosterError):"Zatím nemáš žádné hráče. Přidej prvního přes QR kód nebo ručně."));
     const prevEntryPlayer=$("entryPlayer").value;
@@ -4035,7 +4036,7 @@ $("adminPlayers").addEventListener("change",event=>{
   const row=checkbox.closest("[data-player-row]");
   const count=row?.querySelectorAll("input[data-tournament-id]:checked").length||0;
   const output=row?.querySelector("[data-attendance-count]");
-  if(output)output.textContent=`${count} / ${tournaments.length} turnajů`;
+  if(output)output.textContent=`${count} / ${row.querySelectorAll("input[data-tournament-id]").length} turnajů`;
 });
 $("adminPlayers").addEventListener("click",async event=>{
   const button=event.target.closest("button[data-save-attendance]");
@@ -4048,16 +4049,35 @@ $("adminPlayers").addEventListener("click",async event=>{
   const desired=new Set(desiredIds);
   button.disabled=true;
   try{
+    // Nedovolime spravovat cizi ucast ani tehdy, kdyz je hrac spolecny.
+    const {data:auth,error:authError}=await db.auth.getUser();
+    const user=auth?.user;
+    if(authError||!user||!darturnioRosterIds.has(playerId))
+      throw new Error('Nepodařilo se ověřit pořadatele nebo jeho hráče.');
+    const ownListed=tournaments.filter(t=>String(t.organizer_id)===String(user.id));
+    const ownListedIds=ownListed.map(t=>t.id);
+    if(desiredIds.some(id=>!ownListedIds.includes(id)))
+      throw new Error('Zjištěn pokus změnit účast v cizím turnaji.');
+    if(!ownListedIds.length)throw new Error('Žádný vlastní turnaj k úpravě.');
+    // Vlastnictvi pred zmenami potvrdi take aktualni databaze.
+    const {data:verified,error:verifyError}=await db.from('tournaments')
+      .select('id').eq('organizer_id',user.id).in('id',ownListedIds);
+    if(verifyError)throw new Error('Nelze ověřit vlastnictví turnajů: '+verifyError.message);
+    const verifiedIds=new Set((verified||[]).map(t=>t.id));
+    if(verifiedIds.size!==ownListedIds.length||desiredIds.some(id=>!verifiedIds.has(id)))
+      throw new Error('Vlastnictví turnaje se změnilo. Obnov stránku.');
     const [freshEntriesResult,freshMatchesResult]=await Promise.all([
-      db.from("tournament_entries").select("*").eq("player_id",playerId),
-      db.from("matches").select("id,tournament_id,player1_entry_id,player2_entry_id").in("tournament_id",tournaments.map(t=>t.id))
+      db.from('tournament_entries').select('*')
+        .eq('player_id',playerId).in('tournament_id',ownListedIds),
+      db.from('matches').select('id,tournament_id,player1_entry_id,player2_entry_id')
+        .in('tournament_id',ownListedIds)
     ]);
     if(freshEntriesResult.error)throw new Error(freshEntriesResult.error.message);
     if(freshMatchesResult.error)throw new Error(freshMatchesResult.error.message);
     const freshEntries=freshEntriesResult.data||[];
     const freshMatches=freshMatchesResult.data||[];
-    const toAdd=tournaments.filter(t=>desired.has(t.id)&&!freshEntries.some(e=>e.tournament_id===t.id));
-    const toRemove=freshEntries.filter(e=>!desired.has(e.tournament_id));
+    const toAdd=ownListed.filter(t=>desired.has(t.id)&&!freshEntries.some(e=>e.tournament_id===t.id));
+    const toRemove=freshEntries.filter(e=>verifiedIds.has(e.tournament_id)&&!desired.has(e.tournament_id));
     const unsafe=toRemove.filter(e=>
       e.final_place!=null||e.series_points!=null||
       freshMatches.some(m=>m.tournament_id===e.tournament_id&&(m.player1_entry_id===e.id||m.player2_entry_id===e.id))
@@ -4070,7 +4090,7 @@ $("adminPlayers").addEventListener("click",async event=>{
       if(error)throw new Error("Přidání do turnaje "+t.name+" se nepodařilo: "+error.message);
     }
     for(const e of toRemove){
-      const {error}=await db.from("tournament_entries").delete().eq("id",e.id);
+      const {error}=await db.from("tournament_entries").delete().eq("id",e.id).eq("tournament_id",e.tournament_id);
       if(error)throw new Error("Odebrání účasti se nepodařilo: "+error.message);
     }
     await loadData();
@@ -4091,14 +4111,23 @@ $("adminPlayers").addEventListener("click",async event=>{
   if(!name)return notify("Jméno hráče nesmí být prázdné.");
   const current=players.find(p=>p.id===playerId);
   if(!current)return notify("Hráč nebyl nalezen.");
+  if(current.profile_id)return notify('Registrovaný hráč upravuje jméno ve vlastním profilu.');
+  if(!darturnioRosterIds.has(playerId))return notify('Tento hráč nepatří do tvé správy.');
   if(name===current.name)return notify("Jméno se nezměnilo.");
-  if(!confirm(`Opravdu přejmenovat hráče „${current.name}“ na „${name}“? Historie a výsledky zůstanou zachované.`))return;
+  if(!confirm(`Opravdu přejmenovat neregistrovaného hráče „${current.name}“ na „${name}“?`))return;
   button.disabled=true;
-  const {error}=await db.from("players").update({name}).eq("id",playerId);
-  button.disabled=false;
-  if(error)return notify("Jméno se nepodařilo změnit: "+error.message);
-  await loadData();
-  notify("Jméno hráče bylo změněno. Historie zůstala zachována.");
+  try{
+    const {error}=await db.rpc('darturnio_rename_guest_player',{
+      p_player_id:playerId,p_name:name
+    });
+    if(error)throw error;
+    await loadData();
+    notify('Jméno bylo bezpečně změněno. Historie zůstala zachovaná.');
+  }catch(error){
+    notify(error?.code==='PGRST202'
+      ?'Přejmenování vyžaduje bezpečnostní SQL migraci fáze 3.'
+      :'Jméno se nepodařilo změnit: '+(error?.message||String(error)));
+  }finally{button.disabled=false;}
 });
 $("historicalPointsTournament").addEventListener("change",()=>renderHistoricalPointsEditor());
 $("historicalPointsEditor").addEventListener("click",async event=>{
@@ -6133,229 +6162,108 @@ body{max-width:100%;overflow-x:hidden}
  });
 })();
 </script><style id="501live-owner-style">
-#competitionDates{display:grid;gap:12px}#competitionDates label{display:grid;gap:6px}
-#newCompetitionForm input:focus,#newCompetitionForm select:focus{outline:2px solid #E11D1D;outline-offset:1px}
 #ownedCompetitions{padding:20px;max-width:800px;margin:0 auto;color:#eee}#ownedCompetitions h3{color:#E11D1D}
 #ownedCompetitions .owned-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;margin:10px 0;border:1px solid #444;border-radius:8px;background:#181818}
-#ownedCompetitions .owned-row a{color:#E11D1D;font-weight:700}
-#ownedCompetitions .owned-one-delete{flex:none;border-radius:8px;border:1px solid #c94545;background:#8d2020;color:white;font-weight:700;padding:10px 12px;cursor:pointer}
-#ownedCompetitions .owned-one-delete:disabled{opacity:.45;cursor:not-allowed}
-@media(max-width:520px){#ownedCompetitions .owned-one-delete{width:100%;min-height:43px}}
+#ownedCompetitions .owned-row a{color:#E11D1D;font-weight:700;white-space:nowrap}
+@media(max-width:520px){#ownedCompetitions .owned-row{flex-wrap:wrap}#ownedCompetitions .owned-row a{margin-left:auto}}
 </style>
 <script id="501live-owned-tournaments">
 (()=>{
-  const $ = id => document.getElementById(id);
-  const button = $('profileOrganizer');
-  const parent = $('profilePanel');
-  if (!button || !parent) return;
-
-  const panel = document.createElement('section');
-  panel.id = 'ownedCompetitions';
-  panel.hidden = true;
-  panel.innerHTML = '<h3>MOJE POŘÁDANÉ TURNAJE</h3>' +
-    '<p class="owned-warning">Mazání je <strong>trvalé</strong> včetně zápasů, výsledků a turnajových statistik. Hráčské účty a ostatní turnaje zůstanou zachované. Doporučujeme zálohu.</p>' +
-    '<div class="owned-management"><label><input type="checkbox" id="ownedSelectAll"> Označit všechny na této stránce</label><button id="ownedDeleteSelected" class="danger" type="button" disabled>SMAZAT VYBRANÉ (0)</button></div>' +
-    '<p id="ownedDeleteStatus" role="status" aria-live="polite" class="small"></p>' +
-    '<div id="ownedCompetitionsList" aria-live="polite">Načítám…</div>' +
-    '<button id="ownedMore" type="button" class="secondary" hidden>NAČÍST DALŠÍ TURNAJE</button>' +
+  const $=id=>document.getElementById(id);
+  const button=$('profileOrganizer'),parent=$('profilePanel');
+  if(!button||!parent)return;
+  const panel=document.createElement('section');
+  panel.id='ownedCompetitions';
+  panel.hidden=true;
+  // Zamerne bez mazani: cely turnaj lze odebrat jen kontrolovanym SQL postupem.
+  panel.innerHTML='<h3>MOJE POŘÁDANÉ TURNAJE</h3>'+
+    '<div id="ownedCompetitionsList" aria-live="polite">Načítám…</div>'+
+    '<button id="ownedMore" type="button" class="secondary" hidden>NAČÍST DALŠÍ TURNAJE</button>'+
     '<button type="button" id="ownedCompetitionsBack" class="secondary">← ZPĚT NA DOMOVSKOU STRÁNKU</button>';
   parent.append(panel);
-
-  const returnHome = () => {
-    panel.hidden = true;
-    window._501liveReturnDashboard?.();
-  };
-  $('ownedCompetitionsBack').addEventListener('click', returnHome);
-
-  const getClient = () => window.db || (typeof db !== 'undefined' ? db : null);
-  let loadSerial = 0;
-
-  async function showOwned(event) {
-    // The old button previously opened the legacy organizer page.
-    // Do not let that handler replace the owned-tournament list.
-    if (event) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-    const serial = ++loadSerial;
+  $('ownedCompetitionsBack').addEventListener('click',()=>{
+    panel.hidden=true;window._501liveReturnDashboard?.();
+  });
+  const getClient=()=>window.db||(typeof db!=='undefined'?db:null);
+  let loadSerial=0;
+  async function showOwned(event){
+    if(event){event.preventDefault();event.stopImmediatePropagation();}
+    const serial=++loadSerial;
     document.body.classList.remove('organizer-view');
-    const legacy = $('legacyApp');
-    if (legacy) legacy.hidden = true;
-    const back = $('organizerDashboardBack');
-    if (back) back.hidden = true;
-    const home = $('landingHome');
-    if (home) {
-      home.hidden = false;
-      home.classList.add('has-panel');
-      home.querySelectorAll(':scope > .panel').forEach(section => {
-        section.classList.toggle('active-panel', section.id === 'profilePanel');
+    const legacy=$('legacyApp');if(legacy)legacy.hidden=true;
+    const back=$('organizerDashboardBack');if(back)back.hidden=true;
+    const home=$('landingHome');
+    if(home){
+      home.hidden=false;home.classList.add('has-panel');
+      home.querySelectorAll(':scope > .panel').forEach(section=>{
+        section.classList.toggle('active-panel',section.id==='profilePanel');
       });
     }
-    for (const id of ['profileDashboard', 'profileMe', 'profileStatistics', 'owner501Panel']) {
-      const section = $(id);
-      if (section) section.hidden = true;
+    for(const id of ['profileDashboard','profileMe','profileStatistics','owner501Panel']){
+      const section=$(id);if(section)section.hidden=true;
     }
-    panel.hidden = false;
-    const list = $('ownedCompetitionsList');
-    $('ownedMore').hidden=true;
-    list.textContent = 'Načítám tvoje turnaje…';
-    window.scrollTo(0, 0);
-
-    // Use the existing Supabase instance, not a shadowed local 'db'.
-    const client = getClient();
-    if (!client) {
-      list.textContent = 'Databáze se zatím nepřipojila. Zkus stránku obnovit.';
-      return;
-    }
-    try {
-      const {data: auth, error: authError} = await client.auth.getUser();
-      if (serial !== loadSerial || panel.hidden) return;
-      if (authError) throw authError;
-      const user = auth?.user;
-      if (!user) {
-        list.textContent = 'Pro zobrazení svých turnajů se nejdřív přihlas.';
-        return;
-      }
-      // Only request columns required for the listing: optional series
-      // fields might not exist in older database schemas.
+    panel.hidden=false;
+    const list=$('ownedCompetitionsList'),more=$('ownedMore');
+    more.hidden=true;list.textContent='Načítám tvoje turnaje…';
+    window.scrollTo(0,0);
+    const client=getClient();
+    if(!client){list.textContent='Databáze se zatím nepřipojila. Obnov stránku.';return;}
+    try{
+      const {data:auth,error:authError}=await client.auth.getUser();
+      if(serial!==loadSerial||panel.hidden)return;
+      if(authError)throw authError;
+      const user=auth?.user;
+      if(!user){list.textContent='Nejdříve se přihlas.';return;}
       const pageSize=100;
-      const {data:firstPage, error} = await client.from('tournaments')
-        .select('id,name,event_date,status')
-        .eq('organizer_id', user.id)
-        .order('event_date', {ascending:false}).order('id', {ascending:false})
-        .range(0,pageSize-1);
-      const data=Array.isArray(firstPage)?firstPage.slice():[];
-      if (serial !== loadSerial || panel.hidden) return;
-      if (error) throw error;
+      let loaded=0;
       list.replaceChildren();
-      if (!data?.length) {
-        list.textContent = 'Zatím nemáš založený žádný turnaj.';
-        return;
-      }
-      const selected=new Map();
-      const selectionStatus=()=>{
-        const n=selected.size;
-        const del=$('ownedDeleteSelected');
-        del.disabled=n===0;
-        del.textContent='SMAZAT VYBRANÉ ('+n+')';
-        const all=$('ownedSelectAll');
-        all.checked=!!data.length&&n===data.length;
-        all.indeterminate=n>0&&n<data.length;
-      };
-      $('ownedSelectAll').checked=false;
-      $('ownedDeleteSelected').disabled=true;
-      $('ownedDeleteSelected').textContent='SMAZAT VYBRANÉ (0)';
-      let deleteBusy=false;
-      async function deleteTargets(targets){
-        if(deleteBusy || !targets.length)return;
-        const question=targets.length===1
-          ?`Opravdu TRVALE smazat turnaj „${targets[0].name}“ včetně rozlosování, výsledků, legů a startovní listiny? Pro potvrzení napiš SMAZAT 1.`
-          :`Opravdu TRVALE smazat ${targets.length} turnajů včetně všech rozlosování, výsledků, legů a startovních listin? Pro potvrzení napiš SMAZAT ${targets.length}.`;
-        if(window.prompt(question)!=='SMAZAT '+targets.length)return;
-        deleteBusy=true;
-        const del=$('ownedDeleteSelected'),message=$('ownedDeleteStatus');
-        del.disabled=true;
-        panel.querySelectorAll('.owned-one-delete').forEach(b=>b.disabled=true);
-        message.textContent='Mažu celý turnaj včetně souvisejících dat…';
-        let completed=0;
-        const errors=[];
-        try{
-          for(const item of targets){
-            try{
-              const {data:result,error:deleteError}=await client.rpc('darturnio_delete_full_tournament',{
-                p_tournament_id:item.id,p_confirm_name:item.name
-              });
-              if(deleteError)throw deleteError;
-              if(result!==true)throw new Error('Databáze nepotvrdila odstranění.');
-              completed++;
-            }catch(error){errors.push(item.name+': '+(error?.message||String(error)));}
-          }
-          const summary=`Smazáno ${completed} z ${targets.length}.`+
-            (errors.length?' Chyby: '+errors.join(' | '):'');
-          if(!panel.hidden)await showOwned();
-          $('ownedDeleteStatus').textContent=summary;
-        }catch(error){
-          message.textContent='Nepodařilo se obnovit seznam: '+(error?.message||String(error));
-        }finally{
-          deleteBusy=false;
-          panel.querySelectorAll('.owned-one-delete').forEach(b=>b.disabled=false);
+      async function fetchNext(){
+        const {data,error}=await client.from('tournaments')
+          .select('id,name,event_date,status')
+          .eq('organizer_id',user.id)
+          .order('event_date',{ascending:false}).order('id',{ascending:false})
+          .range(loaded,loaded+pageSize-1);
+        if(error)throw error;
+        if(serial!==loadSerial||panel.hidden)return;
+        const rows=Array.isArray(data)?data:[];
+        for(const tournament of rows){
+          const row=document.createElement('div');row.className='owned-row';
+          const info=document.createElement('span');
+          const name=document.createElement('strong');name.textContent=tournament.name||'Turnaj';
+          const meta=document.createElement('small');meta.style.display='block';
+          meta.style.marginTop='4px';meta.style.color='#b6b6be';
+          meta.textContent=[tournament.event_date,tournament.status].filter(Boolean).join(' · ');
+          info.append(name,meta);
+          const link=document.createElement('a');
+          const url=new URL(window.location.href);url.search='';url.hash='';
+          url.searchParams.set('turnaj',tournament.id);
+          link.href=url.toString();link.textContent='OTEVŘÍT';
+          row.append(info,link);list.append(row);
         }
+        loaded+=rows.length;
+        if(!loaded)list.textContent='Zatím nemáš založený žádný turnaj.';
+        more.hidden=rows.length<pageSize;
       }
-      function appendRows(rows){
-      for (const tournament of rows) {
-        const row = document.createElement('div');
-        row.className = 'owned-row';
-        const tick=document.createElement('input');
-        tick.type='checkbox';tick.className='owned-tick';
-        tick.setAttribute('aria-label','Označit turnaj '+(tournament.name||'Turnaj'));
-        tick.addEventListener('change',()=>{if(tick.checked)selected.set(tournament.id,tournament);else selected.delete(tournament.id);selectionStatus();});
-        const info = document.createElement('span');
-        const name = document.createElement('strong');
-        name.textContent = tournament.name || 'Turnaj';
-        const meta = document.createElement('small');
-        meta.style.display = 'block';
-        meta.style.marginTop = '4px';
-        meta.style.color = '#b6b6be';
-        meta.textContent = [tournament.event_date, tournament.status].filter(Boolean).join(' · ');
-        info.append(name, meta);
-        const link = document.createElement('a');
-        const url = new URL(window.location.href);
-        url.search = '';
-        url.hash = '';
-        url.searchParams.set('turnaj', tournament.id);
-        link.href = url.toString();
-        link.textContent = 'OTEVŘÍT';
-        const deleteOne=document.createElement('button');
-        deleteOne.type='button';
-        deleteOne.className='owned-one-delete';
-        deleteOne.textContent='SMAZAT TURNAJ';
-        deleteOne.setAttribute('aria-label','Smazat celý turnaj '+(tournament.name||'Turnaj'));
-        deleteOne.addEventListener('click',()=>{void deleteTargets([tournament]);});
-        row.append(tick, info, link, deleteOne);
-        list.append(row);
-      }
-      }
-      appendRows(data);
-      const more=$('ownedMore');
-      more.hidden=data.length<pageSize;
       more.onclick=async()=>{
         if(more.disabled)return;
         more.disabled=true;more.textContent='NAČÍTÁM…';
-        try{
-          const {data:next,error:pageError}=await client.from('tournaments')
-            .select('id,name,event_date,status')
-            .eq('organizer_id',user.id)
-            .order('event_date',{ascending:false}).order('id',{ascending:false})
-            .range(data.length,data.length+pageSize-1);
-          if(pageError)throw pageError;
-          if(serial!==loadSerial||panel.hidden)return;
-          const rows=Array.isArray(next)?next:[];
-          data.push(...rows);appendRows(rows);
-          more.hidden=rows.length<pageSize;
-          selectionStatus();
-        }catch(e){$('ownedDeleteStatus').textContent='Další turnaje nelze načíst: '+(e.message||e)}
-        finally{more.disabled=false;more.textContent='NAČÍST DALŠÍ TURNAJE';}
+        try{await fetchNext();}
+        catch(error){
+          if(serial===loadSerial&&!panel.hidden){
+            const msg=document.createElement('p');msg.className='warning';
+            msg.textContent='Další turnaje nelze načíst: '+(error?.message||String(error));
+            list.append(msg);
+          }
+        }finally{more.disabled=false;more.textContent='NAČÍST DALŠÍ TURNAJE';}
       };
-      $('ownedSelectAll').onchange=()=>{
-        const checked=$('ownedSelectAll').checked;
-        list.querySelectorAll('.owned-tick').forEach((el,index)=>{
-          el.checked=checked;
-          const t=data[index];if(checked)selected.set(t.id,t);else selected.delete(t.id);
-        });
-        selectionStatus();
-      };
-      $('ownedDeleteSelected').onclick=()=>{void deleteTargets([...selected.values()]);};
-    } catch (error) {
-      if (serial === loadSerial && !panel.hidden) {
-        list.textContent = 'Nepodařilo se načíst turnaje: ' + (error?.message || String(error));
-      }
+      await fetchNext();
+    }catch(error){
+      if(serial===loadSerial&&!panel.hidden)
+        list.textContent='Nepodařilo se načíst turnaje: '+(error?.message||String(error));
     }
   }
-
-  // Preserve the button ID used by the main navigation, but prevent
-  // the obsolete organizer-view action from firing afterwards.
-  button.onclick = null;
-  button.addEventListener('click', showOwned, true);
+  button.onclick=null;
+  button.addEventListener('click',showOwned,true);
 })();
 </script><style id="501live-format-draw-css">.format-draw-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}.format-draw-buttons button{min-height:46px;white-space:normal;background:#C51D1D;color:white;border:1px solid #E11D1D;border-radius:7px;font-weight:700}@media(max-width:540px){.format-draw-buttons{grid-template-columns:1fr}}</style><style id="501live-bracket-visual-css">
 .bracket-visual-section{margin:18px 0 32px;max-width:100%;min-width:0}
@@ -7000,8 +6908,8 @@ refreshOwner();setInterval(()=>{if(!panel.classList.contains('hidden')){if(!read
 #ownedCompetitions .owned-row{gap:12px}
 #ownedCompetitions .owned-row span{flex:1;min-width:0;overflow-wrap:anywhere}
 #ownedCompetitions .owned-row .owned-tick{width:20px;height:20px;flex:none;accent-color:#E11D1D}
-#ownedCompetitions #ownedDeleteSelected{background:#ad1e27;color:#fff;border:1px solid #eb464d;border-radius:8px;padding:11px 15px;font-weight:800}
-#ownedCompetitions #ownedDeleteSelected:disabled{opacity:.4;cursor:not-allowed}
+
+
 #owner501Panel .owner-v3-chart{display:flex;align-items:end;gap:8px;border-bottom:1px solid #4c4d54;min-height:145px;padding:14px 0 2px}
 #owner501Panel .owner-v3-month{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;gap:6px;min-width:0}
 #owner501Panel .owner-v3-bar{width:100%;max-width:38px;background:linear-gradient(#ed393e,#9f161e);border-radius:6px 6px 0 0;min-height:3px}
