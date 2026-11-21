@@ -128,7 +128,11 @@ footer{text-align:center;color:#999;padding:25px}
 .moje-med-ale-banner strong{letter-spacing:1.5px;color:#fff}.moje-med-ale-kicker{font-size:10px;letter-spacing:1.5px;color:#aaa}.moje-med-ale-banner a>span:last-child{font-size:12px;color:#aaa}
 @media(max-width:650px){.moje-med-ale-banner{padding:0 10px}.moje-med-ale-banner a{gap:6px}}
 
-#tabletRoot{max-width:900px;margin:0 auto;padding:18px}
+  /* Tablet: viditelne jmeno skutecne prideleneho zapisovatele. */
+  .dt-tablet-scorekeeper{margin:10px 0 12px;padding:11px 14px;border:1px solid #555;border-radius:10px;background:#202024;color:#eee;text-align:center;font-size:clamp(16px,2.9vw,21px);line-height:1.35}
+  .dt-tablet-scorekeeper strong{color:#fff;font-weight:800}
+  .dt-tablet-scorekeeper.unassigned{background:#202024;color:#bbb;border-color:#454545}
+  #tabletRoot{max-width:900px;margin:0 auto;padding:18px}
 .tablet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--red);padding-bottom:12px}
 .tablet-score{font-size:clamp(54px,13vw,100px);font-weight:800;text-align:center;font-variant-numeric:tabular-nums;margin:8px 0}
 .tablet-player{text-align:center;font-size:clamp(20px,5vw,32px);font-weight:bold}
@@ -219,6 +223,9 @@ body.tablet-mode>#tabletRoot{display:block!important}
 @media(max-width:520px){#landingHome{padding:14px 14px}#landingHome>.hero{gap:18px}#landingHome .logo{max-width:90vw!important;max-height:34svh!important}#landingHome .actions{grid-template-columns:1fr;gap:10px}#landingHome .action{min-height:64px;padding:12px!important}}
 @media(min-width:900px) and (min-height:650px){#landingHome .logo{max-height:40svh!important}#landingHome .actions{max-width:760px}}
 #profilePlayerName{font-size:clamp(23px,5vw,34px);line-height:1.2;display:block;font-weight:800;color:#fff;overflow-wrap:anywhere}.my-profile-header{align-items:center}
+
+/* 21.11.2026 B: zapisovatel je vzdy viditelny i pred zacatkem prvniho legu. */
+.dt-tablet-scorekeeper{display:block!important;visibility:visible!important;opacity:1!important;border-left:4px solid #e33!important}
 </style>
 <style id="501live-home-clean-final">
 #landingHome>.topbar,#landingHome>.footer,#landingHome>footer,#landingHome .eyebrow,#landingHome .intro,#landingHome .action>p{display:none!important}
@@ -2484,6 +2491,31 @@ function renderBracketSeedControl(){
     const isDouble=playoff.some(m=>String(m.group_name||"").startsWith("DE:"));
     target.innerHTML=`<div class="panel"><p class="good">${isDouble?"Oboustranný pavouk už byl vytvořen.":"Play-off pavouk už byl vytvořen."} Zápasy ani výsledky se znovu nevytvářejí.</p>${isAdmin?'<button type="button" class="danger delete-playoff-btn">Odstranit pavouk tohoto turnaje</button><p class="small muted">Odstraní pouze zápasy play-off. Skupiny, hráči a ručně zadané body zůstanou zachovány. Lze použít jen pokud v pavouku ještě nebyl odehrán žádný skutečný zápas.</p>':''}</div>`;
     target.querySelector(".delete-playoff-btn")?.addEventListener("click",()=>deletePlayoffBracket(tournamentId));
+    // Zalozni rucni pokracovani pavouka pro QR tablet, ktery nemusi spustit
+    // klientsky postup po potvrzeni konce zapasu. Vysledky se neprepisuji.
+    if(isAdmin){
+      const progressBtn=document.createElement('button');
+      progressBtn.type='button';
+      progressBtn.className='secondary';
+      progressBtn.textContent='OVĚŘIT / DOPLNIT DALŠÍ KO KOLO';
+      progressBtn.title='Použij, pokud po dokončení čtvrtfinále nebo semifinále nevzniklo další kolo. Nemění odehrané výsledky.';
+      target.appendChild(progressBtn);
+      progressBtn.addEventListener('click',async()=>{
+        if(progressBtn.disabled)return;
+        progressBtn.disabled=true;
+        try{
+          const auth=await db.rpc('darturnio_can_manage_tournament',{p_tournament_id:tournamentId});
+          if(auth.error||auth.data!==true)throw new Error('Nemáš právo spravovat vybraný turnaj.');
+          await createNextKnockoutRound(tournamentId);
+          const fresh=await db.from('matches').select('*').eq('tournament_id',tournamentId);
+          if(fresh.error)throw new Error('Kontrola výsledků selhala: '+fresh.error.message);
+          await saveAutomaticPlacements(tournamentId,fresh.data||[]);
+          await loadData();
+          notify('Pavouk a konečné pořadí zkontrolovány. Pokud další kolo stále chybí, zkontroluj dokončení všech zápasů.');
+        }catch(error){notify('Nepodařilo se bezpečně doplnit pavouk: '+(error?.message||error));}
+        finally{progressBtn.disabled=false;}
+      });
+    }
     return;
   }
   if(es.length<2){target.innerHTML=`<div class="panel"><p class="small muted">Pro vytvoření pavouka jsou potřeba alespoň 2 přihlášení hráči.</p></div>`;return;}
@@ -4740,6 +4772,7 @@ async function renderCricketTournament(match,leg,app,localOnly=false){
  const targetButtons=CRICKET_TOURNEY_TARGETS.map(n=>`<button type="button" data-tcr-target="${n}">${n===25?'BULL':n}</button>`).join('');
  const stop=Boolean(preview.winner)||cricketTournamentDraft.length>=3;
  app.innerHTML=`<div class="panel tcr-panel"><div class="tcr-label">CUT-THROAT CRICKET · ${leg.leg_no}. LEG · ${esc(String(match.legs1))}:${esc(String(match.legs2))}</div>
+ ${darturnioTabletScorekeeperLine(match)}
  <div class="tcr-scores"><div class="${current===match.player1_entry_id?'active':''}"><b>${n1}</b><strong>${preview.s1}</strong></div><div class="${current===match.player2_entry_id?'active':''}"><b>${n2}</b><strong>${preview.s2}</strong></div></div>
  <div class="tcr-matrix">${rows}</div><div class="tcr-turn">NA TAHU: ${esc(playerName(current))}</div>
  <div class="tcr-targets">${targetButtons}</div>
@@ -4794,6 +4827,26 @@ async function saveCricketTournamentVisit(){
   await renderTablet();
  }catch(e){notify('Cricketový nához není potvrzen: '+(e.message||e)+'. Pokud už byl přijat serverem, stiskni znovu POTVRDIT – opakujeme stejné ID a nic nezapočítáme dvakrát.');}
  finally{cricketTournamentBusy=false;void renderTablet(true);}
+}
+
+// Informace pro zapisovatele na uvodni obrazovce i pri pocitani.
+// Bere pouze skutecne ulozene prirazeni v matches; nikdy nevymysli zapisovatele.
+function darturnioTabletScorekeeperLine(match){
+  // Jmeno zapisovatele se VZDY vykresli na uvodni obrazovce i behem hry.
+  // Udaje pochazeji ze skutecneho prirazeni ulozeneho u zapasu.
+  const assigned=match?.scorekeeper_entry_id||null;
+  const conflict=!!assigned&&(
+    assigned===match.player1_entry_id||assigned===match.player2_entry_id||
+    activeMatches().some(other=>other.id!==match.id&&other.status==='live'&&
+      (other.player1_entry_id===assigned||other.player2_entry_id===assigned))
+  );
+  const mapped=assigned&&!conflict?playerName(assigned):'';
+  const valid=Boolean(mapped&&mapped!=='—');
+  const label=conflict?'není určen (hráč právě hraje)':assigned&&!valid?'jméno nelze načíst':!assigned?'není určen':mapped;
+  // Volitelne overeni nove verze: v adrese tabletu lze pridat &kontrolaZapisovatele=1.
+  const debug=typeof location!=='undefined'&&new URLSearchParams(location.search).has('kontrolaZapisovatele')
+    ? '<div class="small" style="margin-top:5px;color:#999">Zobrazení zapisovatele · verze 21.11.2026 B</div>' : '';
+  return `<div class="dt-tablet-scorekeeper${valid?'':' unassigned'}" data-scorekeeper-display="20261121-b"><div class="small" style="font-size:13px;letter-spacing:.06em;color:#bbb;margin-bottom:4px">ZAPISOVATEL</div><strong>${esc(label)}</strong>${debug}</div>`;
 }
 
 async function renderTablet(localOnly=false){
@@ -4891,7 +4944,7 @@ async function renderTablet(localOnly=false){
   const p1=playerName(match.player1_entry_id),p2=playerName(match.player2_entry_id);
   if(!leg){
     tabletFastCache=null;
-    app.innerHTML=`<div class="panel"><h2>${esc(p1)} vs. ${esc(p2)}</h2><h3>Začínající hráč – 1. leg</h3><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player1_entry_id)}">${esc(p1)} začíná</button><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player2_entry_id)}">${esc(p2)} začíná</button></div>`;
+    app.innerHTML=`<div class="panel"><h2>${esc(p1)} vs. ${esc(p2)}</h2>${darturnioTabletScorekeeperLine(match)}<h3>Začínající hráč – 1. leg</h3><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player1_entry_id)}">${esc(p1)} začíná</button><button class="action tablet-primary" data-tablet-start-leg="${esc(match.id)}" data-starter="${esc(match.player2_entry_id)}">${esc(p2)} začíná</button></div>`;
     return;
   }
   if(leg.status==="finished"){
@@ -4899,11 +4952,11 @@ async function renderTablet(localOnly=false){
     const legRows=await db.from("match_legs").select("leg_no,starting_entry_id,winner_entry_id,status").eq("match_id",match.id).order("leg_no");
     const nextNo=Number(leg.leg_no)+1;
     if(match.status==="finished"){
-      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div><h3>${match.winner_entry_id?'Vítěz: '+esc(playerName(match.winner_entry_id)):'Remíza'}</h3><button class="secondary" data-tablet-undo-match="${esc(match.id)}">ZPĚT</button><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
+      app.innerHTML=`<div class="panel" style="text-align:center"><h2>Zápas dokončen</h2><div class="tablet-score">${match.legs1}:${match.legs2}</div>${darturnioTabletScorekeeperLine(match)}<h3>${match.winner_entry_id?'Vítěz: '+esc(playerName(match.winner_entry_id)):'Remíza'}</h3><button class="secondary" data-tablet-undo-match="${esc(match.id)}">ZPĚT</button><p class="muted">Čekám na další zápas přidělený na terč ${tabletBoard}.</p></div>`;return;
     }
     const first=legRows.data?.find(x=>x.leg_no===1);
     const starter=nextNo===2?(first?.starting_entry_id===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id):first?.starting_entry_id;
-    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3><p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="secondary" data-tablet-undo-match="${esc(match.id)}">ZPĚT</button><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
+    app.innerHTML=`<div class="panel" style="text-align:center"><h2>${esc(p1)} ${match.legs1}:${match.legs2} ${esc(p2)}</h2><h3>${nextNo}. leg</h3>${darturnioTabletScorekeeperLine(match)}<p>Začíná: <strong>${esc(playerName(starter))}</strong></p><button class="secondary" data-tablet-undo-match="${esc(match.id)}">ZPĚT</button><button class="action tablet-primary" data-tablet-start-next="${esc(match.id)}">Zahájit ${nextNo}. leg</button></div>`;return;
   }
   if(Number(tournaments.find(t=>t.id===selectedTournament)?.game_type)===701){
     tabletFastCache={tournamentId:selectedTournament,gameType:701,match,leg};
@@ -4981,6 +5034,7 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
   };
   app.innerHTML=`<div class="panel tablet-counter-panel">
     <div class="small" style="text-align:center">${esc(p1)} vs. ${esc(p2)} · ${match.legs1}:${match.legs2} · ${leg.leg_no}. leg</div>
+    ${darturnioTabletScorekeeperLine(match)}
     <div class="tablet-live-top ${current===match.player1_entry_id?"player-one-active":"player-two-active"}">${playerScoreCard(match.player1_entry_id,p1Stats)}${playerScoreCard(match.player2_entry_id,p2Stats)}</div>
     <div class="small" style="text-align:center">Poslední nához (${lastVisit?esc(playerName(lastVisit.player_entry_id)):"—"}): ${esc(lastVisitText)}</div>
     <div class="tablet-mode-switch"><button class="${tabletMode==="aggregate"?"action":"secondary"}" data-tablet-mode="aggregate">Součet 3 šipek</button><button class="${tabletMode==="per_dart"?"action":"secondary"}" data-tablet-mode="per_dart">Po 1 šipce</button></div>
