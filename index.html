@@ -5325,15 +5325,16 @@ async function submitTabletVisit(mode){
     if(active.error||!active.data)throw new Error(active.error?.message||"Na tomto terči není aktivní zápas.");
     const {data:legs,error}=await db.from("match_legs").select("*").eq("match_id",active.data.id).eq("status","live").maybeSingle();
     if(error||!legs)throw new Error(error?.message||"Není aktivní leg.");
-    const {data:visits}=await db.from("dart_visits").select("visit_no,player_entry_id").eq("leg_id",legs.id).order("visit_no",{ascending:false}).limit(1);
+    // Jeden dotaz misto dvou: posledni dva tahy obsahuji posledni skore obou hracu.
+    const {data:visits,error:visitsError}=await db.from("dart_visits")
+      .select("visit_no,player_entry_id,score_after").eq("leg_id",legs.id)
+      .order("visit_no",{ascending:false}).limit(2);
+    if(visitsError)throw visitsError;
     const nextNo=(visits?.[0]?.visit_no||0)+1;
     const player=nextNo%2===1?legs.starting_entry_id:(legs.starting_entry_id===active.data.player1_entry_id?active.data.player2_entry_id:active.data.player1_entry_id);
-    // Nacti skutecny posledni stav pred posouzenim zavreni/prehozu.
-    const scoreRow=await db.from("dart_visits").select("score_after")
-      .eq("leg_id",legs.id).eq("player_entry_id",player).order("visit_no",{ascending:false}).limit(1);
-    if(scoreRow.error)throw scoreRow.error;
     const startScore=Number(tournaments.find(t=>t.id===selectedTournament)?.game_type)||501;
-    const before=Number(scoreRow.data?.[0]?.score_after??startScore);
+    const previousPlayerVisit=(visits||[]).find(v=>v.player_entry_id===player);
+    const before=Number(previousPlayerVisit?.score_after??startScore);
     let args={p_leg_id:legs.id,p_player_entry_id:player,p_mode:mode,p_darts:[]};
     if(tabletSpecialType==="checkout"){
       args.p_checkout_dart=tabletSpecialDart;
