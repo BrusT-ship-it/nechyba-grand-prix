@@ -9,7 +9,7 @@
 <link href="/manifest.webmanifest" rel="manifest"/>
 <link href="/icons/icon-192.png" rel="apple-touch-icon"/>
 <link href="/icons/icon-192.png" rel="icon" type="image/png"/>
-<title>Darturnio TEST – Oddělený trénink a Daily Challenge</title>
+<title>Darturnio</title>
 <!-- Doporučení: před ostrým nasazením připni přesnou verzi (např. @2.x.y) a přidej integrity (SRI) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -5323,7 +5323,7 @@ if(tabletBoard){
   document.body.classList.add("tablet-mode");
   document.getElementById("legacyApp").hidden=false;
   document.getElementById("landingHome").hidden=true;
-  document.title=`Darturnio – terč ${tabletBoard}`;
+  document.title='Darturnio';
   const tabletManifest=document.querySelector('link[rel="manifest"]');if(tabletManifest)tabletManifest.href=`/manifest-terc${tabletBoard}.webmanifest`;
   const tabletIcon=document.querySelector('link[rel="apple-touch-icon"]');if(tabletIcon)tabletIcon.href=`/icons/terc${tabletBoard}-192.png`;
   const favicon=document.querySelector('link[rel="icon"]');if(favicon)favicon.href=`/icons/terc${tabletBoard}-192.png`;
