@@ -9879,6 +9879,11 @@ body.tablet-mode #tabletApp button[data-tcr-save]:disabled{opacity:.48}
  for(const event of ['501live-training-finished','501live-checkout-finished','501live-segment-finished','501live-cricket-drill-finished']){
   window.addEventListener(event,()=>setTimeout(()=>refresh(true),1100));
  }
+ // Daily Challenge and five new mini games are included in the server-side total.
+ // Refresh only after the result is successfully stored, never after each dart.
+ for(const event of ['darturnio-daily-result-saved','darturnio-mini-result-saved']){
+  window.addEventListener(event,()=>setTimeout(()=>refresh(true),150));
+ }
  document.addEventListener('change',e=>{
   if(['tournamentSelect','liveTournamentSelect','bracketTournamentSelect','entryTournament','tabletTournamentSelect'].includes(e.target?.id)){
    lastTournamentId='';setTimeout(()=>refresh(true),150);
