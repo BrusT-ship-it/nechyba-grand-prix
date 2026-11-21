@@ -9,7 +9,7 @@
 <link href="/manifest.webmanifest" rel="manifest"/>
 <link href="/icons/icon-192.png" rel="apple-touch-icon"/>
 <link href="/icons/icon-192.png" rel="icon" type="image/png"/>
-<title>Darturnio TEST – Pět nových tréninků, rekordy a offline X01</title>
+<title>Darturnio TEST – Oddělený trénink a Daily Challenge</title>
 <!-- Doporučení: před ostrým nasazením připni přesnou verzi (např. @2.x.y) a přidej integrity (SRI) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -993,7 +993,13 @@ body:has(#ctGame:not([hidden])) #appBrandFooter{
 body:has(#miniTrainingArea:not([hidden])) #appBrandFooter{position:static!important;inset:auto!important;height:38px!important;margin-top:12px!important;background:transparent!important;pointer-events:none!important}
 
 </style>
-<style id="darturnio-daily-challenge-v1">
+<style id="darturnio-daily-separate-panel">
+#landingHome #dailyPanel{width:min(100%,920px);max-width:920px;box-sizing:border-box;}
+#dailyPanel>#dailyTrainingHub{margin-top:20px!important;}
+#dailyPanel:has(#miniTrainingArea:not([hidden]))>h3,
+#dailyPanel:has(#miniTrainingArea:not([hidden]))>.ui-section-subtitle{display:none!important;}
+#dailyPanel #miniTrainingArea{margin:8px auto 22px!important;}
+</style><style id="darturnio-daily-challenge-v1">
 /* DARTURNIO DAILY CHALLENGE — isolated styles */
 #dailyLandingCard[hidden],#dailyTrainingHub[hidden],#dailyMiniNotice[hidden]{display:none!important}
 #dailyLandingCard,#dailyTrainingHub{box-sizing:border-box;width:min(100%,740px);margin:14px auto!important;background:linear-gradient(150deg,#19191d,#101115);border:1px solid #37373d;border-radius:16px;box-shadow:0 12px 28px rgba(0,0,0,.2);color:#fff;text-align:left}
@@ -1059,7 +1065,7 @@ body:has(#miniTrainingArea:not([hidden])) #appBrandFooter{position:static!import
         <span class="portal-dashboard-icon" aria-hidden="true">⚙</span>
         <span>TRÉNINK</span>
       </button>
-      <button type="button" class="portal-dashboard-tile" id="portalDailyChallenge" data-panel="trainingPanel" aria-label="Daily Challenge – denní výzva, žebříček a neomezené pokusy">
+      <button type="button" class="portal-dashboard-tile" id="portalDailyChallenge" data-panel="dailyPanel" aria-label="Daily Challenge – denní výzva, žebříček a neomezené pokusy">
         <span class="portal-dashboard-icon" aria-hidden="true">🎯</span>
         <span>DAILY CHALLENGE</span>
       </button>
@@ -1363,7 +1369,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <div class="tabs"><button class="mini-tab active" data-auth="loginView" type="button">Přihlášení</button><button class="mini-tab" data-auth="registerView" type="button">Nová registrace</button></div>
 <div class="auth-view active" id="loginView"><form id="loginForm"><div class="formgrid"><input autocomplete="username" aria-label="Přihlašovací e-mail" class="field wide" placeholder="E-mail" required="" type="email"/><input autocomplete="current-password" aria-label="Přihlašovací heslo" class="field wide" placeholder="Heslo" required="" type="password"/><button class="primary wide" type="submit">PŘIHLÁSIT SE</button></div><div class="notice" id="loginNotice">Přihlášení bude propojeno s bezpečnou správou účtů Darturnio.</div></form></div>
 <div class="auth-view" id="registerView"><form id="registerForm"><div class="formgrid"><input autocomplete="nickname" aria-label="Jméno hráče" class="field" placeholder="Jméno hráče" required="" type="text"/><input autocomplete="email" aria-label="Registrační e-mail" class="field" placeholder="E-mail" required="" type="email"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Heslo (min. 8 znaků)" required="" type="password"/><input autocomplete="new-password" class="field" minlength="8" placeholder="Potvrzení hesla" required="" type="password"/><label class="choice wide"><input required="" type="checkbox"/> Souhlasím s podmínkami používání a zpracováním údajů pro vedení účtu a statistik.</label><button class="primary wide" type="submit">VYTVOŘIT HRÁČSKÝ ÚČET</button></div><div class="notice" id="registerNotice">Registrace bude napojena na ověření e-mailu a zabezpečené účty. Po vytvoření účtu bude hráčský profil připravený pro turnajové a tréninkové statistiky.</div><p class="note">Každá registrace vytvoří hráčský účet. Oprávnění pořadatele bude možné přidat později ke stejnému účtu.</p></form></div>
-</section><section class="panel" id="trainingPanel"><h3>TRÉNINK</h3><p class="ui-section-subtitle">Výsledky tréninků se mohou uložit do tvého profilu.</p><section id="dailyTrainingHub" aria-label="Daily Challenge – denní výzva">
+</section><section class="panel" id="dailyPanel" aria-label="Denní výzva"><h3>DAILY CHALLENGE</h3><p class="ui-section-subtitle">Každý den nová soutěž. Hraj neomezeně a do žebříčku se započítá tvůj nejlepší výsledek.</p><section id="dailyTrainingHub" aria-label="Daily Challenge – denní výzva">
  <div class="dt-daily-top"><span class="dt-daily-label">🎯 DAILY CHALLENGE · DENNÍ VÝZVA</span><span id="dailyTrainingDate" class="dt-daily-date">—</span></div>
  <div class="dt-daily-main"><div><h3 id="dailyTrainingTitle">Načítám výzvu…</h3><p id="dailyTrainingRules">Hraj opakovaně. Do žebříčku se zapíše tvůj nejlepší výsledek dne.</p></div><button type="button" class="dt-daily-cta" id="dailyTrainingPlay">HRÁT / ZLEPŠIT SKÓRE</button></div>
  <div class="dt-daily-details"><div><small>Tvůj nejlepší</small><strong id="dailyTrainingBest">—</strong></div><div><small>Pokusů dnes</small><strong id="dailyTrainingAttempts">0</strong></div><div><small>Umístění (TOP 100)</small><strong id="dailyTrainingRank">—</strong></div></div>
@@ -1371,7 +1377,7 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
  <div><h4>Historické žebříčky</h4><div class="dt-daily-history-actions"><label for="dailyTrainingDay">Den:</label><input type="date" id="dailyTrainingDay" aria-label="Vyber historický den"><button type="button" id="dailyTrainingRefresh" class="dt-daily-secondary">↻ OBNOVIT</button></div><div id="dailyTrainingPastBoard"></div>
  <h4 style="margin-top:16px!important">Moje denní rekordy</h4><div id="dailyTrainingHistory" aria-live="polite">Načítám historii…</div><div class="dt-daily-history-actions"><button type="button" id="dailyTrainingMore" class="dt-daily-secondary" hidden>NAČÍST DALŠÍ</button><button type="button" id="dailyTrainingHistoryRefresh" class="dt-daily-secondary">↻ HISTORIE</button></div></div></div>
  <p id="dailyTrainingStatus" class="dt-daily-note" role="status">Neomezeně pokusů, do žebříčku se počítá nejlepší.</p>
-</section><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button><button type="button" class="training-item training-pick" id="segmentTrainingOpen"><b>SEGMENT</b><span>Přesnost na číslo</span></button><button type="button" class="training-item training-pick" id="checkoutTrainingOpen"><b>CHECKOUT</b><span>Zavírání do 3 šipek</span></button><button type="button" class="training-item training-pick" id="cricketDrillOpen"><b>CRICKET DRILL</b><span>2 ze 3 · 3× každý segment</span></button><button type="button" class="training-item training-pick" data-mini-mode="around_world"><b>KOLEM SVĚTA</b><span>1–20 a BULL</span></button><button type="button" class="training-item training-pick" data-mini-mode="nine_darts"><b>9 ŠIPEK</b><span>Max. 540 bodů</span></button><button type="button" class="training-item training-pick" data-mini-mode="bull_hunter"><b>BULL HUNTER</b><span>15 šipek na střed</span></button><button type="button" class="training-item training-pick" data-mini-mode="double_challenge"><b>DOUBLE CHALLENGE</b><span>10 náhodných doublů</span></button><button type="button" class="training-item training-pick" data-mini-mode="streak_20"><b>NEPŘERUŠ SÉRII</b><span>30 šipek na dvacítku</span></button></div>
+</section></section><section class="panel" id="trainingPanel"><h3>TRÉNINK</h3><p class="ui-section-subtitle">Vyber si tréninkovou hru. Osobní rekordy a statistiky najdeš ve svém profilu.</p><div id="trainingChoice" class="training-grid"><button type="button" class="training-item training-pick" data-start-score="170"><b>170</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="301"><b>301</b><span>Double Out</span></button><button type="button" class="training-item training-pick" data-start-score="501"><b>501</b><span>Double Out</span></button><button type="button" class="training-item training-pick" id="segmentTrainingOpen"><b>SEGMENT</b><span>Přesnost na číslo</span></button><button type="button" class="training-item training-pick" id="checkoutTrainingOpen"><b>CHECKOUT</b><span>Zavírání do 3 šipek</span></button><button type="button" class="training-item training-pick" id="cricketDrillOpen"><b>CRICKET DRILL</b><span>2 ze 3 · 3× každý segment</span></button><button type="button" class="training-item training-pick" data-mini-mode="around_world"><b>KOLEM SVĚTA</b><span>1–20 a BULL</span></button><button type="button" class="training-item training-pick" data-mini-mode="nine_darts"><b>9 ŠIPEK</b><span>Max. 540 bodů</span></button><button type="button" class="training-item training-pick" data-mini-mode="bull_hunter"><b>BULL HUNTER</b><span>15 šipek na střed</span></button><button type="button" class="training-item training-pick" data-mini-mode="double_challenge"><b>DOUBLE CHALLENGE</b><span>10 náhodných doublů</span></button><button type="button" class="training-item training-pick" data-mini-mode="streak_20"><b>NEPŘERUŠ SÉRII</b><span>30 šipek na dvacítku</span></button></div>
 <div id="miniTrainingArea" hidden><div id="dailyMiniNotice" hidden></div><div class="mini-toolbar"><button type="button" id="miniBack">← VÝBĚR HRY</button><strong id="miniTitle">TRÉNINK</strong><button type="button" id="miniRestart">NOVÁ HRA</button></div><p class="mini-rules" id="miniRules"></p><div class="mini-progress"><div id="miniProgressBar"></div></div><div id="miniScoreboard" aria-live="polite"></div><div id="miniControls"></div><div class="mini-actions"><button type="button" id="miniUndo">← 1 ŠIPKA ZPĚT</button></div><p id="miniLast" class="mini-last"></p><p id="miniSaveStatus" class="mini-status" role="status"></p><div id="dailyMiniLeaderboard" class="dt-daily-mini-board" hidden></div></div><div id="trainingCounter" hidden><div class="training-toolbar"><button type="button" id="trainingBack">← VÝBĚR HRY</button><strong id="trainingTitle">501 DOUBLE OUT</strong><button type="button" id="trainingRestart">NOVÁ HRA</button></div><div id="trainingTabletRoot"></div></div><div id="segmentTrainingArea" hidden>
   <div id="segmentSetup" class="segment-setup">
     <div class="segment-toolbar"><button type="button" id="segmentSetupBack" class="secondary">← VÝBĚR TRÉNINKU</button><strong>SEGMENT</strong></div>
@@ -10550,10 +10556,22 @@ function evaluate(g){
 window.darturnioMiniMath={evaluate,validVisits};
 const draft=()=>{if(game&&!game.submitted&&!safeSet(draftKey(game.ownerId),game))byId('miniSaveStatus').textContent='Pozor: prohlížeč nedovoluje uložit rozehranou hru. Před zavřením stránky ji dokonči.'};
 const clearDraft=()=>{if(game)safeRemove(draftKey(game.ownerId))};
-function show(){choice.hidden=true;byId('trainingCounter').hidden=true;byId('dailyTrainingHub').hidden=true;area.hidden=false;byId('dailyMiniNotice').hidden=!game?.daily;byId('dailyMiniLeaderboard').hidden=!game?.daily;render()}
+function show(){
+  const daily=!!game?.daily;
+  const hub=byId('dailyTrainingHub');
+  if(daily){hub.after(area);}else{choice.after(area);}
+  // Normal training remains available even when a Daily Challenge is in progress.
+  choice.hidden=!daily;
+  byId('trainingCounter').hidden=true;
+  hub.hidden=daily;
+  area.hidden=false;
+  byId('dailyMiniNotice').hidden=!daily;
+  byId('dailyMiniLeaderboard').hidden=!daily;
+  render();
+}
 function goBack(){
- if(game&&!game.submitted&&game.events.length){if(!confirm('Opustit trénink? Neuložený výsledek bude zahozen.'))return}
- clearDraft();game=null;area.hidden=true;choice.hidden=false;byId('dailyTrainingHub').hidden=false;byId('dailyMiniNotice').hidden=true;byId('dailyMiniLeaderboard').hidden=true;
+ if(game&&!game.submitted&&game.events.length){if(!confirm((game.daily?'Opustit denní výzvu?':'Opustit trénink?')+' Neuložený výsledek bude zahozen.'))return}
+  clearDraft();game=null;area.hidden=true;choice.after(area);choice.hidden=false;byId('dailyTrainingHub').hidden=false;byId('dailyMiniNotice').hidden=true;byId('dailyMiniLeaderboard').hidden=true;
 }
 function bestText(v){if(v==null)return '—';return fmt(v)+(game?.mode==='around_world'?' šipek':game?.mode==='double_challenge'?' / 10':'')}
 async function loadPersonalBest(g){
@@ -10575,12 +10593,13 @@ async function loadPersonalBest(g){
 }
 function start(mode,opts={}){
  if(!isValidMode(mode))return;
- if(game&&!game.submitted&&game.events.length&&!confirm('Zahájit novou hru? Neuložený výsledek bude zahozen.'))return;
+ if(game&&!game.submitted&&game.events.length&&!confirm('Zahájit novou hru? Neuložený výsledek bude zahozen.'))return false;
  clearDraft();
  const daily=opts.daily&&opts.daily.game_type===mode&&opts.daily.challenge_date?{date:opts.daily.challenge_date,targets:Array.isArray(opts.daily.targets)?opts.daily.targets.slice():[]}:null;
  game={id:mkUuid(),ownerId:userId(),mode,events:[],daily,targets:mode==='double_challenge'?(daily?daily.targets.slice():randomTargets()):[],submitted:false,saveStatus:'',saveMessage:'',createdAt:new Date().toISOString()};
  bestKnown=false;personalBest=null;show();draft();void loadPersonalBest(game);
-}
+  return true;
+ }
 function push(v){
  if(!game||game.submitted)return;
  const state=evaluate(game);if(state.done)return;
@@ -10708,7 +10727,13 @@ byId('miniUndo').addEventListener('click',undo);
 byId('miniBack').addEventListener('click',goBack);
 byId('miniRestart').addEventListener('click',()=>{if(game?.daily)window.darturnioDaily?.start();else if(game)start(game.mode)});
 choice.querySelectorAll('[data-mini-mode]').forEach(b=>b.addEventListener('click',()=>start(b.dataset.miniMode)));
-window.addEventListener('darturnio-daily-start',e=>{const v=e.detail;if(v&&isValidMode(v.game_type))start(v.game_type,{daily:v})});
+window.addEventListener('darturnio-daily-start',e=>{
+  const v=e.detail;
+  if(v&&isValidMode(v.game_type)&&start(v.game_type,{daily:v})){
+    // Navigate only after the player agrees to replace any unfinished game.
+    byId('portalDailyChallenge')?.click();
+  }
+});
 window.addEventListener('online',()=>void flush());
 window.addEventListener('501live-login-success',()=>{setTimeout(()=>{restore();void flush()},100)});
 window.addEventListener('darturnio-mini-login-ready',()=>{restore();void flush()});
@@ -10820,19 +10845,13 @@ async function start(){
  if(!info){await refresh();if(!info){alert('Nejdřív je potřeba načíst dnešní výzvu a nastavit SQL.');return}}
  if(!uid()){alert('Pro účast v denním žebříčku se nejdřív přihlas nebo zaregistruj.');document.querySelector('#landingHome [data-panel="accountPanel"]')?.click();return}
  const current=czechDate();if(info.challenge_date!==current){await refresh();if(info.challenge_date!==czechDate())return}
- // Pouzivame jiz existujici vstup do panelu Trenink a jeho overene pocitadlo miniher.
- document.querySelector('#landingHome .portal-dashboard-tile[data-panel="trainingPanel"]')?.click();
+ // The mini-game engine chooses the dedicated Daily panel after it accepts the start.
  window.dispatchEvent(new CustomEvent('darturnio-daily-start',{detail:{...info}}));
 }
 window.darturnioDaily={refresh,start,getInfo:()=>info};
-// Skryt denni rozcestnik v ostatnich existujicich treninkovych pocitadlech.
-const trainingChoice=$('trainingChoice'),dailyHub=$('dailyTrainingHub');
-if(trainingChoice&&dailyHub){
- const syncHub=()=>{dailyHub.hidden=!!trainingChoice.hidden};
- new MutationObserver(syncHub).observe(trainingChoice,{attributes:true,attributeFilter:['hidden']});
- syncHub();
-}
-
+// Daily Challenge is independent from the Training panel.
+ // The mini-game engine alone controls visibility of the Daily lobby while playing.
+ 
 for(const id of ['dailyLandingPlay','dailyTrainingPlay'])$(id)?.addEventListener('click',()=>void start());
 $('dailyTrainingRefresh')?.addEventListener('click',()=>void refresh());
 $('dailyTrainingDay')?.addEventListener('change',e=>{selectedDay=e.target.value||info?.challenge_date;void openPastBoard()});
