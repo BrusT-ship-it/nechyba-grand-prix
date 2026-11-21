@@ -1042,7 +1042,7 @@ body:has(#miniTrainingArea:not([hidden])) #appBrandFooter{position:static!import
   <strong id="darturnioAllDarts">—</strong>
   <small>šipek</small>
 </div>
-<section class="dt-daily-card" id="dailyLandingCard" aria-label="Dnešní denní výzva" hidden>
+<section class="dt-daily-card" id="dailyLandingCard" aria-label="Dnešní denní výzva" aria-hidden="true" style="display:none!important" hidden>
  <div class="dt-daily-top"><span class="dt-daily-label">🎯 DAILY CHALLENGE · DENNÍ VÝZVA</span><span class="dt-daily-date" id="dailyLandingDate">—</span></div>
  <div class="dt-daily-main"><div><h3 id="dailyLandingTitle">Načítám výzvu…</h3><p id="dailyLandingRules">Každý den jiná hra. Hraj neomezeně, počítá se nejlepší výsledek.</p></div><button type="button" class="dt-daily-cta" id="dailyLandingPlay">HRÁT DENNÍ VÝZVU</button></div>
  <div class="dt-daily-leaders" id="dailyLandingLeaders" aria-label="Nejlepší hráči dneška"></div>
@@ -1058,6 +1058,10 @@ body:has(#miniTrainingArea:not([hidden])) #appBrandFooter{position:static!import
       <button type="button" class="portal-dashboard-tile" data-panel="trainingPanel">
         <span class="portal-dashboard-icon" aria-hidden="true">⚙</span>
         <span>TRÉNINK</span>
+      </button>
+      <button type="button" class="portal-dashboard-tile" id="portalDailyChallenge" data-panel="trainingPanel" aria-label="Daily Challenge – denní výzva, žebříček a neomezené pokusy">
+        <span class="portal-dashboard-icon" aria-hidden="true">🎯</span>
+        <span>DAILY CHALLENGE</span>
       </button>
       <button type="button" class="portal-dashboard-tile" data-panel="cricketPanel">
         <span class="portal-dashboard-icon" aria-hidden="true">🎯</span>
