@@ -2011,6 +2011,21 @@ function dkoSchedulingSide(match){
   if(key.startsWith('DE:WB:'))return 'WB';
   return null; // finále a všechny ostatní druhy zápasů
 }
+// Trvale potvrzena fronta je ulozena v Supabase a sdilena mezi zarizenimi.
+let darturnioQueueRows=[];
+let darturnioQueueAvailable=false;
+function darturnioConfirmedQueue(matchRows){
+  const byId=new Map(matchRows.map(m=>[m.id,m]));
+  const used=new Set();
+  return darturnioQueueRows.filter(q=>q.tournament_id===selectedTournament)
+    .sort((a,b)=>Number(a.board_no)-Number(b.board_no)).flatMap(q=>{
+      const m=byId.get(q.match_id);
+      if(!m||m.status!=='waiting'||!m.player1_entry_id||!m.player2_entry_id||
+         used.has(m.player1_entry_id)||used.has(m.player2_entry_id))return [];
+      used.add(m.player1_entry_id);used.add(m.player2_entry_id);
+      return [{board:Number(q.board_no),match:m,scorekeeper_entry_id:null,confirmed:true}];
+    });
+}
 function planMatches(matchRows,includeOccupied){
   if(!matchRows.length)return [];
   const tournamentId=matchRows[0].tournament_id;
@@ -2022,7 +2037,12 @@ function planMatches(matchRows,includeOccupied){
   const occupied=new Set(active.map(m=>Number(m.board_no)));
   const freeBoards=allBoards.filter(board=>!occupied.has(board));
   const busyBoards=allBoards.filter(board=>occupied.has(board));
-  const boards=includeOccupied?[...freeBoards,...busyBoards]:freeBoards;
+  const allPlanBoards=includeOccupied?[...freeBoards,...busyBoards]:freeBoards;
+  const fixed=darturnioQueueAvailable?darturnioConfirmedQueue(matchRows):[];
+  const fixedBoardSet=new Set(fixed.map(x=>x.board));
+  const boards=allPlanBoards.filter(board=>!fixedBoardSet.has(board));
+  for(const item of fixed){busy.add(item.match.player1_entry_id);busy.add(item.match.player2_entry_id);}
+
   const laneCount={WB:0,LB:0};
   for(const m of active){const side=dkoSchedulingSide(m);if(side)laneCount[side]++;}
   const lastPlayedAt=new Map(),lastScoredAt=new Map();
@@ -2053,15 +2073,9 @@ function planMatches(matchRows,includeOccupied){
   const compareWaiting=(a,b)=>{
     const playersA=[a.player1_entry_id,a.player2_entry_id];
     const playersB=[b.player1_entry_id,b.player2_entry_id];
-    const stillScoringA=playersA.filter(id=>busyScorekeepers.has(id)).length;
-    const stillScoringB=playersB.filter(id=>busyScorekeepers.has(id)).length;
-    if(stillScoringA!==stillScoringB)return stillScoringA-stillScoringB;
-    const recentlyScoredA=playersA.filter(justScored).length;
-    const recentlyScoredB=playersB.filter(justScored).length;
-    if(recentlyScoredA!==recentlyScoredB)return recentlyScoredA-recentlyScoredB;
-    // Ve skupinách dej přednost dvojici s méně odehranými zápasy.
-    // Nejprve minimalizuj nejvyšší počet odehraných her v dvojici,
-    // pak jejich součet; ostatní pravidla zůstávají jako tie-break.
+    // Spravedlnost skupin ma prednost pred zapisovanim.
+    // Vyber dvojici s nejmensim maximalnim poctem odehranych her,
+    // potom s nejmensim souctem. Zapisovatel nesmi hru blokovat.
     if(a.stage==='group' && b.stage==='group'){
       const ac=playersA.map(id=>groupGamesPlayed.get(id)||0);
       const bc=playersB.map(id=>groupGamesPlayed.get(id)||0);
@@ -2070,6 +2084,12 @@ function planMatches(matchRows,includeOccupied){
       const sumDiff=(ac[0]+ac[1])-(bc[0]+bc[1]);
       if(sumDiff!==0)return sumDiff;
     }
+    const stillScoringA=playersA.filter(id=>busyScorekeepers.has(id)).length;
+    const stillScoringB=playersB.filter(id=>busyScorekeepers.has(id)).length;
+    if(stillScoringA!==stillScoringB)return stillScoringA-stillScoringB;
+    const recentlyScoredA=playersA.filter(justScored).length;
+    const recentlyScoredB=playersB.filter(justScored).length;
+    if(recentlyScoredA!==recentlyScoredB)return recentlyScoredA-recentlyScoredB;
     const sideA=dkoSchedulingSide(a),sideB=dkoSchedulingSide(b);
     if(sideA&&sideB&&sideA!==sideB){
       const balance=laneCount[sideA]-laneCount[sideB];
@@ -2080,7 +2100,7 @@ function planMatches(matchRows,includeOccupied){
     return restA-restB||(Number(a.round_no)||0)-(Number(b.round_no)||0)||
       (Number(a.match_no)||0)-(Number(b.match_no)||0);
   };
-  const result=[];
+  const result=[...fixed];
   for(const board of boards){
     const candidates=eligibleWaitingMatches(matchRows,[...busy]).filter(m=>m.player1_entry_id!==m.player2_entry_id);
     if(!candidates.length)continue;
@@ -2111,11 +2131,11 @@ function planMatches(matchRows,includeOccupied){
   // pokud jiný není, zápas se stále spustí.
   const unavailable=new Set([...busy,...busyScorekeepers]);
   for(const item of result){
-    if(isSoft)continue;
+    if(isSoft||item.confirmed)continue;
     const scorekeeper=pickFairScorekeeper(matchRows,item.match,item.board,[...unavailable],[...nextWavePlayers]);
     if(scorekeeper){item.scorekeeper_entry_id=scorekeeper;unavailable.add(scorekeeper);}
   }
-  return result;
+  return result.sort((a,b)=>a.board-b.board);
 }
 function scheduledMatches(matchRows=tournamentMatches()){return planMatches(matchRows,false);}
 function upcomingMatches(matchRows=tournamentMatches()){return planMatches(matchRows,true);}
@@ -2158,7 +2178,7 @@ function renderLive(){
            ${soft?`<div class="small">Výsledek po skončení zapíše pořadatel v administraci.</div>`:leg?`<div class="stat-grid" style="margin-top:10px"><div class="stat-card">${esc(playerName(playing.player1_entry_id))}<strong>${remaining(playing.player1_entry_id)}</strong><span class="small">${dartsThrown(playing.player1_entry_id)} šipek</span></div><div class="stat-card">${esc(playerName(playing.player2_entry_id))}<strong>${remaining(playing.player2_entry_id)}</strong><span class="small">${dartsThrown(playing.player2_entry_id)} šipek</span></div></div><div class="small">Nyní hází: <strong>${esc(playerName(current))}</strong> · návštěva č. ${turnNo}</div><div class="small">Poslední návštěva (${esc(playerName(last?.player_entry_id))}): ${esc(lastDarts)} · započítáno šipek ${last?.darts_counted??0}</div>`:`<div class="small">${(playing.legs1||0)+(playing.legs2||0)>0?"Pořadatel připravuje další leg.":"Pořadatel připravuje první leg."}</div>`}`;
       })():`<div class="muted">Terč je právě volný.</div>`}
       <div class="next">
-        <div class="small">${playing?"PO DOKONČENÍ ZÁPASU":"DALŠÍ ZÁPAS"}</div>
+        <div class="small">${next&&!darturnioConfirmedQueue(tournamentMatches()).some(q=>q.board===board&&q.match.id===next.id)&&darturnioQueueAvailable?"PŘEDBĚŽNÝ PLÁN":playing?"POTVRZENÝ DALŠÍ ZÁPAS":"DALŠÍ ZÁPAS"}</div>
         ${next?`<strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong>
           <div class="small">${esc(phaseLabel(next))} · pořadí ${esc(next.match_no??"—")}</div>${soft?"":`<div class="small">Zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></div>`}`
           :`<span class="muted">Zatím není připraven další zápas.</span>`}
@@ -3517,8 +3537,8 @@ function chooseBoardScorekeeper(playing,next,active,scheduled,board){
          <div class="admin-board-score"><p class="small">${soft?"Po dohrání na automatu zadej výsledek.":"Legy: <strong>"+(playing.legs1??0)+" : "+(playing.legs2??0)+"</strong>. Zápis šipek probíhá v samostatné sekci Tabletová počítadla."}</p></div>
         <button class="secondary" type="button" data-manual-result="${esc(playing.id)}">Zadat ruční výsledek po dohrání</button>`
         :`<p class="muted">Terč je volný.</p>`}
-      ${next?`<p class="admin-next-match">${playing?"Další po dokončení":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
-         ${!playing?`${soft?"":`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p>`}<button class="action" data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na ${soft?"automatu":"terči"} ${board}</button>`:""}`
+      ${next?`<p class="admin-next-match">${darturnioQueueAvailable&&!darturnioConfirmedQueue(tournamentMatches()).some(q=>q.board===board&&q.match.id===next.id)?"Předběžný plán":playing?"Potvrzený další":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
+         ${!playing?`${soft?"":`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p>`}<button class="action" ${darturnioQueueAvailable&&!darturnioConfirmedQueue(tournamentMatches()).some(q=>q.board===board&&q.match.id===next.id)?"disabled title=\"Čeká na potvrzení fronty\"":""} data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na ${soft?"automatu":"terči"} ${board}</button>`:""}`
         :`<p class="muted">Není připravený další zápas.</p>`}
     </div>`;
   }).join("");
@@ -4028,6 +4048,26 @@ async function darturnioLoadDataCore(){
     sel.value=selectedTournament;
   });
   // Oddeleny seznam poradatele, aby jeho administrační nabídky neobsahovaly cizi hrace.
+  // Fronta je sdilena mezi poradatelem, verejnosti a tablety.
+  // Bez SQL migrace zustava puvodni rezim, aby aplikace nespadla.
+  try{
+    const q=await db.from('darturnio_board_queue').select('*').eq('tournament_id',selectedTournament);
+    darturnioQueueAvailable=!q.error;
+    darturnioQueueRows=q.error?[]:(q.data||[]);
+    if(isAdmin&&darturnioQueueAvailable&&darturnioManagedIds.has(String(selectedTournament))){
+      // Prvni volani zachova existujici potvrzeni, server overi kolize.
+      // Novou dvojici lze pridat jen na dosud neobsazeny slot.
+      const proposals=planMatches(tournamentMatches(),true).filter(x=>!x.confirmed);
+      for(const item of proposals){
+        const r=await db.rpc('darturnio_queue_claim',{
+          p_tournament_id:selectedTournament,p_board_no:item.board,p_match_id:item.match.id
+        });
+        if(r.error){console.warn('Nelze potvrdit frontu:',r.error);break;}
+      }
+      const latest=await db.from('darturnio_board_queue').select('*').eq('tournament_id',selectedTournament);
+      if(!latest.error)darturnioQueueRows=latest.data||[];
+    }
+  }catch(e){darturnioQueueAvailable=false;darturnioQueueRows=[];console.warn(e);}
   if(isAdmin)await darturnioLoadRoster();
   if(seq!==loadSeq)return;
   const adminOptions=isAdmin
@@ -4631,7 +4671,15 @@ window.startNextMatch=async function(board,matchId){
     const activePlayerIds=active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]);
     const conflict=activePlayerIds.some((id,index)=>activePlayerIds.indexOf(id)!==index);
     if(conflict)throw new Error("V databázi je konflikt: stejný hráč už hraje na obou terčích. Nový zápas proto nespustím.");
+    // Pred startem nacti potvrzenou frontu primo ze serveru.
+    if(darturnioQueueAvailable){
+      const {data:q,error:qErr}=await db.from('darturnio_board_queue').select('*').eq('tournament_id',tournamentId);
+      if(qErr)throw new Error('Nelze overit potvrzenou frontu: '+qErr.message);
+      darturnioQueueRows=q||[];
+    }
     const scheduled=scheduledMatches(rows).find(x=>Number(x.board)===Number(board));
+    if(darturnioQueueAvailable&&!scheduled?.confirmed)
+      throw new Error('Dalsi zapas jeste neni potvrzen. Pockej na synchronizaci fronty.');
     if(!scheduled||scheduled.match.id!==matchId)
       throw new Error("Tento zápas už není podle aktuálního rozpisu na řadě. Obnovuji stav.");
     const m=rows.find(x=>x.id===matchId);
@@ -4650,6 +4698,10 @@ window.startNextMatch=async function(board,matchId){
     });
     if(error)throw new Error("Zápas se nepodařilo bezpečně spustit: "+error.message);
     if(!updated)throw new Error("Databáze nepotvrdila spuštění zápasu. Obnovuji stav.");
+    if(darturnioQueueAvailable){
+      const released=await db.rpc('darturnio_queue_release',{p_tournament_id:tournamentId,p_board_no:Number(board),p_match_id:matchId});
+      if(released.error)console.warn('Fronta se uvolni pri dalsi synchronizaci:',released.error);
+    }
     await loadData();
     return true;
   }catch(error){
@@ -4958,7 +5010,7 @@ async function renderTablet(localOnly=false){
       app.innerHTML='<div class="panel" style="text-align:center;padding:35px 15px"><h2>Terč '+tabletBoard+' je připravený</h2><p>Zatím zde neběží žádný zápas.</p><p class="muted">Zápas musí nejprve spustit pořadatel v administraci. Tablet jej poté automaticky načte.</p></div>';
       return;
     }
-    if(scheduled&&scheduled.match.id!==tabletAutoStartBlockedMatchId&&!tabletAutoStartInProgress){
+    if(scheduled&&scheduled.confirmed&&scheduled.match.id!==tabletAutoStartBlockedMatchId&&!tabletAutoStartInProgress){
       tabletAutoStartInProgress=true;
       app.innerHTML='<div class="panel" style="text-align:center;padding:40px 15px"><h2>Připravuji další zápas…</h2><p class="muted">Kontroluji dostupnost hráčů a zapisovatele.</p></div>';
       let started=false;
