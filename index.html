@@ -2080,7 +2080,56 @@ function planMatches(matchRows,includeOccupied){
   const lastEnd=id=>lastPlayedAt.get(id)||baseline;
   const waitMin=id=>Math.max(0,(now-lastEnd(id))/60000);
   const groupPending=matchRows.some(m=>m.status==='waiting'&&m.stage==='group');
-  const candidatePriority=m=>{
+
+  // SKUPINY – cílem je podobný čas dokončení, ne stejné počty odehraných zápasů.
+  // Proporcionální průběh zohledňuje skutečný počet zápasů každé skupiny
+  // (např. 21 vs 15). Právě rozehrané hry se počítají částečně.
+  const groupBalanceRows=matchRows.filter(m=>m.stage==='group'&&m.group_name);
+  const groupBalanceStats=new Map();
+  const groupDurationMs=(()=>{
+    const times=groupBalanceRows.filter(m=>m.status==='finished'&&m.started_at&&m.ended_at)
+      .map(m=>new Date(m.ended_at).getTime()-new Date(m.started_at).getTime())
+      .filter(v=>v>0&&v<90*60000);
+    return times.length?Math.max(5*60000,Math.min(25*60000,times.reduce((a,b)=>a+b,0)/times.length)):12*60000;
+  })();
+  for(const m of groupBalanceRows){
+    const key=String(m.group_name);
+    if(!groupBalanceStats.has(key))groupBalanceStats.set(key,{total:0,progress:0});
+    const s=groupBalanceStats.get(key);
+    s.total++;
+    if(m.status==='finished')s.progress++;
+    else if(m.status==='live'){
+      const started=Date.parse(m.started_at||'');
+      const elapsed=Number.isFinite(started)?Math.max(0,now-started):0;
+      s.progress+=Math.min(0.95,elapsed/groupDurationMs);
+    }
+  }
+  // Zapocitej i zapasy potvrzene ve sdilene fronte Supabase. Fronta ma
+  // prednost pred automatickym planem, ale pri vyvazovani skupin nesmi
+  // zustat neviditelna.
+  for(const item of fixed){
+    const m=item.match;
+    if(m.stage!=='group')continue;
+    const stat=groupBalanceStats.get(String(m.group_name||''));
+    if(stat)stat.progress+=0.65;
+  }
+  const groupBalanceBonus=(m,alreadyChosen=[])=>{
+    if(m.stage!=='group'||groupBalanceStats.size<2||allBoards.length<3)return 0;
+    const key=String(m.group_name||'');
+    if(!groupBalanceStats.has(key))return 0;
+    const chosenCount=new Map();
+    for(const item of alreadyChosen){
+      if(item.stage!=='group')continue;
+      const g=String(item.group_name||'');
+      chosenCount.set(g,(chosenCount.get(g)||0)+1);
+    }
+    const progressOf=(g,s)=>(s.progress+0.65*(chosenCount.get(g)||0))/s.total;
+    const my=progressOf(key,groupBalanceStats.get(key));
+    let highest=my;
+    for(const [g,s] of groupBalanceStats){highest=Math.max(highest,progressOf(g,s));}
+    return Math.max(0,highest-my)*250;
+  };
+  const candidatePriority=(m,alreadyChosen=[])=>{
     const ids=[m.player1_entry_id,m.player2_entry_id];
     const waits=ids.map(waitMin);
     const counts=ids.map(groupCount);
@@ -2091,7 +2140,7 @@ function planMatches(matchRows,includeOccupied){
     const jointWait=Math.min(...waits);
     const shortRest=Math.min(...waits)<8?12:0;
     const imbalance=m.stage==='group'?Math.max(...counts)*8+(counts[0]+counts[1])*3:0;
-    return starvation*1.5+jointWait*.2-imbalance-shortRest;
+    return starvation*1.5+jointWait*.2-imbalance-shortRest+groupBalanceBonus(m,alreadyChosen);
   };
   const compareWaiting=(a,b)=>{
     // Skupiny dohraji pred pavoukem, kdyz jsou obe faze v nabidce.
@@ -2107,7 +2156,8 @@ function planMatches(matchRows,includeOccupied){
     return (Number(a.round_no)||0)-(Number(b.round_no)||0)||
       (Number(a.match_no)||0)-(Number(b.match_no)||0);
   };
-  // FAIR WAIT v2: vyhodnoti i nasledujici vlnu, aby nevznikaly extremni pauzy.
+  // FAIR WAIT v3: vyhodnoti dalsi vlnu, rozlozi dlouhe pauzy
+  // a vyrovnava prubeh skupin podle procenta dokoncenych zapasu.
   // U skupin 1–4 terce hledame kombinaci soubeznych zapasu (beam search).
   // U vetsich konfiguraci, DKO a ostatnich fazi zustava rychle greedy razeni.
   const result=[...fixed];
@@ -2130,7 +2180,7 @@ function planMatches(matchRows,includeOccupied){
         for(const m of options.slice(0,10)){
           const ids=new Set(state.ids);
           ids.add(m.player1_entry_id);ids.add(m.player2_entry_id);
-          expanded.push({games:[...state.games,m],ids,score:state.score+candidatePriority(m)});
+          expanded.push({games:[...state.games,m],ids,score:state.score+candidatePriority(m,state.games)});
         }
       }
       if(!expanded.length)break;
@@ -2158,6 +2208,8 @@ function planMatches(matchRows,includeOccupied){
         futureBusy.add(m.player1_entry_id);futureBusy.add(m.player2_entry_id);
         if(++slots>=waveSize)break;
       }
+      // Vyssi penalizace dlouheho cekani chrani jednotlivce, i kdyz
+      // planovac soucasne vyrovnava casy dokonceni obou skupin.
       // Trestame situaci, kdy hrac nedostane hru ani v jedne ze dvou vln.
       // Neni to tvrdy limit: realna delka zapasu a pocet hracu se meni.
       let overdue=0;
@@ -2166,7 +2218,14 @@ function planMatches(matchRows,includeOccupied){
         const w=waitMin(id)+26;
         overdue+=Math.pow(Math.max(0,w-27),2)/100;
       }
-      return state.score-0.1*overdue;
+      let spread=0;
+      if(groupBalanceStats.size>=2&&allBoards.length>=3){
+        const chosen=new Map();
+        for(const m of state.games){const g=String(m.group_name||'');chosen.set(g,(chosen.get(g)||0)+1);}
+        const fractions=[...groupBalanceStats].map(([g,s])=>(s.progress+0.65*(chosen.get(g)||0))/s.total);
+        spread=Math.max(...fractions)-Math.min(...fractions);
+      }
+      return state.score-(allBoards.length>=3?5.0:0.1)*overdue-400*spread;
     };
     beam.sort((a,b)=>estimate(b)-estimate(a));
     chosenWave=beam[0]?.games||[];
