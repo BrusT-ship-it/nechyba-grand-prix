@@ -12036,178 +12036,237 @@ setTimeout(()=>{void refresh()},8000);
 .dt-push-help{font-size:13px;line-height:1.5;margin:8px 0 0}
 </style>
 <script id="darturnio-webpush-profile-controls">
-/* Darturnio Web Push controls: one global ON/OFF setting in player profile. */
 (() => {
   'use strict';
   if (new URLSearchParams(location.search).has('tablet') || /^\/tablet\//i.test(location.pathname)) return;
   const section = document.getElementById('profileNotificationSection');
-  if (!section) return;
-  window.darturnioPushEnabled = false;
-  let userId = '', publicKey = '', enabled = false, busy = false, seq = 0, messageOverride = '', pendingChoice = null;
-  const getClient = () => window.db || (typeof db !== 'undefined' ? db : null) || window.supabaseClient || null;
+  if (!section || section.querySelector('#dtPushToggle')) return;
   const card = document.createElement('div');
   card.className = 'dt-push-settings';
-  card.innerHTML = '<div class="dt-push-switch-line"><span class="dt-push-caption">🔔 Push upozornění na mobil</span><button type="button" id="dtPushToggle" class="dt-push-main-button" aria-pressed="false">ZAPNOUT UPOZORNĚNÍ</button></div><p id="dtPushStatus" class="stats-muted">Přihlas se pro nastavení upozornění.</p><button id="dtPushThisDevice" class="secondary" type="button" hidden>Povolit na tomto zařízení</button><p class="stats-muted dt-push-help">Vypnutí platí pro celý tvůj účet. Historie oznámení v profilu zůstane dostupná.</p><p class="dt-push-version">Ovládání PUSH V2</p>';
+  card.innerHTML = '<div class="dt-push-switch-line"><span class="dt-push-caption">🔔 Push upozornění na mobil</span><button type="button" id="dtPushToggle" class="dt-push-main-button" aria-pressed="false">NAČÍTÁM NASTAVENÍ…</button></div><p id="dtPushStatus" class="stats-muted" role="status" aria-live="polite">Načítám nastavení push upozornění…</p><button id="dtPushThisDevice" class="secondary" type="button" hidden>Povolit na tomto zařízení</button><p class="stats-muted dt-push-help">Vypnutí platí pro celý tvůj účet. Historie oznámení v profilu zůstane dostupná.</p><p class="dt-push-version">Ovládání PUSH V3</p>';
   section.prepend(card);
   const toggle = card.querySelector('#dtPushToggle');
   const status = card.querySelector('#dtPushStatus');
   const addDevice = card.querySelector('#dtPushThisDevice');
-  toggle.disabled = false;
+  const getClient = () => window.db || (typeof db !== 'undefined' ? db : null) || window.supabaseClient || null;
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const standalone = () => window.navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches === true;
+  const standalone = () => navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches === true;
   const supportsPush = () => ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window) && window.isSecureContext;
-  const text = str => { status.textContent = str; };
-  function update() {
-    // Keep the user's requested position visible while registration is running.
-    const desired = pendingChoice === null ? enabled : pendingChoice;
-    toggle.textContent = busy ? (desired ? 'ZAPÍNÁM…' : 'VYPÍNÁM…') : (desired ? 'VYPNOUT UPOZORNĚNÍ' : 'ZAPNOUT UPOZORNĚNÍ');
-    toggle.classList.toggle('is-on', desired);
-    toggle.disabled = busy;
-    toggle.setAttribute('aria-pressed', desired ? 'true' : 'false');
-    toggle.setAttribute('aria-busy', busy ? 'true' : 'false');
-    addDevice.disabled = busy;
-    addDevice.hidden = !enabled || !supportsPush() || (Notification.permission === 'granted' && !addDevice.dataset.notRegistered);
-    window.darturnioPushEnabled = enabled;
-    if (messageOverride) { text(messageOverride); return; }
-    if (busy && pendingChoice !== null) {
-      text(pendingChoice ? 'ZAPÍNÁM – ověřuji povolení a registruji toto zařízení…' : 'VYPÍNÁM – ukládám nastavení…');
-      return;
-    }
-    if (!userId) text('Přihlas se pro zapnutí upozornění.');
-    else if (!supportsPush()) text('Tento prohlížeč nepodporuje push upozornění nebo stránka není otevřená přes HTTPS.');
-    else if (!enabled) text('VYPNUTO – na žádné tvoje zařízení nebudeme posílat push notifikace.');
-    else if (Notification.permission === 'denied') text('ZAPNUTO pro účet, ale tento telefon blokuje oznámení v nastavení prohlížeče.');
-    else text('ZAPNUTO – upozornění mohou přijít i při zamčeném telefonu.');
+  let userId = '', publicKey = '', enabled = false, settingKnown = false;
+  let loading = false, busy = false, intended = null, seq = 0;
+  let messageOverride = '', deviceNotRegistered = false;
+  window.darturnioPushEnabled = false;
+
+  function withTimeout(promise, ms, reason) {
+    let timer;
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(reason)), ms); })
+    ]).finally(() => clearTimeout(timer));
   }
+  function update() {
+    toggle.classList.toggle('is-on', settingKnown && (intended === null ? enabled : intended));
+    toggle.setAttribute('aria-pressed', settingKnown && enabled ? 'true' : 'false');
+    toggle.setAttribute('aria-busy', busy || loading ? 'true' : 'false');
+    if (busy) {
+      toggle.textContent = intended ? 'ZAPÍNÁM…' : 'VYPÍNÁM…';
+      toggle.disabled = true;
+      status.textContent = intended ? 'ZAPÍNÁM – ukládám povolení a registruji zařízení…' : 'VYPÍNÁM – ukládám nastavení…';
+    } else if (loading && !settingKnown) {
+      toggle.textContent = 'NAČÍTÁM NASTAVENÍ…';
+      toggle.disabled = true;
+      status.textContent = 'Ověřuji stav oznámení v Supabase (nejdéle 12 sekund)…';
+    } else if (!userId) {
+      toggle.textContent = settingKnown ? 'PŘIHLÁSIT SE' : 'ZNOVU NAČÍST';
+      toggle.disabled = false;
+      status.textContent = messageOverride || 'Pro nastavení push se nejdříve přihlas. Pokud jsi přihlášený, klikni na „ZNOVU NAČÍST“.';
+    } else if (!settingKnown) {
+      toggle.textContent = 'ZNOVU NAČÍST';
+      toggle.disabled = false;
+      status.textContent = messageOverride || 'Nastavení se nepodařilo načíst. Klikni pro opakování.';
+    } else {
+      toggle.textContent = enabled ? 'VYPNOUT UPOZORNĚNÍ' : 'ZAPNOUT UPOZORNĚNÍ';
+      toggle.disabled = false;
+      status.textContent = messageOverride || (enabled
+        ? (Notification.permission === 'denied' ? 'ZAPNUTO v účtu, ale prohlížeč blokuje oznámení.' : 'ZAPNUTO – toto zařízení může přijímat push upozornění, pokud je zaregistrované.')
+        : 'VYPNUTO – na žádné tvoje zařízení nebudeme posílat push notifikace.');
+    }
+    addDevice.hidden = !settingKnown || !enabled || !supportsPush() || !deviceNotRegistered;
+    addDevice.disabled = busy || loading;
+    window.darturnioPushEnabled = settingKnown && enabled;
+  }
+
   async function call(action, subscription) {
-    const client = getClient(); if (!client?.functions?.invoke) throw new Error('Nepodařilo se připojit k Supabase.');
-    const { data, error } = await client.functions.invoke('darturnio-push-settings', { body: { action, ...(subscription ? { subscription } : {}) } });
-    if (error) { // Some Supabase errors contain server response JSON.
-      let msg = error.message || 'Chyba serveru.';
-      try { const body = await error.context?.json?.(); if (body?.error) msg = body.error; } catch (_) {}
-      throw new Error(msg);
+    const client = getClient();
+    if (!client?.functions?.invoke) throw new Error('Nepodařilo se připojit k Supabase.');
+    let result;
+    try {
+      result = await withTimeout(
+        client.functions.invoke('darturnio-push-settings', { body: { action, ...(subscription ? { subscription } : {}) } }),
+        12000, 'Server Supabase neodpovídá do 12 sekund. Zkontroluj připojení nebo Edge Function Logs.'
+      );
+    } catch (error) { throw error; }
+    const { data, error } = result || {};
+    if (error) {
+      let reason = error.message || 'Chyba serveru.';
+      try { const body = await withTimeout(error.context?.json?.(), 1500, 'Nelze přečíst odpověď serveru.'); if (body?.error) reason = body.error; } catch (_) {}
+      throw new Error(reason);
     }
     if (data?.error) throw new Error(data.error);
     return data;
   }
   function b64ToBytes(b64) {
-    const s = atob(b64.replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - b64.length % 4) % 4));
+    const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - b64.length % 4) % 4));
     return Uint8Array.from(s, c => c.charCodeAt(0));
   }
   async function pushRegistration() {
-    // Independent scope preserves original /sw.js and Darturnio's existing offline behavior.
     try {
-      return await navigator.serviceWorker.register('/darturnio-push-sw.js', { scope: '/darturnio-push/' });
-    } catch (error) {
-      throw new Error('Push službu nelze zaregistrovat. Zkontroluj, že je soubor darturnio-push-sw.js dostupný přímo na darturnio.com/darturnio-push-sw.js. (' + (error?.message || 'chyba registrace') + ')');
-    }
+      return await withTimeout(navigator.serviceWorker.register('/darturnio-push-sw.js', { scope: '/darturnio-push/' }), 12000, 'Registrace push služby vypršela.');
+    } catch (error) { throw new Error('Registrace Push Workeru selhala: ' + (error?.message || 'neznámá chyba')); }
   }
   async function ensureSubscription() {
-    if (!supportsPush()) throw new Error('Prohlížeč nepodporuje push nebo není dostupné HTTPS.');
-    if (isIos && !standalone()) throw new Error('Na iPhonu přidej Darturnio na plochu a otevři ho z ikony. Potom povol oznámení.');
-    if (!publicKey) throw new Error('Na serveru ještě nejsou nastavené VAPID klíče.');
-    // Permission request happens directly in user click event before any await.
+    if (!supportsPush()) throw new Error('Prohlížeč nepodporuje push nebo stránka není zabezpečená přes HTTPS.');
+    if (isIos && !standalone()) throw new Error('Na iPhonu přidej Darturnio na plochu a otevři jej z ikony.');
+    if (!publicKey) throw new Error('Chybí veřejný VAPID klíč v odpovědi Supabase.');
+    // Prompt is launched within the click handler before the first async await.
     if (Notification.permission !== 'granted') {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') throw new Error('Prohlížeč neudělil povolení. Zkontroluj nastavení oznámení.');
+      const permission = await withTimeout(Notification.requestPermission(), 20000, 'Vypršel čas pro povolení oznámení.');
+      if (permission !== 'granted') throw new Error('Oznámení nejsou povolena v tomto prohlížeči.');
     }
     const reg = await pushRegistration();
-    // The separate push registration can be installing while the legacy /sw.js
-    // already controls the page. Wait for THIS worker, not navigator.serviceWorker.ready.
     if (!reg.active) {
-      await new Promise((resolve, reject) => {
+      await withTimeout(new Promise((resolve, reject) => {
         const worker = reg.installing || reg.waiting;
         if (!worker || worker.state === 'activated') { resolve(); return; }
-        const timeout = setTimeout(() => reject(new Error('Aktivace push služby trvá příliš dlouho.')), 12000);
-        worker.addEventListener('statechange', () => {
-          if (worker.state === 'activated') { clearTimeout(timeout); resolve(); }
-          else if (worker.state === 'redundant') { clearTimeout(timeout); reject(new Error('Push služba se nepodařila aktivovat.')); }
-        });
-      });
+        const changed = () => {
+          if (worker.state === 'activated') resolve();
+          if (worker.state === 'redundant') reject(new Error('Push Worker se neaktivoval.'));
+        };
+        worker.addEventListener('statechange', changed);
+      }), 12000, 'Aktivace push služby trvá příliš dlouho.');
     }
-    let sub = await reg.pushManager.getSubscription();
+    let sub = await withTimeout(reg.pushManager.getSubscription(), 12000, 'Nelze ověřit registraci zařízení.');
     const key = b64ToBytes(publicKey);
-    if (sub && sub.options?.applicationServerKey) {
-      const original = new Uint8Array(sub.options.applicationServerKey);
-      if (original.length !== key.length || original.some((v, i) => v !== key[i])) {
-        await sub.unsubscribe(); sub = null;
+    if (sub?.options?.applicationServerKey) {
+      const orig = new Uint8Array(sub.options.applicationServerKey);
+      if (orig.length !== key.length || orig.some((v, i) => v !== key[i])) {
+        await withTimeout(sub.unsubscribe(), 12000, 'Nepodařilo se obnovit starou push registraci.');
+        sub = null;
       }
     }
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }), 15000, 'Registrace zařízení neodpovídá.');
     return sub.toJSON();
   }
   async function refresh(id) {
-    userId = id || ''; enabled = false; publicKey = ''; messageOverride = ''; addDevice.dataset.notRegistered = '';
-    const current = ++seq; update();
-    if (!userId) return;
-    busy = true; update();
-    try {
-      const data = await call('status');
-      if (current !== seq) return;
-      // Funkce musi skutecne podporovat status/enable/disable, ne pouze vracet publicKey.
-      if (typeof data?.enabled !== 'boolean') throw new Error('Serverová správa push zatím není dokončená (status/enable/disable).');
-      publicKey = data.publicKey || ''; enabled = data.enabled === true;
-      if (supportsPush() && enabled && Notification.permission === 'granted') {
-        const registration = await navigator.serviceWorker.getRegistration('/darturnio-push/');
-        const currentSub = await registration?.pushManager?.getSubscription();
-        addDevice.dataset.notRegistered = currentSub ? '' : '1';
-      }
-    } catch (e) { if (current === seq) messageOverride = 'Nastavení push není dostupné: ' + e.message; }
-    finally { if (current === seq) { busy = false; update(); } }
-  }
-  toggle.addEventListener('click', async () => {
     if (busy) return;
-    if (!userId) {
-      messageOverride = 'Nejdřív se přihlas do hráčského účtu. Pokud už jsi přihlášený, obnov stránku.';
-      update(); return;
-    }
-    if (!supportsPush() && !enabled) {
-      messageOverride = 'Tento prohlížeč nepodporuje push oznámení nebo stránka neběží přes HTTPS.';
-      update(); return;
-    }
-    const intended = !enabled; busy = true; pendingChoice = intended; messageOverride = ''; update();
+    if (loading && id === userId) return;
+    userId = id || ''; settingKnown = false; loading = !!userId;
+    messageOverride = ''; deviceNotRegistered = false;
+    const requestId = ++seq;
+    update();
+    if (!userId) return;
     try {
-      if (intended) {
+      const result = await call('status');
+      if (requestId !== seq) return;
+      if (typeof result?.enabled !== 'boolean') throw new Error('Server nevrátil platný stav. Zkontroluj funkci darturnio-push-settings.');
+      publicKey = result.publicKey || '';
+      enabled = result.enabled;
+      settingKnown = true;
+      if (supportsPush() && enabled && Notification.permission === 'granted') {
+        try {
+          const reg = await withTimeout(navigator.serviceWorker.getRegistration('/darturnio-push/'), 2500, '');
+          deviceNotRegistered = !(await withTimeout(reg?.pushManager?.getSubscription(), 2500, ''));
+        } catch (_) { deviceNotRegistered = true; }
+      }
+    } catch (error) {
+      if (requestId === seq) messageOverride = 'Nelze načíst nastavení: ' + (error?.message || String(error));
+    } finally {
+      if (requestId === seq) { loading = false; update(); }
+    }
+  }
+  async function refreshUser() {
+    if (busy || loading) return;
+    const client = getClient();
+    if (!client?.auth) {
+      userId = ''; settingKnown = false; messageOverride = 'Připojení k Supabase není připravené. Zkus znovu načíst.';
+      update(); return;
+    }
+    try {
+      const { data, error } = await withTimeout(client.auth.getSession(), 10000, 'Přihlášení se nenačetlo do 10 sekund.');
+      if (error) throw error;
+      await refresh(data?.session?.user?.id || '');
+    } catch (error) {
+      userId = ''; settingKnown = false; messageOverride = 'Ověření přihlášení se nezdařilo: ' + (error?.message || String(error));
+      update();
+    }
+  }
+
+  toggle.addEventListener('click', async () => {
+    if (busy || loading) return;
+    if (!settingKnown || !userId) { await refreshUser(); return; }
+    if (!supportsPush() && !enabled) {
+      messageOverride = 'Prohlížeč nepodporuje push oznámení nebo stránka neběží přes HTTPS.';
+      update(); return;
+    }
+    const turnOn = !enabled;
+    busy = true; intended = turnOn; messageOverride = ''; update();
+    try {
+      if (turnOn) {
         const sub = await ensureSubscription();
         const result = await call('enable', sub);
-        enabled = result.enabled === true; addDevice.dataset.notRegistered = '';
+        if (result?.enabled !== true) throw new Error('Server nepotvrdil zapnutí oznámení.');
+        enabled = true; deviceNotRegistered = false;
+        messageOverride = 'ZAPNUTO – toto zařízení je zaregistrované pro push upozornění.';
       } else {
         const result = await call('disable');
-        enabled = result.enabled === true;
+        if (result?.enabled !== false) throw new Error('Server nepotvrdil vypnutí oznámení.');
+        enabled = false; deviceNotRegistered = false;
         try {
-          const registration = await navigator.serviceWorker.getRegistration('/darturnio-push/');
-          (await registration?.pushManager?.getSubscription())?.unsubscribe().catch(() => {});
-        } catch (_) { /* server opt-out remains effective */ }
+          const reg = await navigator.serviceWorker.getRegistration('/darturnio-push/');
+          const sub = await reg?.pushManager?.getSubscription();
+          if (sub) void sub.unsubscribe().catch(() => {});
+        } catch (_) {}
+        messageOverride = 'VYPNUTO – ukládání nastavení bylo potvrzeno.';
       }
-    } catch (e) { messageOverride = 'Nepodařilo se změnit nastavení: ' + (e?.message || String(e)); }
-    finally { pendingChoice = null; busy = false; update(); }
+    } catch (error) {
+      messageOverride = 'Nepodařilo se změnit nastavení: ' + (error?.message || String(error));
+    } finally { busy = false; intended = null; update(); }
   });
   addDevice.addEventListener('click', async () => {
-    if (!enabled || busy) return;
-    busy = true; messageOverride = ''; update();
+    if (!enabled || !settingKnown || busy || loading) return;
+    busy = true; intended = true; messageOverride = ''; update();
     try {
-      await call('enable', await ensureSubscription());
-      addDevice.dataset.notRegistered = ''; messageOverride = 'Push je aktivní i na tomto zařízení.';
-    } catch (e) { messageOverride = 'Přidání zařízení se nezdařilo: ' + e.message; }
-    finally { busy = false; update(); }
+      const result = await call('enable', await ensureSubscription());
+      if (result?.enabled !== true) throw new Error('Server nepotvrdil registraci zařízení.');
+      deviceNotRegistered = false; messageOverride = 'Push je aktivní i na tomto zařízení.';
+    } catch (error) { messageOverride = 'Registrace zařízení selhala: ' + (error?.message || String(error)); }
+    finally { busy = false; intended = null; update(); }
   });
+
   function listen() {
     const client = getClient(); if (!client?.auth) return false;
     client.auth.onAuthStateChange((event, session) => {
-      // Avoid awaiting supabase auth inside its own callback.
-      if (event === 'SIGNED_OUT') { userId = ''; enabled = false; publicKey = ''; messageOverride = ''; ++seq; update(); }
-      else if (session?.user && session.user.id !== userId) setTimeout(() => refresh(session.user.id), 0);
+      if (event === 'SIGNED_OUT') {
+        ++seq; userId = ''; publicKey = ''; enabled = false; settingKnown = false;
+        loading = false; busy = false; intended = null; messageOverride = ''; update();
+      } else if (session?.user && session.user.id !== userId) {
+        setTimeout(() => refresh(session.user.id), 0);
+      }
     });
-    client.auth.getUser().then(({ data }) => refresh(data?.user?.id || '')).catch(() => {});
-    document.getElementById('profileOpenMe')?.addEventListener('click', () => { if (userId) refresh(userId); });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && userId && !busy) refresh(userId); });
+    void refreshUser();
+    document.getElementById('profileOpenMe')?.addEventListener('click', () => {
+      if (!busy && !loading) void refreshUser();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !busy && !loading && settingKnown) void refresh(userId);
+    });
     return true;
   }
   if (!listen()) {
-    const watcher = setInterval(() => { if (listen()) clearInterval(watcher); }, 400);
-    setTimeout(() => clearInterval(watcher), 12000);
+    const watch = setInterval(() => { if (listen()) clearInterval(watch); }, 400);
+    setTimeout(() => { clearInterval(watch); if (!userId && !loading) { messageOverride = 'Supabase není připravená. Klikni na „ZNOVU NAČÍST“.'; update(); } }, 12000);
   }
+  update();
 })();
-
 </script>
 </body></html>
