@@ -5141,6 +5141,7 @@ async function darturnioOfflineClear(){
  });}finally{database.close();}
  darturnioOfflinePack=null;
 }
+let darturnioOptimisticVisit=null; // Jen okamzity nahled; trvale ulozeni potvrzuje IndexedDB.
 function darturnioOfflineCount(){return darturnioOfflinePack?.pending?.length||0;}
 function darturnioOfflineMode(){return darturnioOfflineManual||!navigator.onLine||darturnioOfflineCount()>0||!!(isAdmin&&tabletFastCache?.tournamentId===selectedTournament&&tabletFastCache?.leg?.status==='live'&&[301,501].includes(Number(tabletFastCache.gameType)));}
 function darturnioOfflineCompatible(c){const p=darturnioOfflinePack;
@@ -5149,7 +5150,9 @@ function darturnioOfflineCompatible(c){const p=darturnioOfflinePack;
 function darturnioOfflineVisits(c){
  if(!darturnioOfflineCompatible(c))return c.visits||[];
  const known=new Set((c.visits||[]).map(v=>String(v.request_id||v.id||'')));
- return [...(c.visits||[]),...(darturnioOfflinePack.confirmed||[]).filter(v=>!known.has(String(v.request_id||v.id||''))),...(darturnioOfflinePack.pending||[]).map(x=>x.fake)];
+ const combined=[...(c.visits||[]),...(darturnioOfflinePack.confirmed||[]).filter(v=>!known.has(String(v.request_id||v.id||''))),...(darturnioOfflinePack.pending||[]).map(x=>x.fake)];
+ if(darturnioOptimisticVisit&&darturnioOptimisticVisit.leg_id===c.leg.id&&!combined.some(v=>v.request_id===darturnioOptimisticVisit.request_id))combined.push(darturnioOptimisticVisit);
+ return combined;
 }
 function darturnioOfflinePaint(){
  const c=tabletFastCache;
@@ -5232,12 +5235,18 @@ async function darturnioOfflineSubmit(mode){
   if(tabletDoubleAttempts!==null&&tabletDoubleAttempts>count)throw new Error('Pokusů na double je víc než hozených šipek.');
   const fake=darturnioOfflineFake(c,args,all);
   const next={...pack,pending:[...pack.pending,{args,fake,createdAt:new Date().toISOString()}]};
-  await darturnioOfflineWrite(next); // NEJPRVE potvrzení místního uložení; pak se mění obrazovka.
+  // Skore se vykresli okamzite, bez cekani na Supabase ani IndexedDB.
+  // Do doby dokonceni lokalniho zapisu blokuje tabletBusy dalsi potvrzeni.
+  darturnioOptimisticVisit=fake;
+  darturnioOfflineMessage='Ukládám nához do tabletu…';
+  darturnioOfflinePaint();
+  await darturnioOfflineWrite(next);
+  darturnioOptimisticVisit=null;
   darturnioOfflineMessage='Uloženo v tomto tabletu – čeká na server.';
   tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue='';tabletSpecialType='';tabletSpecialDart=0;tabletDoubleAttempts=null;
   darturnioOfflinePaint();
   if(navigator.onLine&&!darturnioOfflineManual&&fake.is_checkout)void darturnioOfflineSync();
- }catch(error){notify('Offline nához nebyl potvrzen: '+(error.message||error));}
+ }catch(error){darturnioOptimisticVisit=null;darturnioOfflinePaint();notify('Nához nebyl uložen do tabletu, skóre bylo vráceno: '+(error.message||error));}
  finally{tabletBusy=false;void renderTablet(true);}
 }
 async function darturnioOfflineUndo(){
