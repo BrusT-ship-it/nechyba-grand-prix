@@ -2089,9 +2089,9 @@ function planMatches(matchRows,includeOccupied){
     // kdyz existuji jine pripravene zapasy.
     const starvation=Math.max(...waits);
     const jointWait=Math.min(...waits);
-    const shortRest=Math.min(...waits)<8?18:0;
-    const imbalance=m.stage==='group'?Math.max(...counts)*13+(counts[0]+counts[1])*3:0;
-    return starvation*1.5+jointWait*.35-imbalance-shortRest;
+    const shortRest=Math.min(...waits)<8?12:0;
+    const imbalance=m.stage==='group'?Math.max(...counts)*8+(counts[0]+counts[1])*3:0;
+    return starvation*1.5+jointWait*.2-imbalance-shortRest;
   };
   const compareWaiting=(a,b)=>{
     // Skupiny dohraji pred pavoukem, kdyz jsou obe faze v nabidce.
@@ -2107,12 +2107,79 @@ function planMatches(matchRows,includeOccupied){
     return (Number(a.round_no)||0)-(Number(b.round_no)||0)||
       (Number(a.match_no)||0)-(Number(b.match_no)||0);
   };
+  // FAIR WAIT v2: vyhodnoti i nasledujici vlnu, aby nevznikaly extremni pauzy.
+  // U skupin 1–4 terce hledame kombinaci soubeznych zapasu (beam search).
+  // U vetsich konfiguraci, DKO a ostatnich fazi zustava rychle greedy razeni.
   const result=[...fixed];
+  const ready=eligibleWaitingMatches(matchRows,[...busy])
+    .filter(m=>m.player1_entry_id!==m.player2_entry_id);
+  ready.sort(compareWaiting);
+  const groupReady=ready.filter(m=>m.stage==='group');
+  const waveSize=Math.min(boards.length,4);
+  let chosenWave=[];
+  if(waveSize>=1 && groupReady.length>=3 && boards.length<=4){
+    // Max. 12–20 kandidatu, 14 moznosti na vlnu. Vyrazne omezime zatez UI.
+    const pool=groupReady.slice(0,Math.max(12,waveSize*5));
+    const waitingIds=new Set(groupReady.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]));
+    let beam=[{games:[],ids:new Set(),score:0}];
+    for(let slot=0;slot<waveSize;slot++){
+      const expanded=[];
+      for(const state of beam){
+        const options=pool.filter(m=>!state.ids.has(m.player1_entry_id)&&!state.ids.has(m.player2_entry_id));
+        if(!options.length){expanded.push(state);continue;}
+        for(const m of options.slice(0,10)){
+          const ids=new Set(state.ids);
+          ids.add(m.player1_entry_id);ids.add(m.player2_entry_id);
+          expanded.push({games:[...state.games,m],ids,score:state.score+candidatePriority(m)});
+        }
+      }
+      if(!expanded.length)break;
+      expanded.sort((a,b)=>b.score-a.score);
+      beam=expanded.slice(0,14);
+    }
+    const estimate=state=>{
+      // Po odehrani prvni vlny bude mit jeji ucastnik cca 1 minutu pauzu.
+      // Ostatnim cekani naroste o 13 minut. Predikujeme jeste dalsi vlnu.
+      const ids=state.ids;
+      const futureBusy=new Set();
+      const nextReady=groupReady.filter(m=>!state.games.includes(m));
+      const futurePriority=m=>{
+        const pids=[m.player1_entry_id,m.player2_entry_id];
+        const waits=pids.map(id=>ids.has(id)?1:waitMin(id)+13);
+        const counts=pids.map(id=>groupCount(id)+(ids.has(id)?1:0));
+        const shortRest=Math.min(...waits)<8?12:0;
+        const imbalance=Math.max(...counts)*8+(counts[0]+counts[1])*3;
+        return Math.max(...waits)*1.5+Math.min(...waits)*.2-imbalance-shortRest;
+      };
+      nextReady.sort((a,b)=>futurePriority(b)-futurePriority(a));
+      let slots=0;
+      for(const m of nextReady){
+        if(futureBusy.has(m.player1_entry_id)||futureBusy.has(m.player2_entry_id))continue;
+        futureBusy.add(m.player1_entry_id);futureBusy.add(m.player2_entry_id);
+        if(++slots>=waveSize)break;
+      }
+      // Trestame situaci, kdy hrac nedostane hru ani v jedne ze dvou vln.
+      // Neni to tvrdy limit: realna delka zapasu a pocet hracu se meni.
+      let overdue=0;
+      for(const id of waitingIds){
+        if(ids.has(id)||futureBusy.has(id))continue;
+        const w=waitMin(id)+26;
+        overdue+=Math.pow(Math.max(0,w-27),2)/100;
+      }
+      return state.score-0.1*overdue;
+    };
+    beam.sort((a,b)=>estimate(b)-estimate(a));
+    chosenWave=beam[0]?.games||[];
+  }
   for(const board of boards){
-    const candidates=eligibleWaitingMatches(matchRows,[...busy]).filter(m=>m.player1_entry_id!==m.player2_entry_id);
-    if(!candidates.length)continue;
-    candidates.sort(compareWaiting);
-    const chosen=candidates[0];
+    let chosen=chosenWave.shift();
+    if(!chosen||busy.has(chosen.player1_entry_id)||busy.has(chosen.player2_entry_id)){
+      const candidates=eligibleWaitingMatches(matchRows,[...busy])
+        .filter(m=>m.player1_entry_id!==m.player2_entry_id);
+      if(!candidates.length)continue;
+      candidates.sort(compareWaiting);
+      chosen=candidates[0];
+    }
     result.push({board,match:chosen,scorekeeper_entry_id:null});
     busy.add(chosen.player1_entry_id);busy.add(chosen.player2_entry_id);
     const side=dkoSchedulingSide(chosen);
