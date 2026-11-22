@@ -12024,7 +12024,13 @@ setTimeout(()=>{void refresh()},8000);
 .dt-push-settings{margin:14px 0 16px;padding:14px;border:1px solid rgba(225,29,29,.35);background:#181818;border-radius:12px}
 .dt-push-switch-line{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .dt-push-switch-line label{font-size:16px;font-weight:750;cursor:pointer}
-#dtPushToggle{width:50px;height:26px;accent-color:#e11d1d;cursor:pointer;flex:none}
+#dtPushToggle{min-height:48px;min-width:170px;max-width:100%;padding:11px 15px;cursor:pointer;border:1px solid #e11d1d;border-radius:9px;background:#b81c1c;color:#fff;font-weight:800;font-size:14px;letter-spacing:.02em;flex:none}
+#dtPushToggle.is-on{background:#194e35;border-color:#39d477;color:#fff}
+#dtPushToggle:focus-visible{outline:3px solid #fff;outline-offset:3px}
+#dtPushToggle:disabled{opacity:.72;cursor:wait}
+.dt-push-caption{font-size:16px;font-weight:750}
+.dt-push-version{font-size:11px;color:#888;margin:9px 0 0}
+@media(max-width:620px){.dt-push-switch-line{flex-direction:column;align-items:stretch;gap:8px}#dtPushToggle{width:100%}}
 #dtPushStatus{margin:12px 0 7px;line-height:1.45}
 #dtPushThisDevice{margin:8px 0;min-height:42px}
 .dt-push-help{font-size:13px;line-height:1.5;margin:8px 0 0}
@@ -12038,23 +12044,26 @@ setTimeout(()=>{void refresh()},8000);
   if (!section) return;
   window.darturnioPushEnabled = false;
   let userId = '', publicKey = '', enabled = false, busy = false, seq = 0, messageOverride = '', pendingChoice = null;
-  const getClient = () => window.db || (typeof db !== 'undefined' ? db : null);
+  const getClient = () => window.db || (typeof db !== 'undefined' ? db : null) || window.supabaseClient || null;
   const card = document.createElement('div');
   card.className = 'dt-push-settings';
-  card.innerHTML = '<div class="dt-push-switch-line"><label for="dtPushToggle">🔔 Push upozornění na mobil</label><input type="checkbox" id="dtPushToggle" role="switch" aria-label="Zapnout nebo vypnout push notifikace"></div><p id="dtPushStatus" class="stats-muted">Přihlas se pro nastavení upozornění.</p><button id="dtPushThisDevice" class="secondary" type="button" hidden>Povolit na tomto zařízení</button><p class="stats-muted dt-push-help">Vypnutí platí pro celý tvůj účet. Historie oznámení v profilu zůstane dostupná.</p>';
+  card.innerHTML = '<div class="dt-push-switch-line"><span class="dt-push-caption">🔔 Push upozornění na mobil</span><button type="button" id="dtPushToggle" class="dt-push-main-button" aria-pressed="false">ZAPNOUT UPOZORNĚNÍ</button></div><p id="dtPushStatus" class="stats-muted">Přihlas se pro nastavení upozornění.</p><button id="dtPushThisDevice" class="secondary" type="button" hidden>Povolit na tomto zařízení</button><p class="stats-muted dt-push-help">Vypnutí platí pro celý tvůj účet. Historie oznámení v profilu zůstane dostupná.</p><p class="dt-push-version">Ovládání PUSH V2</p>';
   section.prepend(card);
   const toggle = card.querySelector('#dtPushToggle');
   const status = card.querySelector('#dtPushStatus');
   const addDevice = card.querySelector('#dtPushThisDevice');
-  toggle.disabled = true;
+  toggle.disabled = false;
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = () => window.navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches === true;
   const supportsPush = () => ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window) && window.isSecureContext;
   const text = str => { status.textContent = str; };
   function update() {
     // Keep the user's requested position visible while registration is running.
-    toggle.checked = pendingChoice === null ? enabled : pendingChoice;
-    toggle.disabled = !userId || busy || (!supportsPush() && !enabled);
+    const desired = pendingChoice === null ? enabled : pendingChoice;
+    toggle.textContent = busy ? (desired ? 'ZAPÍNÁM…' : 'VYPÍNÁM…') : (desired ? 'VYPNOUT UPOZORNĚNÍ' : 'ZAPNOUT UPOZORNĚNÍ');
+    toggle.classList.toggle('is-on', desired);
+    toggle.disabled = busy;
+    toggle.setAttribute('aria-pressed', desired ? 'true' : 'false');
     toggle.setAttribute('aria-busy', busy ? 'true' : 'false');
     addDevice.disabled = busy;
     addDevice.hidden = !enabled || !supportsPush() || (Notification.permission === 'granted' && !addDevice.dataset.notRegistered);
@@ -12146,9 +12155,17 @@ setTimeout(()=>{void refresh()},8000);
     } catch (e) { if (current === seq) messageOverride = 'Nastavení push není dostupné: ' + e.message; }
     finally { if (current === seq) { busy = false; update(); } }
   }
-  toggle.addEventListener('change', async () => {
-    if (!userId || busy) return;
-    const intended = toggle.checked; busy = true; pendingChoice = intended; messageOverride = ''; update();
+  toggle.addEventListener('click', async () => {
+    if (busy) return;
+    if (!userId) {
+      messageOverride = 'Nejdřív se přihlas do hráčského účtu. Pokud už jsi přihlášený, obnov stránku.';
+      update(); return;
+    }
+    if (!supportsPush() && !enabled) {
+      messageOverride = 'Tento prohlížeč nepodporuje push oznámení nebo stránka neběží přes HTTPS.';
+      update(); return;
+    }
+    const intended = !enabled; busy = true; pendingChoice = intended; messageOverride = ''; update();
     try {
       if (intended) {
         const sub = await ensureSubscription();
@@ -12162,7 +12179,7 @@ setTimeout(()=>{void refresh()},8000);
           (await registration?.pushManager?.getSubscription())?.unsubscribe().catch(() => {});
         } catch (_) { /* server opt-out remains effective */ }
       }
-    } catch (e) { toggle.checked = enabled; messageOverride = 'Nepodařilo se změnit nastavení: ' + e.message; }
+    } catch (e) { messageOverride = 'Nepodařilo se změnit nastavení: ' + (e?.message || String(e)); }
     finally { pendingChoice = null; busy = false; update(); }
   });
   addDevice.addEventListener('click', async () => {
