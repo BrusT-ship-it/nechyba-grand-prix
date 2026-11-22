@@ -1953,7 +1953,7 @@ function darturnioMatchStatsCard(name,wins,visits){
  ${stat('Nejvyšší zavření',s.maxCheckout||'—')}
  ${stat('Náhozy 100+ / 140+ / 180',s.high100+' / '+s.high140+' / '+s.high180)}
  ${stat('Úspěšná zavření',s.checkoutCount)}
- ${stat('Pokusy na double',s.untracked?'Částečně / nesledováno':s.attempts)}
+ ${stat('Pokusy na double',s.untracked?'—':s.attempts)}
  ${stat('Úspěšnost double',s.rate)}
  </div>${s.untracked?'<small>Pokusy na double nejsou zaznamenány u všech náhozů. Úspěšnost vychází jen ze sledovaných.</small>':''}</div>`;
 }
@@ -3520,8 +3520,38 @@ function playerDetailedSummary(playerId,tournamentId=null){
    maxCheckout:rr.length?Math.max(0,...rr.map(r=>Number(r.max_checkout)||0)):null,
    maxVisit:rr.length?Math.max(0,...rr.map(r=>Number(r.max_visit)||0)):null};
 }
+// Old matches may contain the highest 3-dart score without individual visit rows.
+// Each completed match maximum proves at least one visit in that score bracket;
+// it cannot prove the exact number of historical visits.
+function darturnioHistoricVisitMinimum(playerId, minScore, maxExclusive, tournamentId=null){
+ let known=0;
+ for(const m of allFinishedMatches()){
+  if(tournamentId!==null && m.tournament_id!==tournamentId)continue;
+  if(Number(tournaments.find(t=>t.id===m.tournament_id)?.game_type)===701)continue;
+  const first=entryById.get(m.player1_entry_id)?.player_id===playerId;
+  const second=entryById.get(m.player2_entry_id)?.player_id===playerId;
+  if(!first&&!second)continue;
+  const score=Number(first?m.p1_highest_score:m.p2_highest_score);
+  if(Number.isFinite(score) && score>=minScore && score<maxExclusive)known++;
+ }
+ if(tournamentId===null){
+  const personalBest=Number(players.find(p=>p.id===playerId)?.highest_score);
+  if(Number.isFinite(personalBest) && personalBest>=minScore && personalBest<maxExclusive){
+   known=Math.max(known,1);
+  }
+ }
+ return known;
+}
+function darturnioVisitCountDisplay(detail,playerId,scoreBand,tournamentId=null){
+ const bands={100:['visits100',100,140],140:['visits140',140,180],180:['visits180',180,181]};
+ const [field,minScore,maxExclusive]=bands[scoreBand];
+ const recorded=detail.recorded?Number(detail[field])||0:null;
+ const minimum=darturnioHistoricVisitMinimum(playerId,minScore,maxExclusive,tournamentId);
+ if(minimum>(recorded??0))return '≥'+minimum;
+ return recorded===null?'—':String(recorded);
+}
 function doubleStatDisplay(d){
-  return d.doubles===null?'Nesledováno':d.doubles.toFixed(1).replace('.',',')+' %'+(d.untracked>0?' *':'');
+  return d.doubles===null?'—':d.doubles.toFixed(1).replace('.',',')+' %'+(d.untracked>0?' *':'');
 }
 function numberOrDash(v){return v===null||v===undefined?'—':String(v)}
 function renderPlayerStats(){
@@ -3547,8 +3577,7 @@ function renderPlayerStats(){
    <td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td>
    <td>${r.dart.average===null?'—':r.dart.average.toFixed(2)}</td>
    <td>${r.detail.bestAverage===null?'—':r.detail.bestAverage.toFixed(2)}</td>
-   <td>${r.dart.darts||'—'}</td><td>${detailAvailable&&r.detail.recorded?r.detail.visits100:'—'}</td>
-   <td>${detailAvailable&&r.detail.recorded?r.detail.visits140:'—'}</td><td>${detailAvailable&&r.detail.recorded?r.detail.visits180:'—'}</td>
+   <td>${r.dart.darts||'—'}</td><td>${detailAvailable?darturnioVisitCountDisplay(r.detail,r.player.id,100):'—'}</td> <td>${detailAvailable?darturnioVisitCountDisplay(r.detail,r.player.id,140):'—'}</td><td>${detailAvailable?darturnioVisitCountDisplay(r.detail,r.player.id,180):'—'}</td>
    <td>${detailAvailable?doubleStatDisplay(r.detail):'—'}</td>
    <td>${r.checkout?.value??'—'}</td><td>${r.high?.value??'—'}</td></tr>`).join('')}</tbody></table></div>
    <p class="small">Ø3 = průměr na 3 šipky; nejlepší zápas = nejvyšší průměr v jednom dokončeném zápase. Každý nához je započítán právě jednou: 100+ = 100–139, 140+ = 140–179 a 180 = přesně 180 bodů. Double % = úspěšná zavření / evidované pokusy na double. * Výsledek je pouze z náhozů se zapnutým sledováním double; starší náhozy se nezapočítávají. Ručně zadané výsledky nemají šipkový průměr.</p>
@@ -3597,9 +3626,9 @@ function renderPlayerProfile(playerId){
       const matchAvg=dartMatchAverageRows.find(r=>r.match_id===m.id&&r.player_entry_id===ownEntry?.id);
       return `<tr><td>${esc(opp)}</td><td>${m.legs1}:${m.legs2}</td><td>${won?"Výhra":"Prohra"}</td><td>${matchAvg?Number(matchAvg.average_3dart).toFixed(2):"—"}</td></tr>`;
     }).join("");
-    return `<details class="panel"><summary>${esc(x.tournament?.name||"Turnaj")} · průměr ${avg?Number(avg.average_3dart).toFixed(2):"—"}</summary><p class="small">Body: ${Number(avg?.counted_points||0)} · šipky: ${Number(avg?.darts_counted||0)}</p>${(()=>{const ev=playerDetailedSummary(playerId,x.entry.tournament_id);return `<p class="small">100+: ${ev.recorded?ev.visits100:'—'} · 140+: ${ev.recorded?ev.visits140:'—'} · 180: ${ev.recorded?ev.visits180:'—'} · Double: ${doubleStatDisplay(ev)}</p>`})()}<div class="table-wrap"><table><tr><th>Soupeř</th><th>Legy</th><th>Výsledek</th><th>Průměr</th></tr>${eveningMatches||"<tr><td colspan='4'>V tomto večeru nejsou dokončené zápasy.</td></tr>"}</table></div></details>`;
+    return `<details class="panel"><summary>${esc(x.tournament?.name||"Turnaj")} · průměr ${avg?Number(avg.average_3dart).toFixed(2):"—"}</summary><p class="small">Body: ${Number(avg?.counted_points||0)} · šipky: ${Number(avg?.darts_counted||0)}</p>${(()=>{const ev=playerDetailedSummary(playerId,x.entry.tournament_id);return `<p class="small">100+: ${darturnioVisitCountDisplay(ev,playerId,100,x.entry.tournament_id)} · 140+: ${darturnioVisitCountDisplay(ev,playerId,140,x.entry.tournament_id)} · 180: ${darturnioVisitCountDisplay(ev,playerId,180,x.entry.tournament_id)} · Double: ${doubleStatDisplay(ev)}</p>`})()}<div class="table-wrap"><table><tr><th>Soupeř</th><th>Legy</th><th>Výsledek</th><th>Průměr</th></tr>${eveningMatches||"<tr><td colspan='4'>V tomto večeru nejsou dokončené zápasy.</td></tr>"}</table></div></details>`;
   }).join("");
-  $("playerProfileContent").innerHTML=`<div class="panel"><div class="profile-head"><h3>${esc(p.name)}</h3><button class="secondary" data-close-profile>Zavřít profil</button></div><div class="stat-grid"><div class="stat-card">Zápasy<strong>${stats.played}</strong></div><div class="stat-card">Výhry<strong>${stats.wins}</strong></div><div class="stat-card">Prohry<strong>${stats.losses}</strong></div><div class="stat-card">Úspěšnost<strong>${stats.rate} %</strong></div><div class="stat-card">Celkový průměr<strong>${dart.average==null?"—":dart.average.toFixed(2)}</strong></div><div class="stat-card">Nejvyšší zavření<strong>${checkout?.value??"—"}</strong></div><div class="stat-card">Nejvyšší nához<strong>${high?.value??"—"}</strong></div><div class="stat-card">Nejlepší zápasový průměr<strong>${detail.bestAverage===null?'—':detail.bestAverage.toFixed(2)}</strong></div><div class="stat-card">Hozené šipky<strong>${dart.darts||'—'}</strong></div><div class="stat-card">Vyhrané / prohrané legy<strong>${detail.legsWon} / ${detail.legsLost}</strong></div><div class="stat-card">Náhozy 100+<strong>${detail.recorded?detail.visits100:'—'}</strong></div><div class="stat-card">Náhozy 140+<strong>${detail.recorded?detail.visits140:'—'}</strong></div><div class="stat-card">Náhozy 180<strong>${detail.recorded?detail.visits180:'—'}</strong></div><div class="stat-card">Zavření legů<strong>${detail.recorded?detail.checkouts:'—'}</strong></div><div class="stat-card">Pokusy na double<strong>${detail.tracked?detail.attempts:'Nesledováno'}</strong></div><div class="stat-card">Úspěšnost double<strong>${doubleStatDisplay(detail)}</strong></div></div><p class="small">Průměr je z odehraných šipek a bodů. Double % vychází jen z náhozů se zadaným počtem pokusů; chybějící údaje se nepočítají jako nula.${detail.untracked?' Část náhozů nemá sledování double.':''}</p><h3>Vývoj zápasového průměru Ø3</h3><div id="darturnioPublicLifetimeTrend"></div><h3>Průměry podle večerů</h3>${eveningRows||"<p class='muted'>Zatím nejsou zaznamenané večery.</p>"}<h3>Umístění v turnajích</h3><table><tr><th>Večer</th><th>Umístění</th><th>Body</th></tr>${history.map(x=>`<tr><td>${esc(x.tournament?.name||"Turnaj")}</td><td>${x.entry.final_place??"—"}</td><td>${x.entry.series_points??"—"}</td></tr>`).join("")}</table><h3>Historie zápasů</h3><div class="table-wrap"><table><tr><th>Večer</th><th>Soupeř</th><th>Výsledek</th><th>Výsledek hráče</th><th>Průměr</th><th>Report</th></tr>${matchRows||"<tr><td colspan='6'>Zatím žádné dokončené zápasy.</td></tr>"}</table></div><hr><h3>CRICKET · TURNAJOVÉ STATISTIKY</h3><div id="publicCricketStats" data-player-id="${esc(playerId)}">Načítám cricketové statistiky…</div></div>`;
+  $("playerProfileContent").innerHTML=`<div class="panel"><div class="profile-head"><h3>${esc(p.name)}</h3><button class="secondary" data-close-profile>Zavřít profil</button></div><div class="stat-grid"><div class="stat-card">Zápasy<strong>${stats.played}</strong></div><div class="stat-card">Výhry<strong>${stats.wins}</strong></div><div class="stat-card">Prohry<strong>${stats.losses}</strong></div><div class="stat-card">Úspěšnost<strong>${stats.rate} %</strong></div><div class="stat-card">Celkový průměr<strong>${dart.average==null?"—":dart.average.toFixed(2)}</strong></div><div class="stat-card">Nejvyšší zavření<strong>${checkout?.value??"—"}</strong></div><div class="stat-card">Nejvyšší nához<strong>${high?.value??"—"}</strong></div><div class="stat-card">Nejlepší zápasový průměr<strong>${detail.bestAverage===null?'—':detail.bestAverage.toFixed(2)}</strong></div><div class="stat-card">Hozené šipky<strong>${dart.darts||'—'}</strong></div><div class="stat-card">Vyhrané / prohrané legy<strong>${detail.legsWon} / ${detail.legsLost}</strong></div><div class="stat-card">Náhozy 100+<strong>${darturnioVisitCountDisplay(detail,playerId,100)}</strong></div><div class="stat-card">Náhozy 140+<strong>${darturnioVisitCountDisplay(detail,playerId,140)}</strong></div><div class="stat-card">Náhozy 180<strong>${darturnioVisitCountDisplay(detail,playerId,180)}</strong></div><div class="stat-card">Zavření legů<strong>${detail.recorded?detail.checkouts:'—'}</strong></div><div class="stat-card">Pokusy na double<strong>${detail.tracked?detail.attempts:'—'}</strong></div><div class="stat-card">Úspěšnost double<strong>${doubleStatDisplay(detail)}</strong></div></div><p class="small">Znak ≥ značí nejnižší potvrzený počet ze starších výsledků; skutečný počet může být vyšší. Double % vychází jen ze zadaných pokusů.</p><h3>Vývoj zápasového průměru Ø3</h3><div id="darturnioPublicLifetimeTrend"></div><h3>Průměry podle večerů</h3>${eveningRows||"<p class='muted'>Zatím nejsou zaznamenané večery.</p>"}<h3>Umístění v turnajích</h3><table><tr><th>Večer</th><th>Umístění</th><th>Body</th></tr>${history.map(x=>`<tr><td>${esc(x.tournament?.name||"Turnaj")}</td><td>${x.entry.final_place??"—"}</td><td>${x.entry.series_points??"—"}</td></tr>`).join("")}</table><h3>Historie zápasů</h3><div class="table-wrap"><table><tr><th>Večer</th><th>Soupeř</th><th>Výsledek</th><th>Výsledek hráče</th><th>Průměr</th><th>Report</th></tr>${matchRows||"<tr><td colspan='6'>Zatím žádné dokončené zápasy.</td></tr>"}</table></div><hr><h3>CRICKET · TURNAJOVÉ STATISTIKY</h3><div id="publicCricketStats" data-player-id="${esc(playerId)}">Načítám cricketové statistiky…</div></div>`;
   loadPublicCricketStats(playerId);
   window.darturnioLifetimeTrend?.mount(document.getElementById('darturnioPublicLifetimeTrend'),playerId);
 }
@@ -5285,7 +5314,9 @@ async function saveCricketTournamentVisit(){
   let pending=cricketPendingGet();
   if(pending&&pending.legId!==cur.legId)throw new Error('Na jiném legu čeká nepotvrzený nához. Nejprve ověř jeho stav.');
   if(!pending){pending={legId:cur.legId,args:{p_request_id:crypto.randomUUID(),p_leg_id:cur.legId,p_player_entry_id:cur.current,p_darts:[...cricketTournamentDraft]}};cricketPendingPut(pending);}
+  const cricketSaveStarted=performance.now();
   const {data:confirmed,error}=await darturnioTabletRpc('record_cricket_visit_safe',pending.args);
+  darturnioSavingDuration('Cricket: potvrzeni Supabase',cricketSaveStarted);
   if(error)throw error;
   // Server zapis potvrdil vcetne prepocitaneho stavu. Bezpecne vycistime cekajici navstevu.
   cricketPendingClear();
@@ -5544,6 +5575,12 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
 }
 // 501LIVE: bezpečná fronta pro nejasně doručený nához.
 // Dokud není potvrzen, další nához záměrně nepovolujeme.
+// Volitelne mereni na tabletu: do URL pridej &mereniZapisovani=1.
+// Zadne osobni udaje ani body se neodesilaji do dalsi sluzby.
+const darturnioMeasureSaving=new URLSearchParams(location.search).get('mereniZapisovani')==='1';
+function darturnioSavingDuration(label,start){
+ if(darturnioMeasureSaving)console.info('[Darturnio zapis] '+label+': '+Math.round(performance.now()-start)+' ms');
+}
 // DARTURNIO – experimentální offline fronta X01 jednotlivců.
 // U každého náhozu používá existující serverové request_id (idempotentní zápis).
 // Jedna aktivní karta/tablet na daný terč; další leg se zahajuje až po synchronizaci.
@@ -5553,14 +5590,26 @@ let darturnioOfflineSyncBusy=false;
 let darturnioOfflineMessage='';
 function darturnioOfflineKey(){return 'board-'+tabletBoard;}
 function darturnioOfflineSupported(){return !!window.indexedDB&&!!window.crypto?.randomUUID;}
+// Jedna otevrena IndexedDB instance na tablet: neotvirej databazi po kazdem nahozu.
+// Odolnost: pri zmene verze zavreme handle a nasledujici pozadavek ho otevre znovu.
+let darturnioOfflineDbHandle=null;
+let darturnioOfflineDbOpening=null;
 function darturnioOfflineDb(){
- return new Promise((resolve,reject)=>{
+ if(darturnioOfflineDbHandle)return Promise.resolve(darturnioOfflineDbHandle);
+ if(darturnioOfflineDbOpening)return darturnioOfflineDbOpening;
+ darturnioOfflineDbOpening=new Promise((resolve,reject)=>{
   if(!darturnioOfflineSupported())return reject(new Error('Prohlížeč nepodporuje bezpečné místní uložení IndexedDB.'));
   const req=indexedDB.open('darturnio-offline-visits-v1',1);
   req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('packs'))req.result.createObjectStore('packs',{keyPath:'key'});};
-  req.onsuccess=()=>resolve(req.result);
+  req.onsuccess=()=>{
+   const connection=req.result;
+   connection.onversionchange=()=>{connection.close();if(darturnioOfflineDbHandle===connection)darturnioOfflineDbHandle=null;};
+   darturnioOfflineDbHandle=connection;
+   resolve(connection);
+  };
   req.onerror=()=>reject(req.error||new Error('IndexedDB není dostupné'));
- });
+ }).finally(()=>{darturnioOfflineDbOpening=null;});
+ return darturnioOfflineDbOpening;
 }
 async function darturnioOfflineRead(){
  const database=await darturnioOfflineDb();
@@ -5569,7 +5618,7 @@ async function darturnioOfflineRead(){
   const req=tx.objectStore('packs').get(darturnioOfflineKey());
   req.onsuccess=()=>resolve(req.result||null);
   req.onerror=()=>reject(req.error);
- });}finally{database.close();}
+ });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
 }
 async function darturnioOfflineWrite(pack){
  const database=await darturnioOfflineDb();
@@ -5579,7 +5628,7 @@ async function darturnioOfflineWrite(pack){
   tx.oncomplete=resolve;
   tx.onerror=()=>reject(tx.error||new Error('Nepodařilo se uložit nához do zařízení'));
   tx.onabort=()=>reject(tx.error||new Error('Místní uložení bylo přerušeno'));
- });}finally{database.close();}
+ });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
  darturnioOfflinePack=pack;
 }
 async function darturnioOfflineClear(){
@@ -5588,7 +5637,7 @@ async function darturnioOfflineClear(){
   const tx=database.transaction('packs','readwrite');
   tx.objectStore('packs').delete(darturnioOfflineKey());
   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
- });}finally{database.close();}
+ });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
  darturnioOfflinePack=null;
 }
 // Serialize all IndexedDB pack mutations; never overwrite a newer local visit.
@@ -5670,6 +5719,7 @@ async function darturnioOfflineAdoptLegacy(){
 }
 async function darturnioOfflineSubmit(mode){
  if(tabletBusy){return;}
+ const localSaveStarted=performance.now();
  tabletBusy=true;
  try{
   await darturnioOfflineEnsure();
@@ -5708,6 +5758,7 @@ async function darturnioOfflineSubmit(mode){
    return {...current,pending:[...current.pending,nextVisit]};
   });
   darturnioOptimisticVisit=null;
+  darturnioSavingDuration('Jednotlivci: bezpecne ulozeni do tabletu',localSaveStarted);
   darturnioOfflineMessage='Uloženo v tabletu – synchronizace na pozadí.';
   tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue='';tabletSpecialType='';tabletSpecialDart=0;tabletDoubleAttempts=null;
   darturnioOfflinePaint();
@@ -5742,7 +5793,9 @@ async function darturnioOfflineSync(){
     return {...pack,pending};
    }).then(pack=>pack?.pending?.[0]);
    if(!first)break;
+   const networkSaveStarted=performance.now();
    const result=await darturnioTabletRpc('record_dart_visit_with_double',first.args);
+   darturnioSavingDuration('Jednotlivci: potvrzeni Supabase',networkSaveStarted);
    if(result.error)throw new Error('Nához '+first.fake.visit_no+' nebyl potvrzen: '+result.error.message);
    const confirmed=result.data||first.fake;
    await darturnioOfflineMutate(pack=>{
@@ -6185,8 +6238,56 @@ async function init(){
         if(table&&!tabletTables.has(table))return;
         const row=payload?.new||payload?.old||{};
         if(row.tournament_id && String(row.tournament_id)!==String(selectedTournament))return;
-        // Navstevy jineho legu nemeni stav prave otevreneho pocitadla.
-        if(table==='dart_visits' && tabletFastCache?.leg?.id && row.leg_id && String(row.leg_id)!==String(tabletFastCache.leg.id))return;
+        // DARTURNIO 2026-11-22: zapis na tabletu nesmi spoustet zbytecne nacitani
+        // celeho turnaje po KAZDEM serverem potvrzenem nahozeni.
+        const ownTournament=tournaments.find(t=>String(t.id)===String(selectedTournament));
+        const isPairs=ownTournament?.participant_mode==='pairs';
+        const isCricket=Number(ownTournament?.game_type)===701;
+        const c=tabletFastCache;
+        // Oddel herni rezimy: aktualizace jineho typu pocitadla nejsou duvodem
+        // pro novy fetch na aktivnim tabletu.
+        if(isPairs){
+          if(['match_legs','dart_visits','cricket_darts','cricket_visit_requests'].includes(table))return;
+          if(typeof window.darturnioPairsTabletSkipRealtime==='function' && window.darturnioPairsTabletSkipRealtime(payload))return;
+        }else{
+          if(['darturnio_pair_matches','darturnio_pair_legs','darturnio_pair_visits','darturnio_pair_sessions'].includes(table))return;
+          if(!isCricket && ['cricket_darts','cricket_visit_requests'].includes(table))return;
+        }
+        // Behem aktivniho lega jsou zmeny jinych zapasu pro aktualni pocitadlo
+        // nerelevantni. Jejich aktualizace tak neprekresli rozpisany nahoz.
+        if(c?.leg?.status==='live' && c.match?.id){
+          if(table==='matches' && row.id && String(row.id)!==String(c.match.id))return;
+          if(table==='match_legs' && row.match_id && String(row.match_id)!==String(c.match.id))return;
+          if(table==='darturnio_board_queue')return; // dalsi zapas az po konci lega
+        }
+        // Data detailu lega/Cricketu mohou postradat tournament_id.
+        if(table==='match_legs' && row.match_id && !matches.some(m=>String(m.id)===String(row.match_id)))return;
+        if(['cricket_darts','cricket_visit_requests'].includes(table) && c?.leg?.status==='live' && row.leg_id && String(row.leg_id)!==String(c.leg.id))return;
+        if(table==='dart_visits'){
+          if(c?.leg?.id && row.leg_id && String(row.leg_id)!==String(c.leg.id))return;
+          // Vlastni INSERT je uz bezpecne vykresleny lokalni frontou (IndexedDB)
+          // a potvrzeny stav se s nim spojuje podle jedinecneho request_id.
+          // Nepotrebujeme kvuli nemu nacitat vsechny zapasy, jmena a leg znovu.
+          const requestId=String(row.request_id||'');
+          const pack=darturnioOfflinePack;
+          if(payload.eventType==='INSERT' && requestId &&
+             c?.leg?.id && String(row.leg_id)===String(c.leg.id) &&
+             pack?.legId===c.leg.id &&
+             ((pack.pending||[]).some(x=>String(x.args?.p_request_id)===requestId) ||
+              (pack.confirmed||[]).some(x=>String(x.request_id||x.id)===requestId)))return;
+        }
+        // Pri live zapasu se nektere tabulky meni jen o technicka metadata
+        // (napr. updated_at). Pokud se vysledek/stav nezmenil, nemusi se
+        // prehrat formular a smazat prave rozepsany nahoz.
+        if(table==='matches' && c?.match?.id && String(row.id)===String(c.match.id) &&
+           c.leg?.status==='live' && row.status==='live' &&
+           Number(row.legs1)===Number(c.match.legs1) &&
+           Number(row.legs2)===Number(c.match.legs2) &&
+           String(row.winner_entry_id||'')===String(c.match.winner_entry_id||'') &&
+           String(row.scorekeeper_entry_id||'')===String(c.match.scorekeeper_entry_id||'') &&
+           Number(row.board_no)===Number(c.match.board_no))return;
+        if(table==='darturnio_board_queue' && c?.leg?.status==='live' &&
+           Number(row.board_no)>0 && Number(row.board_no)!==tabletBoard)return;
       }
       if(tabletBoard && (payload?.table==="cricket_darts" || payload?.table==="cricket_visit_requests")){
         // Jeden cricketovy nahoz vytvori az tri radky: nespoustej cely globalni reload.
@@ -6506,7 +6607,7 @@ async function loadOwnTournamentStats(){
    const maxCheckout=games.reduce((n,m)=>Math.max(n,Number(myIds.has(m.player1_entry_id)?m.p1_highest_checkout:m.p2_highest_checkout)||0),0);
    const maxVisit=games.reduce((n,m)=>Math.max(n,Number(myIds.has(m.player1_entry_id)?m.p1_highest_score:m.p2_highest_score)||0),0);
    const attempts=sum('double_attempts'),tracked=sum('tracked_visits'),untracked=sum('untracked_visits');
-   const rate=attempts>0?(100*sum('tracked_checkouts')/attempts).toFixed(1).replace('.',',')+' %'+(untracked?' *':''):'Nesledováno';
+   const rate=attempts>0?(100*sum('tracked_checkouts')/attempts).toFixed(1).replace('.',',')+' %'+(untracked?' *':''):'—';
    const playedTournaments=new Set(ownEntries.filter(e=>games.some(m=>m.player1_entry_id===e.id||m.player2_entry_id===e.id)).map(e=>e.tournament_id));
    const values=[playedTournaments.size,ownEntries.filter(e=>Number(e.final_place)===1).length,games.length,won,
      pdarts?(3*ppoints/pdarts).toFixed(2):'—',bestAvg===null?'—':bestAvg.toFixed(2),
@@ -6885,7 +6986,7 @@ function render(kind){
  <div class="tablet-counter-actions"><button type="button" class="secondary" data-local-undo>ZPĚT – VRÁTIT NÁHOZ</button><button type="button" class="action" data-local-submit ${!ready?'disabled':''}>POTVRDIT NÁHOZ</button></div><div data-local-feedback class="local-error" role="status" aria-live="polite"></div></div>`;
 }
 function statsMarkup(g,m){
- return `<div class="local-result-stats">${g.names.map((name,i)=>{const s=m.stats[i];return `<div class="local-result-player"><h4>${html(name)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${m.wins[i]}</b></div><div><span>Průměr Ø3</span><b>${s.avg===null?'—':fmt(s.avg)}</b></div><div><span>Hozené šipky</span><b>${s.darts}</b></div><div><span>Nejvyšší nához</span><b>${s.maxVisit}</b></div><div><span>Nejvyšší zavření</span><b>${s.maxCheckout||'—'}</b></div><div><span>Náhozy 100+ / 140+ / 180</span><b>${s.high100} / ${s.high140} / ${s.high180}</b></div><div><span>Úspěšná zavření</span><b>${s.checkout}</b></div><div><span>Pokusy na double</span><b>${s.trackedVisits?s.attempts:'Nesledováno'}</b></div><div><span>Úspěšnost double</span><b>${s.rate===null?'Nesledováno':fmt(s.rate)+' %'+(s.untracked?' *':'')}</b></div></div>${s.untracked&&s.trackedVisits?'<small>* Úspěšnost jen ze sledovaných náhozů.</small>':''}</div>`}).join('')}</div>`;
+ return `<div class="local-result-stats">${g.names.map((name,i)=>{const s=m.stats[i];return `<div class="local-result-player"><h4>${html(name)}</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>${m.wins[i]}</b></div><div><span>Průměr Ø3</span><b>${s.avg===null?'—':fmt(s.avg)}</b></div><div><span>Hozené šipky</span><b>${s.darts}</b></div><div><span>Nejvyšší nához</span><b>${s.maxVisit}</b></div><div><span>Nejvyšší zavření</span><b>${s.maxCheckout||'—'}</b></div><div><span>Náhozy 100+ / 140+ / 180</span><b>${s.high100} / ${s.high140} / ${s.high180}</b></div><div><span>Úspěšná zavření</span><b>${s.checkout}</b></div><div><span>Pokusy na double</span><b>${s.trackedVisits?s.attempts:'—'}</b></div><div><span>Úspěšnost double</span><b>${s.rate===null?'—':fmt(s.rate)+' %'+(s.untracked?' *':'')}</b></div></div>${s.untracked&&s.trackedVisits?'<small>* Úspěšnost jen ze sledovaných náhozů.</small>':''}</div>`}).join('')}</div>`;
 }
 function submit(kind){
  const g=sessions[kind];if(!g)return;
@@ -9760,16 +9861,35 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const pairDbName='darturnio-pair-visits-v3';
  const pairStore='visits';
  let pairMemory=[],pairReady=false,pairSyncRunning=false,pairRetryTimer=null;
+ // Vlastni navstevy jsou jiz prekreslene ihned po ulozeni do IndexedDB.
+ // Realtime echo z jejich pozdejsiho potvrzeni nesmi znovu stahovat cely turnaj.
+ const pairOwnVisitIds=new Set();
+ function pairRememberOwnVisit(id){
+   if(!id)return;
+   pairOwnVisitIds.add(String(id));
+   if(pairOwnVisitIds.size>240)pairOwnVisitIds.delete(pairOwnVisitIds.values().next().value);
+ }
  let pairWriteChain=Promise.resolve();
  const pairQueue=()=>pairMemory.slice().sort((a,b)=>a.order-b.order);
  const getPending=()=>pairQueue()[0]?.args||null;
- const pairDb=()=>new Promise((resolve,reject)=>{
-   if(!window.indexedDB)return reject(new Error('IndexedDB není dostupná.'));
-   const req=indexedDB.open(pairDbName,1);
-   req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(pairStore))db.createObjectStore(pairStore,{keyPath:'id'})};
-   req.onsuccess=()=>resolve(req.result);
-   req.onerror=()=>reject(req.error||new Error('IndexedDB nelze otevřít.'));
- });
+ // Jedna otevrena databaze pro frontu dvojic, transakce zustavaji durable.
+ let pairDbHandle=null,pairDbOpening=null;
+ const pairDb=()=>{
+   if(pairDbHandle)return Promise.resolve(pairDbHandle);
+   if(pairDbOpening)return pairDbOpening;
+   pairDbOpening=new Promise((resolve,reject)=>{
+     if(!window.indexedDB)return reject(new Error('IndexedDB není dostupná.'));
+     const req=indexedDB.open(pairDbName,1);
+     req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(pairStore))db.createObjectStore(pairStore,{keyPath:'id'})};
+     req.onsuccess=()=>{
+       const connection=req.result;
+       connection.onversionchange=()=>{connection.close();if(pairDbHandle===connection)pairDbHandle=null;};
+       pairDbHandle=connection;resolve(connection);
+     };
+     req.onerror=()=>reject(req.error||new Error('IndexedDB nelze otevřít.'));
+   }).finally(()=>{pairDbOpening=null;});
+   return pairDbOpening;
+ };
  const pairTx=async(mode,fn)=>{
    const db=await pairDb();
    try{return await new Promise((resolve,reject)=>{
@@ -9779,7 +9899,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
      tx.oncomplete=()=>resolve(result);
      tx.onerror=()=>reject(tx.error||new Error('IndexedDB zápis selhal.'));
      tx.onabort=()=>reject(tx.error||new Error('IndexedDB transakce zrušena.'));
-   })}finally{db.close()}
+   })}finally{/* Spojeni zustava otevrene pro dalsi nahoz. */}
  };
  const pairSerial=fn=>{const job=pairWriteChain.then(fn);pairWriteChain=job.catch(()=>{});return job};
  const pairReadAll=()=>pairTx('readonly',store=>store.getAll());
@@ -9822,7 +9942,9 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    try{
      while(navigator.onLine&&pairQueue().length){
        const item=pairQueue()[0];
+       const pairRpcStart=performance.now();
        const result=await getDb().rpc('darturnio_v2_pair_visit',item.args);
+       darturnioSavingDuration('Dvojice: potvrzeni Supabase',pairRpcStart);
        if(result.error)throw result.error;
        if(result.data?.match_closed)window.darturnioResultNotice?.put(item.tid,item.board,'pairs',item.matchId,item.sessionId);
        await pairRemove(item);
@@ -9883,7 +10005,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
     const members=[p.player1_id,p.player2_id];
     const rows=members.map(pid=>{
       const x=darturnioMatchPlayerStats(all.filter(v=>v.player_id===pid));
-      return '<tr><td>'+escHtml(nameOf(pid))+'</td><td>'+x.darts+'</td><td>'+x.average+'</td><td>'+x.maxVisit+'</td><td>'+x.maxCheckout+'</td><td>'+x.high100+' / '+x.high140+' / '+x.high180+'</td><td>'+x.checkoutCount+'</td><td>'+(x.untracked?'Nesledováno / částečně':x.attempts)+'</td><td>'+x.rate+'</td></tr>';
+      return '<tr><td>'+escHtml(nameOf(pid))+'</td><td>'+x.darts+'</td><td>'+x.average+'</td><td>'+x.maxVisit+'</td><td>'+x.maxCheckout+'</td><td>'+x.high100+' / '+x.high140+' / '+x.high180+'</td><td>'+x.checkoutCount+'</td><td>'+(x.untracked?'—':x.attempts)+'</td><td>'+x.rate+'</td></tr>';
     }).join('');
     return '<div class="local-result-player"><h4>'+escHtml(pairName(id))+'</h4><div class="local-stat-grid"><div><span>Vyhrané legy</span><b>'+(id===m.pair1_id?m.legs1:m.legs2)+'</b></div><div><span>Hozené šipky</span><b>'+members.reduce((n,pid)=>n+darturnioMatchPlayerStats(all.filter(v=>v.player_id===pid)).darts,0)+'</b></div></div><div style="overflow-x:auto"><table class="dt-pair-stats"><thead><tr><th>Hráč</th><th>Šipky</th><th>Ø3</th><th>Max. nához</th><th>Max. zavření</th><th>100+ / 140+ / 180</th><th>Zavření</th><th>Double pokusy</th><th>Double úspěšnost</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
    };
@@ -9965,6 +10087,23 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   }catch(error){if(request!==state.loadNumber)return;state.loadError=error.message||String(error)}
   renderLocal();
  }
+ // Ignorovat pouze vlastni echo nebo prokazatelne nesouvisejici parove udalosti.
+ // Zmeny aktualniho zapasu z jineho zarizeni se stale nactou.
+ window.darturnioPairsTabletSkipRealtime=payload=>{
+   if(!state.tid||state.tid!==selectedTournament||Number(state.board)!==Number(tabletBoard))return false;
+   const table=String(payload?.table||'');
+   const row=payload?.new||payload?.old||{};
+   if(table==='darturnio_pair_visits'){
+     if(row.request_id && pairOwnVisitIds.has(String(row.request_id)))return true;
+     if(state.leg?.status==='live' && row.leg_id && state.leg?.id && String(row.leg_id)!==String(state.leg.id))return true;
+   }
+   if(state.leg?.status==='live'){
+     if(table==='darturnio_pair_legs' && row.session_id && state.session?.id && String(row.session_id)!==String(state.session.id))return true;
+     if(table==='darturnio_pair_matches' && row.id && state.match?.id && String(row.id)!==String(state.match.id))return true;
+     if(table==='darturnio_pair_sessions' && row.board_no && Number(row.board_no)!==Number(state.board))return true;
+   }
+   return false;
+ };
  window.darturnioPairsTabletRender=async(tid,board)=>{
    if(!tid||!board)return;
    if(state.tid!==tid||state.board!==board){state.tid=tid;state.board=board;state.session=null;state.match=null;resetDraft()}
@@ -10000,8 +10139,11 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    const action=p.action==='checkout'?'checkout':p.action==='bust'?'bust':args.p_action==='auto'?'score':args.p_action;
    const points=action==='bust'?0:Math.max(0,turn.remaining-p.remaining);
    const fake={request_id:args.p_request_id,leg_id:state.leg.id,visit_no:turn.visitNo,pair_id:turn.pairId,player_id:turn.player,action,score_before:turn.remaining,score_after:p.remaining,entered_points:action==='bust'?0:points,counted_points:points,darts_counted:args.p_darts_count,double_attempts:args.p_double_attempts};
+   const pairLocalStart=performance.now();
    try{await pairAdd({id:args.p_request_id,order:Date.now()*1000+turn.visitNo,args,fake,tid:state.tid,board:state.board,legId:state.leg.id,matchId:state.match.id,sessionId:state.session.id})}
    catch(err){throw new Error('Lokální IndexedDB zápis selhal. Nához nebyl potvrzen: '+err.message)}
+   darturnioSavingDuration('Dvojice: bezpecne ulozeni do tabletu',pairLocalStart);
+   pairRememberOwnVisit(args.p_request_id);
    state.visits.push(fake);
    if(action==='checkout')state.leg={...state.leg,status:'finished',winner_pair_id:turn.pairId};
    resetDraft();renderLocal();
@@ -11680,7 +11822,7 @@ setTimeout(()=>{void refresh()},8000);
           ${numCell('Hozené šipky',stats.darts)}${numCell('Nejlepší leg',stats.bestLeg===null?'—':stats.bestLeg+' šipek')}
           ${numCell('Nejvyšší nához',stats.maxVisit??'—')}${numCell('Nejvyšší checkout',stats.maxCheckout??'—')}
           ${numCell('100+ (100–139)',stats.high100)}${numCell('140+ (140–179)',stats.high140)}${numCell('180',stats.high180)}
-          ${numCell('Úspěšná zavření',stats.checkoutCount)}${numCell('Pokusy na double',stats.attempts===null?'Nesledováno':stats.attempts)}
+          ${numCell('Úspěšná zavření',stats.checkoutCount)}${numCell('Pokusy na double',stats.attempts===null?'—':stats.attempts)}
           ${numCell('Úspěšnost double',stats.doubleRate===null?'—':fmt(stats.doubleRate)+' %')}
         </div>${stats.attemptCoverage<stats.attemptTotal?'<p class="dt-report-muted">Pokusy na double jsou evidovány jen u části náhozů. Procento vychází pouze z evidovaných pokusů.</p>':''}`;
     return `<div class="dt-report-player"><div class="dt-report-player-name">${esc(who.name)} ${m.winner_entry_id===who.id?'<span class="dt-report-win">VÍTĚZ</span>':''}</div><div class="dt-report-player-legs">${wins} vyhrané legy</div>${detail}</div>`;
@@ -12587,120 +12729,4 @@ setTimeout(()=>{void refresh()},8000);
   else init();
 })();
 </script>
-<style id="darturnio-unified-ui">
-/* ===== DARTURNIO – JEDNOTNÉ ROZHRANÍ (sjednocující vrstva, musí zůstat poslední) ===== */
-:root{--dt-red:#E11D1D;--dt-red-2:#B91818;--dt-surface:#1d1d1d;--dt-surface-2:#15161a;--dt-field:#121318;--dt-line:#383843;--dt-line-2:#4a4b55;--dt-text:#f4f4f6;--dt-muted:#adb1bc;--dt-r:12px;--dt-r-lg:16px;--dt-ctl:48px;--dt-font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
-html body{font-family:var(--dt-font)!important}
-html body button,html body input,html body select,html body textarea{font-family:var(--dt-font)!important}
-
-/* Spodní odsazení: pevná patička s logem a banner souhlasu už nezakrývají obsah */
-html body:not(.tablet-mode){padding-bottom:calc(56px + env(safe-area-inset-bottom,0px))}
-html body:not(.tablet-mode):has(#dtConsentBanner){padding-bottom:calc(210px + env(safe-area-inset-bottom,0px))}
-@media(min-width:601px){html body:not(.tablet-mode):has(#dtConsentBanner){padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}}
-
-/* Panely a karty */
-html body :is(#landingHome,#legacyApp) .panel,
-html body :is(#landingHome,#legacyApp) .active-panel{border-radius:var(--dt-r-lg)!important;border:1px solid var(--dt-line)!important}
-html body :is(#landingHome,#legacyApp) .local-setup,
-html body :is(#landingHome,#legacyApp) .ct-card,
-html body :is(#landingHome,#legacyApp) .ux-card,
-html body :is(#landingHome,#legacyApp) .dt-daily-details > div{border-radius:14px!important;border-color:var(--dt-line)!important}
-html body :is(#landingHome,#legacyApp) h3{font-weight:800}
-
-/* Primární tlačítko (červené) */
-html body :is(#landingHome,#legacyApp) button.primary,
-html body :is(#landingHome,#legacyApp) .ct-primary,
-html body :is(#landingHome,#legacyApp) .local-start,
-html body :is(#landingHome,#legacyApp) .dt-daily-cta,
-html body :is(#landingHome,#legacyApp) #loginForm button[type=submit],
-html body :is(#landingHome,#legacyApp) #registerForm button[type=submit],
-html body :is(#landingHome,#legacyApp) button.primary,
-html body :is(#landingHome,#legacyApp) .ct-primary,
-html body :is(#landingHome,#legacyApp) .local-start,
-html body :is(#landingHome,#legacyApp) .dt-daily-cta,
-html body :is(#landingHome,#legacyApp) #loginForm button[type=submit],
-html body :is(#landingHome,#legacyApp) #registerForm button[type=submit]{
-  background:linear-gradient(180deg,var(--dt-red),var(--dt-red-2))!important;color:#fff!important;border:1px solid var(--dt-red)!important;
-  border-radius:var(--dt-r)!important;min-height:var(--dt-ctl)!important;padding:11px 18px!important;font-size:15px!important;font-weight:800!important;
-  letter-spacing:.3px;cursor:pointer;box-shadow:none!important;text-shadow:none!important}
-html body :is(#landingHome,#legacyApp) .ct-primary,
-html body :is(#landingHome,#legacyApp) .local-start,
-html body :is(#landingHome,#legacyApp) form button.primary.wide,
-html body :is(#landingHome,#legacyApp) #loginForm button[type=submit],
-html body :is(#landingHome,#legacyApp) #registerForm button[type=submit],
-html body :is(#landingHome,#legacyApp) .dt-daily-cta{width:100%}
-html body :is(#landingHome,#legacyApp) button.primary:hover,
-html body :is(#landingHome,#legacyApp) .ct-primary:hover,
-html body :is(#landingHome,#legacyApp) .local-start:hover,
-html body :is(#landingHome,#legacyApp) .dt-daily-cta:hover{filter:brightness(1.08)}
-html body :is(#landingHome,#legacyApp) button.primary:disabled,
-html body :is(#landingHome,#legacyApp) .ct-primary:disabled,
-html body :is(#landingHome,#legacyApp) .local-start:disabled,
-html body :is(#landingHome,#legacyApp) .dt-daily-cta:disabled{opacity:.5;cursor:not-allowed}
-html body :is(#landingHome,#legacyApp) button.action:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){background:var(--dt-red)!important;color:#fff!important;border:1px solid var(--dt-red)!important;border-radius:var(--dt-r)!important;min-height:var(--dt-ctl);padding:11px 18px;font-size:14px;font-weight:800;cursor:pointer}
-html body :is(#landingHome,#legacyApp) button.action{background:var(--dt-red);color:#fff;border-radius:var(--dt-r)}
-
-/* Sekundární tlačítko (šedé) */
-html body :is(#landingHome,#legacyApp) button.secondary:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) .dt-daily-secondary:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) .ux-button.secondary:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) .comp-login-shortcut:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){
-  background:#272830!important;color:#fff!important;border:1px solid var(--dt-line-2)!important;border-radius:var(--dt-r)!important;
-  min-height:44px!important;padding:10px 16px!important;font-size:14px!important;font-weight:700!important;cursor:pointer}
-html body :is(#landingHome,#legacyApp) button.secondary:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *):hover,
-html body :is(#landingHome,#legacyApp) .dt-daily-secondary:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *):hover,
-html body :is(#landingHome,#legacyApp) .ux-button.secondary:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *):hover{background:#32333d!important}
-
-/* Nebezpečné akce */
-html body :is(#landingHome,#legacyApp) button.danger:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){background:#4a1f1f!important;color:#ffd0d0!important;border:1px solid #8c2a2a!important;border-radius:var(--dt-r)!important;min-height:44px;padding:10px 16px!important;font-size:14px!important;font-weight:700!important}
-
-/* Filtry, záložky, přepínače */
-html body :is(#landingHome,#legacyApp) .ux-filter:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) .mini-tab:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){border-radius:var(--dt-r)!important;min-height:44px!important;font-size:14px!important;font-weight:700!important}
-html body :is(#landingHome,#legacyApp) .ux-filter[aria-pressed="true"]{background:var(--dt-red)!important;border-color:var(--dt-red)!important;color:#fff!important}
-
-/* Vstupní pole a výběry */
-html body :is(#landingHome,#legacyApp) input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) select:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) textarea:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){
-  background:var(--dt-field)!important;color:var(--dt-text)!important;border:1px solid var(--dt-line-2)!important;border-radius:var(--dt-r)!important;
-  min-height:var(--dt-ctl);padding:11px 14px!important;font-size:16px!important;max-width:100%}
-html body :is(#landingHome,#legacyApp) input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=hidden]):not([type=number]):not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *),
-html body :is(#landingHome,#legacyApp) select:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){min-width:min(100%,220px)}
-html body :is(#landingHome,#legacyApp) td input,
-html body :is(#landingHome,#legacyApp) th input,
-html body :is(#landingHome,#legacyApp) td select,
-html body :is(#landingHome,#legacyApp) table input,
-html body :is(#landingHome,#legacyApp) table select{min-width:0!important;min-height:40px}
-html body :is(#landingHome,#legacyApp) input:focus-visible,
-html body :is(#landingHome,#legacyApp) select:focus-visible,
-html body :is(#landingHome,#legacyApp) textarea:focus-visible{outline:2px solid #ff6b6b!important;outline-offset:2px;border-color:var(--dt-red)!important}
-html body :is(#landingHome,#legacyApp) ::placeholder{color:#8b8e99;opacity:1}
-
-/* Dlaždice na hlavní stránce a tréninku */
-html body :is(#landingHome,#legacyApp) .training-item,html body :is(#landingHome,#legacyApp) .portal-dashboard-tile{font-family:var(--dt-font)!important;border-radius:var(--dt-r-lg)!important}
-
-/* Navigace uvnitř turnaje */
-html body #legacyApp > nav,html body #legacyApp nav[role=tablist]{background:#181818;border-bottom:1px solid var(--dt-line)}
-html body #legacyApp nav[role=tablist] button{background:transparent!important;color:var(--dt-muted)!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:0!important;
-  min-height:52px;padding:15px 12px!important;font-size:14px!important;font-weight:800!important;cursor:pointer;white-space:nowrap}
-html body #legacyApp nav[role=tablist] button.active,html body #legacyApp nav[role=tablist] button[aria-selected="true"]{color:#fff!important;border-bottom-color:var(--dt-red)!important;background:#201a1f!important}
-
-/* Banner souhlasu */
-html body #dtConsentBanner{border-radius:var(--dt-r-lg);border-color:var(--dt-line-2);background:#1d1d1d}
-html body #dtConsentBanner button{border-radius:var(--dt-r)!important;min-height:44px;padding:10px 16px!important;font-size:14px;font-weight:800}
-html body #dtConsentBanner #dtConsentYes{background:var(--dt-red)!important;border-color:var(--dt-red)!important}
-html body #dtConsentBanner #dtConsentNo{background:#272830!important;border-color:var(--dt-line-2)!important}
-
-/* Přístupnost: jednotný fokus tlačítek */
-html body button:focus-visible{outline:2px solid #ff6b6b;outline-offset:2px}
-
-/* Doladění */
-html body #landingHome.has-panel>.panel.active-panel{border-radius:var(--dt-r-lg)!important}
-html body #aboutDarturnioPanel [data-about-tab],html body #aboutDarturnioPanel .dt-about-tabs button{border-radius:var(--dt-r)!important;min-height:44px!important;font-size:14px!important;font-weight:800!important}
-html body #legacyApp #loginPanel input{display:block;width:100%;margin:8px 0}
-html body #legacyApp #loginPanel button{width:100%;min-height:var(--dt-ctl)!important;padding:11px 18px!important;font-size:15px!important;font-weight:800!important;border-radius:var(--dt-r)!important;margin:8px 0 0}
-html body #legacyApp .panel>button.action:not(:is(#localDuelRoot,#ctGame,#trainingCounter,#segmentPlay,#checkoutGame,#cricketDrillPlay,#tabletRoot,.local-game-toolbar,.tablet-aggregate-pad,.tablet-special-group,.tablet-double-buttons) *){min-height:var(--dt-ctl);padding:11px 18px;font-size:14px;font-weight:800}
-/* ===== konec jednotné vrstvy ===== */
-</style>
 </body></html>
