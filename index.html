@@ -9273,15 +9273,57 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const getDb=()=>typeof db!=='undefined'?db:window.db;
  const escHtml=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
  const state={tid:'',board:0,session:null,match:null,leg:null,visits:[],pairs:[],players:new Map(),history:[],legHistory:[],busy:false,mode:'aggregate',total:'',darts:[],mult:1,special:null,specialCount:3,attempts:null,draftLeg:'',loadNumber:0,loadError:''};
- const pendingKey='darturnio-pair-pending-v1';
- // Persisted FIFO. Each request keeps the same UUID for idempotent retries.
- const queueKey='darturnio-pair-optimistic-v2';
- let pairSyncRunning=false;
- const pairQueue=()=>{try{const v=JSON.parse(localStorage.getItem(queueKey)||'[]');return Array.isArray(v)?v:[]}catch{return []}};
- const pairSaveQueue=q=>localStorage.setItem(queueKey,JSON.stringify(q));
+ // Durable per-visit IndexedDB queue. Never acknowledge a visit until its transaction commits.
+ const queueKey='darturnio-pair-optimistic-v2'; // legacy migration only
+ const pairDbName='darturnio-pair-visits-v3';
+ const pairStore='visits';
+ let pairMemory=[],pairReady=false,pairSyncRunning=false,pairRetryTimer=null;
+ let pairWriteChain=Promise.resolve();
+ const pairQueue=()=>pairMemory.slice().sort((a,b)=>a.order-b.order);
  const getPending=()=>pairQueue()[0]?.args||null;
- const setPending=o=>{const q=pairQueue();q.push(o);pairSaveQueue(q)};
- const clearPending=()=>{const q=pairQueue();q.shift();pairSaveQueue(q)};
+ const pairDb=()=>new Promise((resolve,reject)=>{
+   if(!window.indexedDB)return reject(new Error('IndexedDB není dostupná.'));
+   const req=indexedDB.open(pairDbName,1);
+   req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(pairStore))db.createObjectStore(pairStore,{keyPath:'id'})};
+   req.onsuccess=()=>resolve(req.result);
+   req.onerror=()=>reject(req.error||new Error('IndexedDB nelze otevřít.'));
+ });
+ const pairTx=async(mode,fn)=>{
+   const db=await pairDb();
+   try{return await new Promise((resolve,reject)=>{
+     const tx=db.transaction(pairStore,mode),store=tx.objectStore(pairStore);
+     let result;try{result=fn(store)}catch(e){tx.abort();reject(e);return}
+     if(result&&typeof result==='object'&&'onsuccess' in result){result.onsuccess=()=>{result=result.result};result.onerror=()=>{}};
+     tx.oncomplete=()=>resolve(result);
+     tx.onerror=()=>reject(tx.error||new Error('IndexedDB zápis selhal.'));
+     tx.onabort=()=>reject(tx.error||new Error('IndexedDB transakce zrušena.'));
+   })}finally{db.close()}
+ };
+ const pairSerial=fn=>{const job=pairWriteChain.then(fn);pairWriteChain=job.catch(()=>{});return job};
+ const pairReadAll=()=>pairTx('readonly',store=>store.getAll());
+ const pairAdd=async item=>pairSerial(async()=>{
+   await pairTx('readwrite',store=>store.add(item));
+   pairMemory.push(item);
+ });
+ const pairRemove=async item=>pairSerial(async()=>{
+   await pairTx('readwrite',store=>store.delete(item.id));
+   pairMemory=pairMemory.filter(x=>x.id!==item.id);
+ });
+ const pairInit=(async()=>{
+   const saved=await pairReadAll();pairMemory=Array.isArray(saved)?saved:[];
+   // Migrate legacy localStorage queue without deleting the source until all writes commit.
+   const old=JSON.parse(localStorage.getItem(queueKey)||'[]');
+   if(Array.isArray(old))for(const item of old){
+     const id=item.args?.p_request_id;if(!id||pairMemory.some(x=>x.id===id))continue;
+     await pairAdd({...item,id,order:Number(item.order)||Date.now()+pairMemory.length});
+   }
+   localStorage.removeItem(queueKey);
+   pairReady=true;
+ })();
+ const pairRetrySoon=()=>{
+   if(pairRetryTimer||!navigator.onLine)return;
+   pairRetryTimer=setTimeout(()=>{pairRetryTimer=null;void pairSync()},5000);
+ };
  const pairOptimistic=()=>pairQueue().filter(x=>x.tid===state.tid&&x.board===state.board&&x.legId===state.leg?.id);
  const pairMergeOptimistic=()=>{
    if(!state.leg)return;
@@ -9292,6 +9334,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    if(closing&&state.leg?.status==='live')state.leg={...state.leg,status:'finished',winner_pair_id:closing.fake.pair_id};
  };
  const pairSync=async()=>{
+   try{await pairInit}catch(err){console.error('Darturnio: pair queue initialization failed',err);return}
    if(pairSyncRunning||!navigator.onLine||!pairQueue().length)return;
    pairSyncRunning=true;
    try{
@@ -9300,10 +9343,10 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
        const result=await getDb().rpc('darturnio_v2_pair_visit',item.args);
        if(result.error)throw result.error;
        if(result.data?.match_closed)window.darturnioResultNotice?.put(item.tid,item.board,'pairs',item.matchId,item.sessionId);
-       clearPending();
+       await pairRemove(item);
        if(item.args.p_action==='checkout'&&state.tid===item.tid&&state.board===item.board){await refresh();}
      }
-   }catch(err){console.warn('Darturnio pair sync pending:',err);}
+   }catch(err){console.warn('Darturnio pair sync pending:',err);pairRetrySoon();}
    finally{pairSyncRunning=false;renderLocal()}
  };
  window.addEventListener('online',()=>void pairSync());
@@ -9443,22 +9486,17 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  window.darturnioPairsTabletRender=async(tid,board)=>{
    if(!tid||!board)return;
    if(state.tid!==tid||state.board!==board){state.tid=tid;state.board=board;state.session=null;state.match=null;resetDraft()}
+   try{await pairInit}catch(e){state.loadError='Lokální frontu dvojic nelze načíst: '+e.message;renderLocal();return}
    await refresh(tid,board);
    void pairSync();
  };
  const rpc=async(name,args)=>{const result=await getDb().rpc(name,args);if(result.error)throw result.error;return result.data};
- async function retry(){const x=getPending();if(!x)return true;if(!navigator.onLine)throw new Error('Není internet, zápis zůstává uzamčený.');
-  const saved=await rpc('darturnio_v2_pair_visit',x);clearPending();
-  if(saved?.match_closed)window.darturnioResultNotice?.put(state.tid,state.board,'pairs',state.match?.id,state.session?.id);
-  else if(state.session?.id){
-   const r=await getDb().from('darturnio_pair_sessions').select('status').eq('id',state.session.id).maybeSingle();
-   if(!r.error&&r.data?.status==='finished')window.darturnioResultNotice?.put(state.tid,state.board,'pairs',state.match?.id,state.session.id);
-  }
-  return true;
- }
+ async function retry(){await pairInit;await pairSync();return pairQueue().length===0;}
  async function submitVisit(){
   if(state.busy)return;
+  state.busy=true;
   try{
+   await pairInit;
    const turn=activeTurn();if(!turn||!state.leg)throw new Error('Nejprve zahaj leg.');
    let args={p_leg_id:state.leg.id,p_request_id:crypto.randomUUID(),p_mode:state.mode,p_action:'auto',p_total:null,p_darts_count:3,p_darts:[],p_double_attempts:state.attempts,p_expected_visit_no:turn.visitNo,p_expected_player_id:turn.player};
    if(state.special){args.p_mode='aggregate';args.p_action=state.special;args.p_darts_count=state.specialCount;args.p_total=state.special==='checkout'?turn.remaining:null}
@@ -9480,13 +9518,14 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    const action=p.action==='checkout'?'checkout':p.action==='bust'?'bust':args.p_action==='auto'?'score':args.p_action;
    const points=action==='bust'?0:Math.max(0,turn.remaining-p.remaining);
    const fake={request_id:args.p_request_id,leg_id:state.leg.id,visit_no:turn.visitNo,pair_id:turn.pairId,player_id:turn.player,action,score_before:turn.remaining,score_after:p.remaining,entered_points:action==='bust'?0:points,counted_points:points,darts_counted:args.p_darts_count,double_attempts:args.p_double_attempts};
-   const q=pairQueue();q.push({args,fake,tid:state.tid,board:state.board,legId:state.leg.id,matchId:state.match.id,sessionId:state.session.id});
-   try{pairSaveQueue(q)}catch(err){throw new Error('Lokální úložiště je plné nebo nedostupné. Nához nebyl potvrzen: '+err.message)}
+   try{await pairAdd({id:args.p_request_id,order:Date.now()*1000+turn.visitNo,args,fake,tid:state.tid,board:state.board,legId:state.leg.id,matchId:state.match.id,sessionId:state.session.id})}
+   catch(err){throw new Error('Lokální IndexedDB zápis selhal. Nához nebyl potvrzen: '+err.message)}
    state.visits.push(fake);
    if(action==='checkout')state.leg={...state.leg,status:'finished',winner_pair_id:turn.pairId};
    resetDraft();renderLocal();
    void pairSync();
   }catch(e){state.loadError='Nepodařilo se bezpečně zapsat nához: '+e.message;renderLocal()}
+  finally{state.busy=false;renderLocal()}
  }
  async function action(fn){if(state.busy)return;state.busy=true;try{await fn();state.loadError='';resetDraft();await refresh()}catch(e){state.loadError=e.message||String(e);renderLocal()}finally{state.busy=false}}
  document.addEventListener('click',e=>{
