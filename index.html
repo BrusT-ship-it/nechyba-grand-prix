@@ -12269,4 +12269,233 @@ setTimeout(()=>{void refresh()},8000);
   update();
 })();
 </script>
+
+<style id="darturnio-profile-tiles-v1-style">
+/* Darturnio – pouze nový vzhled sekce Můj profil. Turnaje, počítadla a push služba beze změn. */
+#profileMe .dt-profile-tiles, #profileMe .dt-profile-detail {box-sizing:border-box}
+#profileMe .dt-profile-tiles[hidden],#profileMe .dt-profile-detail[hidden],#profileMe .dt-profile-pane[hidden],#profileMe .dt-profile-badge[hidden]{display:none!important}
+#profileMe .dt-profile-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:21px 0 16px}
+#profileMe .dt-profile-tile{position:relative;min-width:0;min-height:156px;padding:20px 18px 17px;border:1px solid #393b44;border-radius:16px;background:linear-gradient(145deg,#24262d,#17181d);color:#fff;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:12px;cursor:pointer;font:inherit;transition:background .17s,border-color .17s,transform .17s;overflow:hidden}
+#profileMe .dt-profile-tile::before{content:'';position:absolute;left:18px;top:0;width:42px;height:3px;background:#d72433;border-radius:0 0 4px 4px}
+#profileMe .dt-profile-tile:hover{transform:translateY(-2px);border-color:#c62837;background:linear-gradient(145deg,#292a32,#1a1b20)}
+#profileMe .dt-profile-tile:focus-visible,#profileMe .dt-profile-go-back:focus-visible,#profileMe .dt-myturn-open:focus-visible{outline:3px solid #ff5b62;outline-offset:3px}
+#profileMe .dt-profile-icon{font-size:31px;line-height:1.1;display:inline-block}
+#profileMe .dt-profile-tile-name{display:block;font-size:20px;line-height:1.23;font-weight:800;letter-spacing:.01em}
+#profileMe .dt-profile-tile-note{display:block;color:#b8bac4;font-size:12px;line-height:1.35;margin-top:5px;font-weight:500}
+#profileMe .dt-profile-tile-foot{width:100%;display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+#profileMe .dt-profile-tile-arrow{font-size:23px;color:#ed5260;line-height:1}
+#profileMe .dt-profile-badge{position:absolute;top:14px;right:15px;min-width:26px;height:26px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;background:#d41d2d;color:#fff;font-size:13px;font-weight:800;padding:0 7px}
+#profileMe .dt-profile-detail{margin:15px 0 28px;border:1px solid #393b44;border-radius:16px;background:#191a20;padding:18px;min-width:0}
+#profileMe .dt-profile-detail-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid #33353d}
+#profileMe .dt-profile-detail-head h4{margin:0;color:#fff;font-size:21px;line-height:1.3}
+#profileMe .dt-profile-go-back{border:1px solid #464952;background:#262831;border-radius:9px;color:#fff;padding:10px 13px;min-height:42px;font:inherit;font-size:13px;font-weight:750;cursor:pointer}
+#profileMe .dt-profile-go-back:hover{border-color:#e03342}
+#profileMe .dt-profile-detail #profileNotificationSection{margin:0!important;padding:0!important;border:0!important;background:transparent!important}
+#profileMe .dt-profile-detail .profile-qr-collapse{margin:0!important;background:transparent!important;border:0!important;overflow:visible!important}
+#profileMe .dt-profile-detail .profile-qr-collapse summary{display:none!important}
+#profileMe .dt-profile-detail .profile-qr-collapse .profile-qr-body{padding:5px 0 12px!important}
+#profileMe .dt-profile-detail #uxPlayerPanel{margin:17px 0 0;padding:17px;border:1px solid #3c3e46;border-radius:13px;background:#202127}
+#profileMe .dt-myturn-summary{color:#c6c8d1;font-size:13px;margin:0 0 12px;line-height:1.5}
+#profileMe .dt-myturn-list{display:grid;gap:9px}
+#profileMe .dt-myturn-card{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #363941;border-radius:12px;padding:13px 14px;background:#21232a;min-width:0}
+#profileMe .dt-myturn-info{flex:1;min-width:0}
+#profileMe .dt-myturn-title{font-weight:750;line-height:1.35;overflow-wrap:anywhere;color:#fff}
+#profileMe .dt-myturn-meta{margin:5px 0 0;color:#b9bbc4;font-size:12px;line-height:1.4}
+#profileMe .dt-myturn-open{background:#302127;color:#fff;border:1px solid #b52a38;border-radius:9px;font:inherit;font-weight:700;font-size:12px;padding:10px 11px;min-height:40px;white-space:nowrap;cursor:pointer}
+#profileMe .dt-myturn-open:hover{background:#9f1a29}
+#profileMe .dt-profile-inline-help{margin:3px 0 18px;color:#c2c3cc;font-size:13px;line-height:1.5}
+@media(max-width:520px){
+ #profileMe .dt-profile-tiles{gap:10px;margin-top:15px}
+ #profileMe .dt-profile-tile{min-height:141px;padding:16px 13px 14px;border-radius:13px}
+ #profileMe .dt-profile-tile::before{left:13px;width:34px}
+ #profileMe .dt-profile-tile-name{font-size:17px}
+ #profileMe .dt-profile-tile-note{font-size:11px}
+ #profileMe .dt-profile-icon{font-size:27px}
+ #profileMe .dt-profile-detail{padding:13px;border-radius:13px}
+ #profileMe .dt-profile-detail-head h4{font-size:18px}
+ #profileMe .dt-myturn-card{align-items:stretch;flex-direction:column}
+ #profileMe .dt-myturn-open{align-self:flex-start}
+}
+@media(prefers-reduced-motion:reduce){#profileMe .dt-profile-tile{transition:none}}
+</style>
+
+<script id="darturnio-profile-tiles-v1">
+(() => {
+  'use strict';
+  // Všechny existující ovladače a jejich ID ponecháváme, jen je přesouváme do přehledných panelů.
+  function init() {
+    const $ = id => document.getElementById(id);
+    const host = $('profileMe');
+    const statsButton = $('profileMeStats');
+    const notifications = $('profileNotificationSection');
+    const qrDetails = $('profileQrDetails');
+    const nameMessage = $('profileNameMessage');
+    if (!host || !statsButton || !notifications || !qrDetails || !nameMessage || $('dtProfileTileGrid')) return;
+
+    const grid = document.createElement('div');
+    grid.id = 'dtProfileTileGrid';
+    grid.className = 'dt-profile-tiles';
+    grid.setAttribute('aria-label', 'Sekce mého profilu');
+    grid.innerHTML = `
+      <button class="dt-profile-tile" type="button" data-dt-profile="stats" aria-label="Moje statistiky">
+        <span class="dt-profile-icon" aria-hidden="true">📊</span>
+        <span class="dt-profile-tile-foot"><span><span class="dt-profile-tile-name">Statistiky</span><span class="dt-profile-tile-note">Turnaje, průměry a trénink</span></span><span class="dt-profile-tile-arrow" aria-hidden="true">›</span></span>
+      </button>
+      <button class="dt-profile-tile" type="button" data-dt-profile="qr" aria-label="Můj QR kód">
+        <span class="dt-profile-icon" aria-hidden="true">▦</span>
+        <span class="dt-profile-tile-foot"><span><span class="dt-profile-tile-name">QR kód</span><span class="dt-profile-tile-note">Registrace u pořadatele</span></span><span class="dt-profile-tile-arrow" aria-hidden="true">›</span></span>
+      </button>
+      <button class="dt-profile-tile" type="button" data-dt-profile="tournaments" aria-label="Moje turnaje">
+        <span class="dt-profile-icon" aria-hidden="true">🏆</span>
+        <span class="dt-profile-tile-foot"><span><span class="dt-profile-tile-name">Moje turnaje</span><span class="dt-profile-tile-note">Účasti a moje zápasy</span></span><span class="dt-profile-tile-arrow" aria-hidden="true">›</span></span>
+      </button>
+      <button class="dt-profile-tile" type="button" data-dt-profile="notifications" aria-label="Moje upozornění">
+        <span class="dt-profile-icon" aria-hidden="true">🔔</span>
+        <span class="dt-profile-badge" id="dtProfileUnreadBadge" hidden>0</span>
+        <span class="dt-profile-tile-foot"><span><span class="dt-profile-tile-name">Upozornění</span><span class="dt-profile-tile-note">Zprávy a nastavení push</span></span><span class="dt-profile-tile-arrow" aria-hidden="true">›</span></span>
+      </button>`;
+
+    const detail = document.createElement('section');
+    detail.id = 'dtProfileDetail';
+    detail.className = 'dt-profile-detail';
+    detail.hidden = true;
+    detail.innerHTML = `
+      <div class="dt-profile-detail-head">
+        <h4 id="dtProfileDetailTitle">Můj profil</h4>
+        <button type="button" id="dtProfileReturn" class="dt-profile-go-back">← ZPĚT NA DLAŽDICE</button>
+      </div>
+      <div class="dt-profile-pane" data-dt-pane="qr" hidden>
+        <p class="dt-profile-inline-help">Ukaž osobní QR kód pořadateli. Snadno tě přidá na startovní listinu.</p>
+        <div id="dtProfileQrSlot"></div>
+      </div>
+      <div class="dt-profile-pane" data-dt-pane="tournaments" hidden>
+        <p id="dtProfileMyTournamentsInfo" class="dt-myturn-summary" role="status">Tvoje turnaje se načtou po otevření.</p>
+        <div id="dtProfileMyTournamentsList" class="dt-myturn-list"></div>
+        <div id="dtProfilePlayerTasksSlot"></div>
+      </div>
+      <div class="dt-profile-pane" data-dt-pane="notifications" hidden>
+        <div id="dtProfileNotificationsSlot"></div>
+      </div>`;
+
+    nameMessage.after(grid, detail);
+    $('dtProfileQrSlot').append(qrDetails);
+    $('dtProfileNotificationsSlot').append(notifications);
+    const playerTasksSlot = $('dtProfilePlayerTasksSlot');
+    const moveTasks = () => {
+      const existing = $('uxPlayerPanel');
+      if (existing && existing.parentElement !== playerTasksSlot) playerTasksSlot.append(existing);
+      return !!existing;
+    };
+    if (!moveTasks()) {
+      const watcher = new MutationObserver(() => { if (moveTasks()) watcher.disconnect(); });
+      watcher.observe(host, {childList:true,subtree:true});
+      setTimeout(() => watcher.disconnect(), 15000);
+    }
+    // Původní tlačítko stále řídí ověřený přechod na stránku statistik.
+    statsButton.hidden = true;
+    statsButton.setAttribute('tabindex','-1');
+
+    const titles = {qr:'MŮJ QR KÓD', tournaments:'MOJE TURNAJE', notifications:'UPOZORNĚNÍ'};
+    function showTiles() {
+      detail.hidden = true;
+      grid.hidden = false;
+      detail.querySelectorAll('[data-dt-pane]').forEach(p => {p.hidden = true;});
+    }
+    async function openPane(name) {
+      if (name === 'stats') {
+        showTiles();
+        statsButton.click();
+        return;
+      }
+      grid.hidden = true;
+      detail.hidden = false;
+      $('dtProfileDetailTitle').textContent = titles[name] || 'MŮJ PROFIL';
+      detail.querySelectorAll('[data-dt-pane]').forEach(p => {p.hidden = p.dataset.dtPane !== name;});
+      if (name === 'qr') qrDetails.open = true;
+      if (name === 'tournaments') {
+        void loadMyTournaments();
+        $('uxPlayerReload')?.click();
+      }
+      $('dtProfileReturn').focus({preventScroll:true});
+    }
+    grid.querySelectorAll('[data-dt-profile]').forEach(button => {
+      button.addEventListener('click', () => { void openPane(button.dataset.dtProfile); });
+    });
+    $('dtProfileReturn').addEventListener('click', () => {
+      showTiles();
+      grid.querySelector('[data-dt-profile="tournaments"]')?.focus({preventScroll:true});
+    });
+    // Po návratu z hlavní nabídky se vždy ukážou čtyři dlaždice.
+    $('profileOpenMe')?.addEventListener('click', showTiles);
+    $('profileStatsBack')?.addEventListener('click', showTiles);
+
+    const unread = $('profileUnreadCount');
+    const badge = $('dtProfileUnreadBadge');
+    function syncUnread() {
+      const n = Math.max(0, parseInt(unread?.textContent || '0', 10) || 0);
+      badge.hidden = n === 0;
+      badge.textContent = n > 99 ? '99+' : String(n);
+      grid.querySelector('[data-dt-profile="notifications"]')?.setAttribute('aria-label', n ? 'Upozornění, nepřečtené: '+n : 'Upozornění');
+    }
+    if (unread) new MutationObserver(syncUnread).observe(unread, {childList:true,subtree:true,characterData:true});
+    syncUnread();
+
+    let loadingNumber = 0;
+    const info = $('dtProfileMyTournamentsInfo');
+    const list = $('dtProfileMyTournamentsList');
+    const getClient = () => window.db || (typeof db !== 'undefined' ? db : null) || window.supabaseClient || null;
+    const dateText = value => {
+      if (!value) return 'Datum neuvedeno';
+      const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? `${m[3]}. ${m[2]}. ${m[1]}` : String(value).slice(0,10);
+    };
+    const statusText = value => ({planned:'Plánovaný',active:'Probíhá',finished:'Odehraný',cancelled:'Zrušený'})[value] || 'Turnaj';
+    async function loadMyTournaments() {
+      const serial = ++loadingNumber;
+      info.textContent = 'Načítám přihlášené turnaje…';
+      list.replaceChildren();
+      try {
+        const client = getClient();
+        if (!client?.auth) throw new Error('Databáze není připojená.');
+        const {data: session, error: sessionError} = await client.auth.getUser();
+        if (sessionError) throw sessionError;
+        const account = session?.user;
+        if (!account) {info.textContent = 'Přihlas se a uvidíš svoje turnaje.';return;}
+        const {data: linked, error: linkError} = await client.from('players').select('id').eq('profile_id',account.id).limit(30);
+        if (linkError) throw linkError;
+        if (!linked?.length) {info.textContent = 'Účet zatím není propojený s hráčem. Ukaž pořadateli QR kód.';return;}
+        const {data: entries, error: entriesError} = await client.from('tournament_entries').select('tournament_id').in('player_id',linked.map(p => p.id)).limit(600);
+        if (entriesError) throw entriesError;
+        const ids = [...new Set((entries || []).map(e => e.tournament_id).filter(Boolean))].slice(0,150);
+        if (!ids.length) {info.textContent = 'Zatím nejsi přihlášený do žádného turnaje.';return;}
+        const {data: tournaments, error: tournamentError} = await client.from('tournaments')
+          .select('id,name,event_date,status').in('id',ids).order('event_date',{ascending:false});
+        if (tournamentError) throw tournamentError;
+        if (serial !== loadingNumber) return;
+        info.textContent = `Moje turnaje: ${(tournaments || []).length}. Kliknutím otevřeš jejich výsledky a průběh.`;
+        const fragment = document.createDocumentFragment();
+        for (const t of (tournaments || [])) {
+          const card = document.createElement('article');card.className = 'dt-myturn-card';
+          const text = document.createElement('div');text.className = 'dt-myturn-info';
+          const name = document.createElement('div');name.className = 'dt-myturn-title';name.textContent = t.name || 'Turnaj';
+          const meta = document.createElement('div');meta.className = 'dt-myturn-meta';
+          meta.textContent = dateText(t.event_date) + ' · ' + statusText(t.status);
+          const open = document.createElement('button');open.type = 'button';open.className = 'dt-myturn-open';open.textContent = 'OTEVŘÍT';
+          open.setAttribute('aria-label','Otevřít turnaj '+(t.name || 'Turnaj'));
+          open.addEventListener('click', () => {
+            const url = new URL(location.href);url.searchParams.set('turnaj', t.id);url.hash = '';location.assign(url.toString());
+          });
+          text.append(name,meta);card.append(text,open);fragment.append(card);
+        }
+        list.replaceChildren(fragment);
+      } catch(error) {
+        if (serial === loadingNumber) info.textContent = 'Turnaje se nepodařilo načíst: ' + (error?.message || String(error));
+      }
+    }
+    showTiles();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
+  else init();
+})();
+</script>
 </body></html>
