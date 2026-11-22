@@ -2070,25 +2070,35 @@ function planMatches(matchRows,includeOccupied){
   // Je to preference, ne blokace: při malém počtu hráčů hra nesmí uváznout.
   const justScored=id=>(lastScoredAt.get(id)||0)>0&&
     (lastScoredAt.get(id)||0)>=(lastPlayedAt.get(id)||0);
+  // Fair-play fronta: vyrovnava pocet her a aktivne omezuje dlouhe pauzy.
+  // Cekani se meri od skutecneho konce posledni hry; u dosud nehrajicich
+  // od startu turnaje (pokud je zaznamenan). Zadny pevny limit neni slibovan.
+  const now=Date.now()+clockOffset;
+  const firstStart=Math.min(...matchRows.map(m=>new Date(m.started_at||0).getTime()).filter(t=>t>0));
+  const baseline=Number.isFinite(firstStart)?firstStart:now;
+  const groupCount=id=>groupGamesPlayed.get(id)||0;
+  const lastEnd=id=>lastPlayedAt.get(id)||baseline;
+  const waitMin=id=>Math.max(0,(now-lastEnd(id))/60000);
+  const groupPending=matchRows.some(m=>m.status==='waiting'&&m.stage==='group');
+  const candidatePriority=m=>{
+    const ids=[m.player1_entry_id,m.player2_entry_id];
+    const waits=ids.map(waitMin);
+    const counts=ids.map(groupCount);
+    // Kazdy dlouho cekajici dostava postupne vyssi prioritu.
+    // Penalizace opakovaneho okamziteho nastupu plati jen tehdy,
+    // kdyz existuji jine pripravene zapasy.
+    const starvation=Math.max(...waits);
+    const jointWait=Math.min(...waits);
+    const shortRest=Math.min(...waits)<8?18:0;
+    const imbalance=m.stage==='group'?Math.max(...counts)*13+(counts[0]+counts[1])*3:0;
+    return starvation*1.5+jointWait*.35-imbalance-shortRest;
+  };
   const compareWaiting=(a,b)=>{
-    const playersA=[a.player1_entry_id,a.player2_entry_id];
-    const playersB=[b.player1_entry_id,b.player2_entry_id];
-    // Spravedlnost skupin ma prednost pred zapisovanim.
-    // Vyber dvojici s nejmensim maximalnim poctem odehranych her,
-    // potom s nejmensim souctem. Zapisovatel nesmi hru blokovat.
-    if(a.stage==='group' && b.stage==='group'){
-      const ac=playersA.map(id=>groupGamesPlayed.get(id)||0);
-      const bc=playersB.map(id=>groupGamesPlayed.get(id)||0);
-      const maxDiff=Math.max(...ac)-Math.max(...bc);
-      if(maxDiff!==0)return maxDiff;
-      const sumDiff=(ac[0]+ac[1])-(bc[0]+bc[1]);
-      if(sumDiff!==0)return sumDiff;
-    }
-    // Zapisovatel NIKDY nesmi rozhodovat o poradi zapasu.
-    // Pri shodnem poctu her rozhoduje nejdelsi cekani dvojice.
-    const restA=Math.max(lastPlayedAt.get(a.player1_entry_id)||0,lastPlayedAt.get(a.player2_entry_id)||0);
-    const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
-    if(restA!==restB)return restA-restB;
+    // Skupiny dohraji pred pavoukem, kdyz jsou obe faze v nabidce.
+    if(groupPending && (a.stage==='group')!==(b.stage==='group'))
+      return a.stage==='group'?-1:1;
+    const priority=candidatePriority(b)-candidatePriority(a);
+    if(Math.abs(priority)>0.001)return priority;
     const sideA=dkoSchedulingSide(a),sideB=dkoSchedulingSide(b);
     if(sideA&&sideB&&sideA!==sideB){
       const balance=laneCount[sideA]-laneCount[sideB];
