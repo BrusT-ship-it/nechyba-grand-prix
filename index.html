@@ -4722,13 +4722,13 @@ window.startNextMatch=async function(board,matchId){
   }
 };
 
-function darturnioScoreForm(m,initial1=0,initial2=0,editing=false){
+function darturnioScoreForm(m,initial1=0,initial2=0,editing=false,extraNote=""){
   const previous=document.getElementById('dt-inline-result-overlay');if(previous)previous.remove();
   const overlay=document.createElement('div');overlay.id='dt-inline-result-overlay';overlay.className='dt-result-overlay';
   const n1=playerName(m.player1_entry_id),n2=playerName(m.player2_entry_id);
   const fixed=m.leg_rule==='fixed'&&['group','round_robin'].includes(m.stage);
   const help=fixed?`Celkem se hraje ${m.fixed_legs} legů; remíza je možná.`:`Hraje se na ${legsToWin(m)} vítězných legů.`;
-  overlay.innerHTML=`<form class="dt-result-card" id="dt-result-card"><h3>${editing?'Opravit výsledek':'Zadat výsledek'}</h3><p class="small">${esc(help)}</p><div class="dt-result-fields"><label>${esc(n1)}<input name="score1" type="number" min="0" max="40" step="1" required value="${Number(initial1)||0}" autocomplete="off"></label><strong>:</strong><label>${esc(n2)}<input name="score2" type="number" min="0" max="40" step="1" required value="${Number(initial2)||0}" autocomplete="off"></label></div><p class="dt-result-error" role="alert" aria-live="polite"></p><div class="dt-result-actions"><button type="button" class="secondary" data-dt-cancel>Zrušit</button><button type="submit" class="action">${editing?'Uložit opravu':'Uložit výsledek'}</button></div></form>`;
+  overlay.innerHTML=`<form class="dt-result-card" id="dt-result-card"><h3>${editing?'Opravit výsledek':'Zadat výsledek'}</h3><p class="small">${esc(help)}</p>${extraNote?`<p class="notice warning">${esc(extraNote)}</p>`:""}<div class="dt-result-fields"><label>${esc(n1)}<input name="score1" type="number" min="0" max="40" step="1" required value="${Number(initial1)||0}" autocomplete="off"></label><strong>:</strong><label>${esc(n2)}<input name="score2" type="number" min="0" max="40" step="1" required value="${Number(initial2)||0}" autocomplete="off"></label></div><p class="dt-result-error" role="alert" aria-live="polite"></p><div class="dt-result-actions"><button type="button" class="secondary" data-dt-cancel>Zrušit</button><button type="submit" class="action">${editing?'Uložit opravu':'Uložit výsledek'}</button></div></form>`;
   document.body.appendChild(overlay);overlay.querySelector('[name="score1"]').focus();
   return new Promise(resolve=>{
     const close=(value)=>{overlay.remove();document.removeEventListener('keydown',onKey);resolve(value)};
@@ -4748,21 +4748,28 @@ window.setManualMatchResult=async function(matchId){
   if(!isAdmin)return notify("Tuto akci může provést pouze pořadatel.");
   const m=matches.find(x=>x.id===matchId);
   if(!m||m.status!=="live")return notify("Ruční výsledek lze zadat až po spuštění zápasu, dokud je stále rozehraný.");
-  const need=legsToWin(m);
-  const result=await darturnioScoreForm(m,0,0,false);if(!result)return;
+  // Zjisti, zda se zápas již hrál přes tablet; legy a náhozy nesmažeme.
+  const existing=await db.from('match_legs').select('id').eq('match_id',matchId).limit(1);
+  if(existing.error)return notify('Nelze bezpečně ověřit tabletové legy: '+existing.error.message);
+  const hasTabletLegs=!!existing.data?.length;
+  const hint=hasTabletLegs
+    ? 'Zápas již obsahuje záznamy z tabletu. Ruční ukončení zachová všechny uložené náhozy a legy; průměr bude jen ze skutečně zaznamenaných šipek. Uložení již nelze vzít zpět z počítadla.'
+    : '';
+  const result=await darturnioScoreForm(m,Number(m.legs1)||0,Number(m.legs2)||0,false,hint);
+  if(!result)return;
   const parts=result;
-  const isGroupKK=m.stage==='group'||m.stage==='round_robin';
-  const {data,error}=await db.rpc(isGroupKK?'darturnio_v4_singles_result':'set_manual_match_result',
+  // Jedna nová zabezpečená databázová funkce pro skupiny, KK i pavouk.
+  const {data,error}=await db.rpc('darturnio_finish_live_match_manual',
      {p_match_id:matchId,p_legs1:parts[0],p_legs2:parts[1]});
   if(error)return notify('Ruční výsledek se nepodařilo uložit: '+error.message);
-  if(!isGroupKK&&!data)return notify('Databáze nepotvrdila uložení výsledku.');
+  if(!data)return notify('Databáze nepotvrdila uložení výsledku.');
   try{await createNextKnockoutRound(m.tournament_id);}
   catch(err){notify(err.message||"Automatické vytvoření pavouka / dalšího kola se nepodařilo.");}
   if(m.stage==="playoff"){
     const refreshed=await db.from("matches").select("*").eq("tournament_id",m.tournament_id);
     if(!refreshed.error){try{await saveAutomaticPlacements(m.tournament_id,refreshed.data||[]);}catch(err){notify("Výsledek je uložen, ale body se nepodařilo přepočítat: "+err.message);}}
   }
-  await loadData();notify("Ruční výsledek byl uložen.");
+  await loadData();notify(hasTabletLegs?"Výsledek uložen. Zaznamenané šipky a legy byly zachovány.":"Ruční výsledek byl uložen.");
 };
 
 window.editMatchResult=async function(matchId){
@@ -6064,12 +6071,13 @@ async function loadOwnTournamentStats(){
    const ownEntries=entryRows||[], ids=ownEntries.map(e=>e.id);
    if(!ids.length){note.textContent='Zatím nemáš zapsané turnaje.';const h=document.getElementById('darturnioOwnProfileMatchReports');if(h)h.innerHTML='<h3>Historie zápasů</h3><p class="stats-muted">Zatím nemáš žádné turnajové zápasy.</p>';return;}
    const matchColumns='id,tournament_id,player1_entry_id,player2_entry_id,winner_entry_id,status,legs1,legs2,ended_at,p1_highest_checkout,p2_highest_checkout,p1_highest_score,p2_highest_score';
-   const [left,right,matchAverages,playerAverages,gameTypes]=await Promise.all([
+   const [left,right,matchAverages,playerAverages,gameTypes,recordedStats]=await Promise.all([
     client.from('matches').select(matchColumns).in('player1_entry_id',ids).eq('status','finished'),
     client.from('matches').select(matchColumns).in('player2_entry_id',ids).eq('status','finished'),
     client.from('match_player_dart_averages').select('match_id,player_entry_id,average_3dart').in('player_entry_id',ids),
     client.from('player_dart_averages').select('counted_points,darts_counted').in('player_entry_id',ids),
-    client.from('tournaments').select('id,game_type').in('id',[...new Set(ownEntries.map(e=>e.tournament_id))])
+    client.from('tournaments').select('id,game_type').in('id',[...new Set(ownEntries.map(e=>e.tournament_id))]),
+    client.rpc('darturnio_my_recorded_x01_stats',{p_player_id:playerId})
    ]);
    if(left.error||right.error||gameTypes.error)throw left.error||right.error||gameTypes.error;
    const cricketIds=new Set((gameTypes.data||[]).filter(t=>Number(t.game_type)===701).map(t=>t.id));
@@ -6078,11 +6086,16 @@ async function loadOwnTournamentStats(){
    const rowList=detailsErr?[]:(details||[]);
    const sum=k=>rowList.reduce((n,r)=>n+(Number(r[k])||0),0);
    const best=(list,key)=>list.length?Math.max(0,...list.map(r=>Number(r[key])||0)):null;
-   const ppoints=(playerAverages.data||[]).reduce((n,r)=>n+(Number(r.counted_points)||0),0);
-   const pdarts=(playerAverages.data||[]).reduce((n,r)=>n+(Number(r.darts_counted)||0),0);
+   // Statistiky přímo ze zaznamenaných náhozů zahrnují i rozehraný leg
+   // později dokončený ručně. Nepředstíráme nezaznamenané šipky.
+   const recorded=(!recordedStats.error && Array.isArray(recordedStats.data))?recordedStats.data[0]:null;
+   const fallbackPoints=(playerAverages.data||[]).reduce((n,r)=>n+(Number(r.counted_points)||0),0);
+   const fallbackDarts=(playerAverages.data||[]).reduce((n,r)=>n+(Number(r.darts_counted)||0),0);
+   const ppoints=recorded?Number(recorded.counted_points)||0:fallbackPoints;
+   const pdarts=recorded?Number(recorded.darts_counted)||0:fallbackDarts;
    const finishedIds=new Set(games.map(m=>m.id));
    const bestAvgs=(matchAverages.data||[]).filter(r=>finishedIds.has(r.match_id)).map(r=>Number(r.average_3dart)).filter(n=>Number.isFinite(n)&&n>0);
-   const bestAvg=bestAvgs.length?Math.max(...bestAvgs):null;
+   const bestAvg=recorded&&recorded.best_match_average!==null?Number(recorded.best_match_average):(bestAvgs.length?Math.max(...bestAvgs):null);
    const maxCheckout=games.reduce((n,m)=>Math.max(n,Number(myIds.has(m.player1_entry_id)?m.p1_highest_checkout:m.p2_highest_checkout)||0),0);
    const maxVisit=games.reduce((n,m)=>Math.max(n,Number(myIds.has(m.player1_entry_id)?m.p1_highest_score:m.p2_highest_score)||0),0);
    const attempts=sum('double_attempts'),tracked=sum('tracked_visits'),untracked=sum('untracked_visits');
@@ -6090,7 +6103,7 @@ async function loadOwnTournamentStats(){
    const playedTournaments=new Set(ownEntries.filter(e=>games.some(m=>m.player1_entry_id===e.id||m.player2_entry_id===e.id)).map(e=>e.tournament_id));
    const values=[playedTournaments.size,ownEntries.filter(e=>Number(e.final_place)===1).length,games.length,won,
      pdarts?(3*ppoints/pdarts).toFixed(2):'—',bestAvg===null?'—':bestAvg.toFixed(2),
-     pdarts||'—',detailsErr?'—':Math.max(0,sum('visits_100')-sum('visits_140')),detailsErr?'—':Math.max(0,sum('visits_140')-sum('visits_180')),detailsErr?'—':sum('visits_180'),
+     pdarts||'—',recorded?Number(recorded.visits_100)||0:(detailsErr?'—':Math.max(0,sum('visits_100')-sum('visits_140'))),recorded?Number(recorded.visits_140)||0:(detailsErr?'—':Math.max(0,sum('visits_140')-sum('visits_180'))),recorded?Number(recorded.visits_180)||0:(detailsErr?'—':sum('visits_180')),
      maxCheckout||'—',maxVisit||'—',detailsErr?'—':rate];
    if(currentTab!=='turnaje'||tournamentMode!=='x01'||currentUser?.id!==user.id||seq!==ownStatsReq)return;
    $('profileStatsGrid').querySelectorAll('strong').forEach((el,i)=>el.textContent=values[i]??'—');
@@ -6102,8 +6115,9 @@ async function loadOwnTournamentStats(){
      window.darturnioLifetimeTrend?.mount(ownTrend,playerId);
    }
 
-   note.textContent=detailsErr?'Základní statistiky fungují. Podrobné náhozy a double vyžadují spuštění SQL funkce.':
-     'Průměry pocházejí ze zaznamenaných náhozů. Úspěšnost double se počítá jen z evidovaných pokusů.'+(untracked?' * Některé náhozy double nesledovaly.':'');
+   note.textContent=detailsErr?'Podrobné statistiky double nejsou dostupné; náhozy a šipky se načítají z dostupných záznamů.':
+     'Průměry a počty šipek pocházejí výhradně ze zaznamenaných náhozů (i při ručním dokončení zápasu).'+(untracked?' * Některé náhozy double nesledovaly.':'');
+   if(recordedStats.error)console.warn('Přímé statistiky náhozů nejsou dostupné:',recordedStats.error.message);
    void window.darturnioLoadOwnProfileMatchReports?.(playerId, user.id);
  }catch(err){if(seq===ownStatsReq&&currentTab==='turnaje'&&tournamentMode==='x01'){note.textContent='Statistiky se nepodařilo načíst: '+(err?.message||err);const h=document.getElementById('darturnioOwnProfileMatchReports');if(h)h.innerHTML='<h3>Historie zápasů</h3><p class="stats-muted">Historii se nepodařilo načíst.</p>';}}
 }
