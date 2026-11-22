@@ -9260,8 +9260,10 @@ async function loadPlayer(){
   const cards=relevant.slice(0,12).map(m=>{
    const mine=eids.includes(m.player1_entry_id)||eids.includes(m.player2_entry_id);
    const counting=eids.includes(m.scorekeeper_entry_id)&&!mine;
-   const title=mine?`${entryNames.get(m.player1_entry_id)||'Hráč 1'} vs. ${entryNames.get(m.player2_entry_id)||'Hráč 2'}`:'Jdeš zapisovat zápas';
-   const pill=m.status==='live'?'PRÁVĚ SE HRAJE':counting?'PŘIPRAV SE ZAPISOVAT':'ČEKÁ NA SPUŠTĚNÍ';
+   const title=mine?`${entryNames.get(m.player1_entry_id)||'Hráč 1'} vs. ${entryNames.get(m.player2_entry_id)||'Hráč 2'}`:
+     (counting&&m.status==='live'?`JDEŠ POČÍTAT NA TERČ ${m.board_no??'—'}`:'Jdeš zapisovat zápas');
+   const pill=m.status==='live'?(counting?'JDEŠ POČÍTAT':'PRÁVĚ SE HRAJE'):
+     counting?'PŘIPRAV SE ZAPISOVAT':'ČEKÁ NA SPUŠTĚNÍ';
    return `<article class="ux-card"><div class="ux-row"><span class="ux-chip ${m.status==='live'?'ux-active':''}">${pill}</span><strong>TERČ ${m.board_no??'—'}</strong></div><h4 style="margin:12px 0 5px">${esc(title)}</h4><p class="ux-muted">${esc(ts.get(m.tournament_id)?.name||'Turnaj')} · ${esc(fmtDate(ts.get(m.tournament_id)?.event_date))}</p><button class="ux-button secondary" type="button" data-ux-tournament="${esc(m.tournament_id)}">OTEVŘÍT TURNAJ</button></article>`;
   });
   target.innerHTML=cards.join('')||'<p class="ux-muted">Teď nemáš žádný čekající ani rozehraný zápas. Můžeš sledovat výsledky svých turnajů.</p>';
@@ -12122,6 +12124,8 @@ setTimeout(()=>{void refresh()},8000);
     try {
       const data = await call('status');
       if (current !== seq) return;
+      // Funkce musi skutecne podporovat status/enable/disable, ne pouze vracet publicKey.
+      if (typeof data?.enabled !== 'boolean') throw new Error('Serverová správa push zatím není dokončená (status/enable/disable).');
       publicKey = data.publicKey || ''; enabled = data.enabled === true;
       if (supportsPush() && enabled && Notification.permission === 'granted') {
         const registration = await navigator.serviceWorker.getRegistration('/darturnio-push/');
