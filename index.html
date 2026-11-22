@@ -2084,20 +2084,17 @@ function planMatches(matchRows,includeOccupied){
       const sumDiff=(ac[0]+ac[1])-(bc[0]+bc[1]);
       if(sumDiff!==0)return sumDiff;
     }
-    const stillScoringA=playersA.filter(id=>busyScorekeepers.has(id)).length;
-    const stillScoringB=playersB.filter(id=>busyScorekeepers.has(id)).length;
-    if(stillScoringA!==stillScoringB)return stillScoringA-stillScoringB;
-    const recentlyScoredA=playersA.filter(justScored).length;
-    const recentlyScoredB=playersB.filter(justScored).length;
-    if(recentlyScoredA!==recentlyScoredB)return recentlyScoredA-recentlyScoredB;
+    // Zapisovatel NIKDY nesmi rozhodovat o poradi zapasu.
+    // Pri shodnem poctu her rozhoduje nejdelsi cekani dvojice.
+    const restA=Math.max(lastPlayedAt.get(a.player1_entry_id)||0,lastPlayedAt.get(a.player2_entry_id)||0);
+    const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
+    if(restA!==restB)return restA-restB;
     const sideA=dkoSchedulingSide(a),sideB=dkoSchedulingSide(b);
     if(sideA&&sideB&&sideA!==sideB){
       const balance=laneCount[sideA]-laneCount[sideB];
       if(balance!==0)return balance;
     }
-    const restA=Math.max(lastPlayedAt.get(a.player1_entry_id)||0,lastPlayedAt.get(a.player2_entry_id)||0);
-    const restB=Math.max(lastPlayedAt.get(b.player1_entry_id)||0,lastPlayedAt.get(b.player2_entry_id)||0);
-    return restA-restB||(Number(a.round_no)||0)-(Number(b.round_no)||0)||
+    return (Number(a.round_no)||0)-(Number(b.round_no)||0)||
       (Number(a.match_no)||0)-(Number(b.match_no)||0);
   };
   const result=[...fixed];
@@ -3504,7 +3501,19 @@ function pickFairScorekeeper(matchRows,playing,board=playing?.board_no,busyEntry
     (counts.get(a.id)||0)-(counts.get(b.id)||0)||
     (lastServed.get(a.id)||0)-(lastServed.get(b.id)||0)||
     String(playerName(a.id)).localeCompare(String(playerName(b.id)),"cs")||String(a.id).localeCompare(String(b.id)));
-  return candidates[0]?.id||null;
+  const preferred=candidates.find(e=>!avoidNext.has(e.id));
+  if(preferred)return preferred.id;
+  // Neni-li volny zapisovatel mimo nejblizsi vlnu, prednostne
+  // zapisuje porazeny z posledni dokoncene hry, pokud prave nehraje.
+  const recentLoser=rows.filter(m=>m.status==='finished'&&m.winner_entry_id&&
+    m.player1_entry_id&&m.player2_entry_id&&m.player1_entry_id!==m.player2_entry_id)
+    .sort((a,b)=>new Date(b.ended_at||0)-new Date(a.ended_at||0))
+    .map(m=>m.winner_entry_id===m.player1_entry_id?m.player2_entry_id:m.player1_entry_id)
+    .find(id=>id&&!unavailable.has(id)&&!avoidNext.has(id));
+  if(recentLoser)return recentLoser;
+  // Zapisovatel se nesmi vybirat z hracu pristiho zapasu.
+  // Kdyz nikdo nezbyva, zapas se spusti bez zapisovatele.
+  return null;
 }
 function chooseBoardScorekeeper(playing,next,active,scheduled,board){
   if(!playing)return next?.scorekeeper_entry_id||null;
