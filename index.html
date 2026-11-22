@@ -9274,9 +9274,39 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const escHtml=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
  const state={tid:'',board:0,session:null,match:null,leg:null,visits:[],pairs:[],players:new Map(),history:[],legHistory:[],busy:false,mode:'aggregate',total:'',darts:[],mult:1,special:null,specialCount:3,attempts:null,draftLeg:'',loadNumber:0,loadError:''};
  const pendingKey='darturnio-pair-pending-v1';
- const getPending=()=>{try{return JSON.parse(localStorage.getItem(pendingKey)||'null')}catch{return null}};
- const setPending=o=>localStorage.setItem(pendingKey,JSON.stringify(o));
- const clearPending=()=>localStorage.removeItem(pendingKey);
+ // Persisted FIFO. Each request keeps the same UUID for idempotent retries.
+ const queueKey='darturnio-pair-optimistic-v2';
+ let pairSyncRunning=false;
+ const pairQueue=()=>{try{const v=JSON.parse(localStorage.getItem(queueKey)||'[]');return Array.isArray(v)?v:[]}catch{return []}};
+ const pairSaveQueue=q=>localStorage.setItem(queueKey,JSON.stringify(q));
+ const getPending=()=>pairQueue()[0]?.args||null;
+ const setPending=o=>{const q=pairQueue();q.push(o);pairSaveQueue(q)};
+ const clearPending=()=>{const q=pairQueue();q.shift();pairSaveQueue(q)};
+ const pairOptimistic=()=>pairQueue().filter(x=>x.tid===state.tid&&x.board===state.board&&x.legId===state.leg?.id);
+ const pairMergeOptimistic=()=>{
+   if(!state.leg)return;
+   const known=new Set(state.visits.map(v=>v.request_id).filter(Boolean));
+   for(const x of pairOptimistic())if(!known.has(x.args.p_request_id))state.visits.push(x.fake);
+   state.visits.sort((a,b)=>Number(a.visit_no)-Number(b.visit_no));
+   const closing=pairOptimistic().find(x=>x.fake.action==='checkout');
+   if(closing&&state.leg?.status==='live')state.leg={...state.leg,status:'finished',winner_pair_id:closing.fake.pair_id};
+ };
+ const pairSync=async()=>{
+   if(pairSyncRunning||!navigator.onLine||!pairQueue().length)return;
+   pairSyncRunning=true;
+   try{
+     while(navigator.onLine&&pairQueue().length){
+       const item=pairQueue()[0];
+       const result=await getDb().rpc('darturnio_v2_pair_visit',item.args);
+       if(result.error)throw result.error;
+       if(result.data?.match_closed)window.darturnioResultNotice?.put(item.tid,item.board,'pairs',item.matchId,item.sessionId);
+       clearPending();
+       if(item.args.p_action==='checkout'&&state.tid===item.tid&&state.board===item.board){await refresh();}
+     }
+   }catch(err){console.warn('Darturnio pair sync pending:',err);}
+   finally{pairSyncRunning=false;renderLocal()}
+ };
+ window.addEventListener('online',()=>void pairSync());
  const pairById=id=>state.pairs.find(p=>p.id===id);
  const nameOf=id=>state.players.get(id)||'Hráč';
  const pairName=id=>{const p=pairById(id);return p?nameOf(p.player1_id)+' + '+nameOf(p.player2_id):'Čeká na dvojici'};
@@ -9359,13 +9389,13 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   const input=state.mode==='aggregate'?'<div class="dt-pair-aggval">'+escHtml(state.total||'Zadej body')+'</div>'+digits:dartInput;
   const pending=getPending();
   const invalidSpecial=state.special?window.darturnioX01.specialError(state.special,turn.remaining,state.specialCount):'';
-  const canSave=turn.remaining>=2&&!state.busy&&!pending&&!invalidSpecial&&(
+  const canSave=turn.remaining>=2&&!state.busy&&!invalidSpecial&&(
     state.special || state.mode==='aggregate'&&state.total!==''&&p.action!=='needs_special'&&Number(state.total)>=0&&Number(state.total)<=180 ||
     state.mode==='per_dart'&&(state.darts.length===3||['checkout','bust'].includes(p.action)));
   const onePointWarning=state.mode==='aggregate'&&!state.special&&state.total!==''&&p.action==='needs_special'&&(turn.remaining-Number(state.total)===1);
   const last=state.visits[state.visits.length-1];
   const lastLabel=last?nameOf(last.player_id)+' · '+last.action+' · '+last.entered_points+' b.':'Zatím žádný nához';
-  app().innerHTML=toolbar()+'<section class="panel dt-pair-panel"><h3>'+escHtml(names)+' · '+escHtml(matchScore)+' · '+l.leg_no+'. leg</h3><div class="dt-pair-scorecards">'+card(m.pair1_id)+card(m.pair2_id)+'</div><p class="dt-pair-active">NA ŘADĚ: '+escHtml(nameOf(turn.player))+' ('+escHtml(pairName(turn.pairId))+')</p><p class="small">Poslední nához: '+escHtml(lastLabel)+'</p>'+modeButtons+input+special+'<div class="dt-pair-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">'+[1,2,3].map(n=>'<button data-dtp-attempt="'+n+'" aria-pressed="'+(state.attempts===n)+'" title="Opakovaným stisknutím zrušíš volbu" class="'+(state.attempts===n?'selected':'')+'">'+n+'</button>').join('')+'</div></div><p class="small dt-pair-message">'+(turn.remaining===1?'Chybný uložený zbytek 1. Použij ZPĚT a oprav nához.':invalidSpecial|| (onePointWarning?'Zbytek 1 je PŘEHOZENO: vyber šipku, kterou došlo k přehozu.':state.special==='checkout'?'Zavřeno '+state.specialCount+'. šipkou':state.special==='bust'?'Přehozeno '+state.specialCount+'. šipkou':p.action==='needs_special'?'Vyber ZAVŘENO nebo PŘEHOZENO podle skutečného náhozu':p.action==='checkout'?'Přesné zavření potvrď':p.action==='bust'?'Přehozeno – 0 bodů, původní skóre se vrací':''))+'</p><div class="tablet-counter-actions"><button class="secondary" data-dtp-undo '+(pending||state.busy?'disabled':'')+'>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-dtp-save '+(canSave?'':'disabled')+'>POTVRDIT NÁHOZ</button></div>'+(pending?'<p class="notice warning">Nához čeká na potvrzení. Další vstup je uzamčen. <button data-dtp-retry>OVĚŘIT ZÁPIS</button> <button data-dtp-discard class="secondary">VYŘEŠIT CHYBNÝ ZÁPIS</button></p>':'')+'<details><summary>Statistiky hráčů</summary><table class="dt-pair-stats"><tr><th>Hráč</th><th>Náhozy</th><th>Šipky</th><th>Ø 3 šipky</th></tr>'+statRows+'</table></details></section>';
+  app().innerHTML=toolbar()+'<section class="panel dt-pair-panel"><h3>'+escHtml(names)+' · '+escHtml(matchScore)+' · '+l.leg_no+'. leg</h3><div class="dt-pair-scorecards">'+card(m.pair1_id)+card(m.pair2_id)+'</div><p class="dt-pair-active">NA ŘADĚ: '+escHtml(nameOf(turn.player))+' ('+escHtml(pairName(turn.pairId))+')</p><p class="small">Poslední nához: '+escHtml(lastLabel)+'</p>'+modeButtons+input+special+'<div class="dt-pair-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">'+[1,2,3].map(n=>'<button data-dtp-attempt="'+n+'" aria-pressed="'+(state.attempts===n)+'" title="Opakovaným stisknutím zrušíš volbu" class="'+(state.attempts===n?'selected':'')+'">'+n+'</button>').join('')+'</div></div><p class="small dt-pair-message">'+(turn.remaining===1?'Chybný uložený zbytek 1. Použij ZPĚT a oprav nához.':invalidSpecial|| (onePointWarning?'Zbytek 1 je PŘEHOZENO: vyber šipku, kterou došlo k přehozu.':state.special==='checkout'?'Zavřeno '+state.specialCount+'. šipkou':state.special==='bust'?'Přehozeno '+state.specialCount+'. šipkou':p.action==='needs_special'?'Vyber ZAVŘENO nebo PŘEHOZENO podle skutečného náhozu':p.action==='checkout'?'Přesné zavření potvrď':p.action==='bust'?'Přehozeno – 0 bodů, původní skóre se vrací':''))+'</p><div class="tablet-counter-actions"><button class="secondary" data-dtp-undo '+(pending||state.busy?'disabled':'')+'>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-dtp-save '+(canSave?'':'disabled')+'>POTVRDIT NÁHOZ</button></div>'+(pending?'<p class="notice warning">Náhozy se synchronizují na pozadí. Další leg vyžaduje potvrzení zavření. <button data-dtp-retry>OVĚŘIT ZÁPIS</button> <button data-dtp-discard class="secondary">VYŘEŠIT CHYBNÝ ZÁPIS</button></p>':'')+'<details><summary>Statistiky hráčů</summary><table class="dt-pair-stats"><tr><th>Hráč</th><th>Náhozy</th><th>Šipky</th><th>Ø 3 šipky</th></tr>'+statRows+'</table></details></section>';
  }
  async function fetchNow(tid,board){
   const database=getDb();if(!database)throw new Error('Databáze není připojena.');
@@ -9405,6 +9435,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    if(request!==state.loadNumber||tid!==state.tid||board!==state.board)return;
    const former=state.draftLeg;
    Object.assign(state,data,{loadError:''});
+   pairMergeOptimistic();
    if(state.leg?.id!==former){state.draftLeg=state.leg?.id||'';resetDraft()}
   }catch(error){if(request!==state.loadNumber)return;state.loadError=error.message||String(error)}
   renderLocal();
@@ -9413,6 +9444,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    if(!tid||!board)return;
    if(state.tid!==tid||state.board!==board){state.tid=tid;state.board=board;state.session=null;state.match=null;resetDraft()}
    await refresh(tid,board);
+   void pairSync();
  };
  const rpc=async(name,args)=>{const result=await getDb().rpc(name,args);if(result.error)throw result.error;return result.data};
  async function retry(){const x=getPending();if(!x)return true;if(!navigator.onLine)throw new Error('Není internet, zápis zůstává uzamčený.');
@@ -9425,11 +9457,9 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   return true;
  }
  async function submitVisit(){
-  if(state.busy)return;state.busy=true;
+  if(state.busy)return;
   try{
-   if(!(await retry()))return;
    const turn=activeTurn();if(!turn||!state.leg)throw new Error('Nejprve zahaj leg.');
-   if(!navigator.onLine)throw new Error('Pro potvrzení náhozu je potřeba internet.');
    let args={p_leg_id:state.leg.id,p_request_id:crypto.randomUUID(),p_mode:state.mode,p_action:'auto',p_total:null,p_darts_count:3,p_darts:[],p_double_attempts:state.attempts,p_expected_visit_no:turn.visitNo,p_expected_player_id:turn.player};
    if(state.special){args.p_mode='aggregate';args.p_action=state.special;args.p_darts_count=state.specialCount;args.p_total=state.special==='checkout'?turn.remaining:null}
    else if(state.mode==='aggregate'){
@@ -9446,12 +9476,17 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    if(!state.special&&state.mode==='per_dart'&&state.attempts!==null&&state.attempts>state.darts.length)throw new Error('Pokusy na double nemohou překročit počet hozených šipek.');
     // Volitelna statistika: NULL zustava NULL i pri zavreni legu.
    if(args.p_action==='checkout'&&!confirm('Potvrdit zavření '+turn.remaining+' bodů '+args.p_darts_count+'. šipkou pro '+nameOf(turn.player)+'?'))return;
-   setPending(args);
-   const saved=await rpc('darturnio_v2_pair_visit',args);clearPending();
-   if(saved?.match_closed)window.darturnioResultNotice?.put(state.tid,state.board,'pairs',state.match.id,state.session.id);
-   resetDraft();await refresh();
+   const p=draftPreview(turn.remaining);
+   const action=p.action==='checkout'?'checkout':p.action==='bust'?'bust':args.p_action==='auto'?'score':args.p_action;
+   const points=action==='bust'?0:Math.max(0,turn.remaining-p.remaining);
+   const fake={request_id:args.p_request_id,leg_id:state.leg.id,visit_no:turn.visitNo,pair_id:turn.pairId,player_id:turn.player,action,score_before:turn.remaining,score_after:p.remaining,entered_points:action==='bust'?0:points,counted_points:points,darts_counted:args.p_darts_count,double_attempts:args.p_double_attempts};
+   const q=pairQueue();q.push({args,fake,tid:state.tid,board:state.board,legId:state.leg.id,matchId:state.match.id,sessionId:state.session.id});
+   try{pairSaveQueue(q)}catch(err){throw new Error('Lokální úložiště je plné nebo nedostupné. Nához nebyl potvrzen: '+err.message)}
+   state.visits.push(fake);
+   if(action==='checkout')state.leg={...state.leg,status:'finished',winner_pair_id:turn.pairId};
+   resetDraft();renderLocal();
+   void pairSync();
   }catch(e){state.loadError='Nepodařilo se bezpečně zapsat nához: '+e.message;renderLocal()}
-  finally{state.busy=false;renderLocal()}
  }
  async function action(fn){if(state.busy)return;state.busy=true;try{await fn();state.loadError='';resetDraft();await refresh()}catch(e){state.loadError=e.message||String(e);renderLocal()}finally{state.busy=false}}
  document.addEventListener('click',e=>{
@@ -9464,18 +9499,9 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    void refresh();return;
   }
   if(target.hasAttribute('data-dtp-refresh')){void refresh();return}
-  if(target.hasAttribute('data-dtp-retry')){void action(async()=>{await retry()});return}
-  if(target.hasAttribute('data-dtp-discard')){
-   const pending=getPending();if(!pending)return;
-   void action(async()=>{
-     const found=await getDb().from('darturnio_pair_visits').select('id').eq('request_id',pending.p_request_id).limit(1);
-     if(found.error)throw found.error;
-     if((found.data||[]).length){clearPending();return}
-     if(!confirm('Nához v databázi není. Opravdu zrušit čekající neúspěšný zápis, aby šel zadat znovu?'))return;
-     clearPending();
-   });return;
-  }
-  if(state.busy||getPending())return;
+  if(target.hasAttribute('data-dtp-retry')){void pairSync();return}
+  if(target.hasAttribute('data-dtp-discard')){alert('Čekající náhozy nelze smazat bez ověření v databázi. Zkus Obnovit nebo synchronizaci.');return}
+  if(state.busy||(getPending()&&target.hasAttribute('data-dtp-start')))return;
   if(target.hasAttribute('data-dtp-start')){
    const v=x=>app().querySelector('[data-dtp-choice="'+x+'"]')?.value;
    const pair=v('pair'),first1=v('first1'),first2=v('first2');
