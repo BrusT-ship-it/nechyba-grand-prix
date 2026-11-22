@@ -5314,7 +5314,9 @@ async function saveCricketTournamentVisit(){
   let pending=cricketPendingGet();
   if(pending&&pending.legId!==cur.legId)throw new Error('Na jiném legu čeká nepotvrzený nához. Nejprve ověř jeho stav.');
   if(!pending){pending={legId:cur.legId,args:{p_request_id:crypto.randomUUID(),p_leg_id:cur.legId,p_player_entry_id:cur.current,p_darts:[...cricketTournamentDraft]}};cricketPendingPut(pending);}
+  const cricketSaveStarted=performance.now();
   const {data:confirmed,error}=await darturnioTabletRpc('record_cricket_visit_safe',pending.args);
+  darturnioSavingDuration('Cricket: potvrzeni Supabase',cricketSaveStarted);
   if(error)throw error;
   // Server zapis potvrdil vcetne prepocitaneho stavu. Bezpecne vycistime cekajici navstevu.
   cricketPendingClear();
@@ -5573,6 +5575,12 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
 }
 // 501LIVE: bezpečná fronta pro nejasně doručený nához.
 // Dokud není potvrzen, další nához záměrně nepovolujeme.
+// Volitelne mereni na tabletu: do URL pridej &mereniZapisovani=1.
+// Zadne osobni udaje ani body se neodesilaji do dalsi sluzby.
+const darturnioMeasureSaving=new URLSearchParams(location.search).get('mereniZapisovani')==='1';
+function darturnioSavingDuration(label,start){
+ if(darturnioMeasureSaving)console.info('[Darturnio zapis] '+label+': '+Math.round(performance.now()-start)+' ms');
+}
 // DARTURNIO – experimentální offline fronta X01 jednotlivců.
 // U každého náhozu používá existující serverové request_id (idempotentní zápis).
 // Jedna aktivní karta/tablet na daný terč; další leg se zahajuje až po synchronizaci.
@@ -5582,14 +5590,26 @@ let darturnioOfflineSyncBusy=false;
 let darturnioOfflineMessage='';
 function darturnioOfflineKey(){return 'board-'+tabletBoard;}
 function darturnioOfflineSupported(){return !!window.indexedDB&&!!window.crypto?.randomUUID;}
+// Jedna otevrena IndexedDB instance na tablet: neotvirej databazi po kazdem nahozu.
+// Odolnost: pri zmene verze zavreme handle a nasledujici pozadavek ho otevre znovu.
+let darturnioOfflineDbHandle=null;
+let darturnioOfflineDbOpening=null;
 function darturnioOfflineDb(){
- return new Promise((resolve,reject)=>{
+ if(darturnioOfflineDbHandle)return Promise.resolve(darturnioOfflineDbHandle);
+ if(darturnioOfflineDbOpening)return darturnioOfflineDbOpening;
+ darturnioOfflineDbOpening=new Promise((resolve,reject)=>{
   if(!darturnioOfflineSupported())return reject(new Error('Prohlížeč nepodporuje bezpečné místní uložení IndexedDB.'));
   const req=indexedDB.open('darturnio-offline-visits-v1',1);
   req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('packs'))req.result.createObjectStore('packs',{keyPath:'key'});};
-  req.onsuccess=()=>resolve(req.result);
+  req.onsuccess=()=>{
+   const connection=req.result;
+   connection.onversionchange=()=>{connection.close();if(darturnioOfflineDbHandle===connection)darturnioOfflineDbHandle=null;};
+   darturnioOfflineDbHandle=connection;
+   resolve(connection);
+  };
   req.onerror=()=>reject(req.error||new Error('IndexedDB není dostupné'));
- });
+ }).finally(()=>{darturnioOfflineDbOpening=null;});
+ return darturnioOfflineDbOpening;
 }
 async function darturnioOfflineRead(){
  const database=await darturnioOfflineDb();
@@ -5598,7 +5618,7 @@ async function darturnioOfflineRead(){
   const req=tx.objectStore('packs').get(darturnioOfflineKey());
   req.onsuccess=()=>resolve(req.result||null);
   req.onerror=()=>reject(req.error);
- });}finally{database.close();}
+ });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
 }
 async function darturnioOfflineWrite(pack){
  const database=await darturnioOfflineDb();
@@ -5608,7 +5628,7 @@ async function darturnioOfflineWrite(pack){
   tx.oncomplete=resolve;
   tx.onerror=()=>reject(tx.error||new Error('Nepodařilo se uložit nához do zařízení'));
   tx.onabort=()=>reject(tx.error||new Error('Místní uložení bylo přerušeno'));
- });}finally{database.close();}
+ });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
  darturnioOfflinePack=pack;
 }
 async function darturnioOfflineClear(){
@@ -5617,7 +5637,7 @@ async function darturnioOfflineClear(){
   const tx=database.transaction('packs','readwrite');
   tx.objectStore('packs').delete(darturnioOfflineKey());
   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
- });}finally{database.close();}
+ });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
  darturnioOfflinePack=null;
 }
 // Serialize all IndexedDB pack mutations; never overwrite a newer local visit.
@@ -5656,12 +5676,27 @@ async function darturnioOfflineEnsure(){
  const c=tabletFastCache;
  if(!c||![301,501].includes(Number(c.gameType))||c.leg?.status!=='live'||!isAdmin)
   throw new Error('Offline zapisování je zatím dostupné jen u již načteného rozehraného zápasu jednotlivců 301/501.');
- if(darturnioOfflinePack&&(darturnioOfflinePack.pending?.length||darturnioOfflinePack.confirmed?.length)&&!darturnioOfflineCompatible(c))
-  throw new Error('Na tomto terči čekají náhozy z jiného zápasu. Nejdřív je synchronizuj; nic nepřepisuji.');
+ // Pack je sdileny po TERCI. Po zmene zapasu/lega nesmi blokovat
+ // jiz potvrzene navstevy (confirmed); ty Supabase skutecne prijala.
+ // Zablokovat je nutne jen NEODESLANE pending, nebo prave bezici sync.
+ if(darturnioOfflinePack&&!darturnioOfflineCompatible(c)){
+  if((darturnioOfflinePack.pending||[]).length)
+   throw new Error('Na tomto terči jsou dosud neodeslané náhozy z jiného zápasu. Nejdřív je synchronizuj; nic nepřepisuji.');
+  if(darturnioOfflineSyncBusy)
+   throw new Error('Ještě se dokončuje synchronizace předchozího zápasu. Zkus potvrdit za chvíli.');
+ }
  if(!darturnioOfflineCompatible(c)){
   const pack={key:darturnioOfflineKey(),board:tabletBoard,tournamentId:c.tournamentId,matchId:c.match.id,legId:c.leg.id,
    gameType:c.gameType,createdAt:new Date().toISOString(),confirmed:[],pending:[]};
-  await darturnioOfflineWrite(pack);
+  // Atomicke prepsani pouze pri prazdne fronte. Zadny neodeslany nahoz
+  // z jineho zapasu nelze ztratit ani pri soubehu se synchronizaci.
+  await darturnioOfflineMutate(current=>{
+   if(current && (current.pending||[]).length)
+    throw new Error('Neodeslané náhozy z předchozího zápasu je nutné nejdřív synchronizovat.');
+   if(darturnioOfflineSyncBusy)
+    throw new Error('Právě probíhá synchronizace náhozů. Zkus potvrdit za chvíli.');
+   return pack;
+  });
  }
  return darturnioOfflinePack;
 }
@@ -5699,6 +5734,7 @@ async function darturnioOfflineAdoptLegacy(){
 }
 async function darturnioOfflineSubmit(mode){
  if(tabletBusy){return;}
+ const localSaveStarted=performance.now();
  tabletBusy=true;
  try{
   await darturnioOfflineEnsure();
@@ -5737,6 +5773,7 @@ async function darturnioOfflineSubmit(mode){
    return {...current,pending:[...current.pending,nextVisit]};
   });
   darturnioOptimisticVisit=null;
+  darturnioSavingDuration('Jednotlivci: bezpecne ulozeni do tabletu',localSaveStarted);
   darturnioOfflineMessage='Uloženo v tabletu – synchronizace na pozadí.';
   tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue='';tabletSpecialType='';tabletSpecialDart=0;tabletDoubleAttempts=null;
   darturnioOfflinePaint();
@@ -5771,7 +5808,9 @@ async function darturnioOfflineSync(){
     return {...pack,pending};
    }).then(pack=>pack?.pending?.[0]);
    if(!first)break;
+   const networkSaveStarted=performance.now();
    const result=await darturnioTabletRpc('record_dart_visit_with_double',first.args);
+   darturnioSavingDuration('Jednotlivci: potvrzeni Supabase',networkSaveStarted);
    if(result.error)throw new Error('Nához '+first.fake.visit_no+' nebyl potvrzen: '+result.error.message);
    const confirmed=result.data||first.fake;
    await darturnioOfflineMutate(pack=>{
@@ -6214,8 +6253,56 @@ async function init(){
         if(table&&!tabletTables.has(table))return;
         const row=payload?.new||payload?.old||{};
         if(row.tournament_id && String(row.tournament_id)!==String(selectedTournament))return;
-        // Navstevy jineho legu nemeni stav prave otevreneho pocitadla.
-        if(table==='dart_visits' && tabletFastCache?.leg?.id && row.leg_id && String(row.leg_id)!==String(tabletFastCache.leg.id))return;
+        // DARTURNIO 2026-11-22: zapis na tabletu nesmi spoustet zbytecne nacitani
+        // celeho turnaje po KAZDEM serverem potvrzenem nahozeni.
+        const ownTournament=tournaments.find(t=>String(t.id)===String(selectedTournament));
+        const isPairs=ownTournament?.participant_mode==='pairs';
+        const isCricket=Number(ownTournament?.game_type)===701;
+        const c=tabletFastCache;
+        // Oddel herni rezimy: aktualizace jineho typu pocitadla nejsou duvodem
+        // pro novy fetch na aktivnim tabletu.
+        if(isPairs){
+          if(['match_legs','dart_visits','cricket_darts','cricket_visit_requests'].includes(table))return;
+          if(typeof window.darturnioPairsTabletSkipRealtime==='function' && window.darturnioPairsTabletSkipRealtime(payload))return;
+        }else{
+          if(['darturnio_pair_matches','darturnio_pair_legs','darturnio_pair_visits','darturnio_pair_sessions'].includes(table))return;
+          if(!isCricket && ['cricket_darts','cricket_visit_requests'].includes(table))return;
+        }
+        // Behem aktivniho lega jsou zmeny jinych zapasu pro aktualni pocitadlo
+        // nerelevantni. Jejich aktualizace tak neprekresli rozpisany nahoz.
+        if(c?.leg?.status==='live' && c.match?.id){
+          if(table==='matches' && row.id && String(row.id)!==String(c.match.id))return;
+          if(table==='match_legs' && row.match_id && String(row.match_id)!==String(c.match.id))return;
+          if(table==='darturnio_board_queue')return; // dalsi zapas az po konci lega
+        }
+        // Data detailu lega/Cricketu mohou postradat tournament_id.
+        if(table==='match_legs' && row.match_id && !matches.some(m=>String(m.id)===String(row.match_id)))return;
+        if(['cricket_darts','cricket_visit_requests'].includes(table) && c?.leg?.status==='live' && row.leg_id && String(row.leg_id)!==String(c.leg.id))return;
+        if(table==='dart_visits'){
+          if(c?.leg?.id && row.leg_id && String(row.leg_id)!==String(c.leg.id))return;
+          // Vlastni INSERT je uz bezpecne vykresleny lokalni frontou (IndexedDB)
+          // a potvrzeny stav se s nim spojuje podle jedinecneho request_id.
+          // Nepotrebujeme kvuli nemu nacitat vsechny zapasy, jmena a leg znovu.
+          const requestId=String(row.request_id||'');
+          const pack=darturnioOfflinePack;
+          if(payload.eventType==='INSERT' && requestId &&
+             c?.leg?.id && String(row.leg_id)===String(c.leg.id) &&
+             pack?.legId===c.leg.id &&
+             ((pack.pending||[]).some(x=>String(x.args?.p_request_id)===requestId) ||
+              (pack.confirmed||[]).some(x=>String(x.request_id||x.id)===requestId)))return;
+        }
+        // Pri live zapasu se nektere tabulky meni jen o technicka metadata
+        // (napr. updated_at). Pokud se vysledek/stav nezmenil, nemusi se
+        // prehrat formular a smazat prave rozepsany nahoz.
+        if(table==='matches' && c?.match?.id && String(row.id)===String(c.match.id) &&
+           c.leg?.status==='live' && row.status==='live' &&
+           Number(row.legs1)===Number(c.match.legs1) &&
+           Number(row.legs2)===Number(c.match.legs2) &&
+           String(row.winner_entry_id||'')===String(c.match.winner_entry_id||'') &&
+           String(row.scorekeeper_entry_id||'')===String(c.match.scorekeeper_entry_id||'') &&
+           Number(row.board_no)===Number(c.match.board_no))return;
+        if(table==='darturnio_board_queue' && c?.leg?.status==='live' &&
+           Number(row.board_no)>0 && Number(row.board_no)!==tabletBoard)return;
       }
       if(tabletBoard && (payload?.table==="cricket_darts" || payload?.table==="cricket_visit_requests")){
         // Jeden cricketovy nahoz vytvori az tri radky: nespoustej cely globalni reload.
@@ -9789,16 +9876,35 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const pairDbName='darturnio-pair-visits-v3';
  const pairStore='visits';
  let pairMemory=[],pairReady=false,pairSyncRunning=false,pairRetryTimer=null;
+ // Vlastni navstevy jsou jiz prekreslene ihned po ulozeni do IndexedDB.
+ // Realtime echo z jejich pozdejsiho potvrzeni nesmi znovu stahovat cely turnaj.
+ const pairOwnVisitIds=new Set();
+ function pairRememberOwnVisit(id){
+   if(!id)return;
+   pairOwnVisitIds.add(String(id));
+   if(pairOwnVisitIds.size>240)pairOwnVisitIds.delete(pairOwnVisitIds.values().next().value);
+ }
  let pairWriteChain=Promise.resolve();
  const pairQueue=()=>pairMemory.slice().sort((a,b)=>a.order-b.order);
  const getPending=()=>pairQueue()[0]?.args||null;
- const pairDb=()=>new Promise((resolve,reject)=>{
-   if(!window.indexedDB)return reject(new Error('IndexedDB není dostupná.'));
-   const req=indexedDB.open(pairDbName,1);
-   req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(pairStore))db.createObjectStore(pairStore,{keyPath:'id'})};
-   req.onsuccess=()=>resolve(req.result);
-   req.onerror=()=>reject(req.error||new Error('IndexedDB nelze otevřít.'));
- });
+ // Jedna otevrena databaze pro frontu dvojic, transakce zustavaji durable.
+ let pairDbHandle=null,pairDbOpening=null;
+ const pairDb=()=>{
+   if(pairDbHandle)return Promise.resolve(pairDbHandle);
+   if(pairDbOpening)return pairDbOpening;
+   pairDbOpening=new Promise((resolve,reject)=>{
+     if(!window.indexedDB)return reject(new Error('IndexedDB není dostupná.'));
+     const req=indexedDB.open(pairDbName,1);
+     req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(pairStore))db.createObjectStore(pairStore,{keyPath:'id'})};
+     req.onsuccess=()=>{
+       const connection=req.result;
+       connection.onversionchange=()=>{connection.close();if(pairDbHandle===connection)pairDbHandle=null;};
+       pairDbHandle=connection;resolve(connection);
+     };
+     req.onerror=()=>reject(req.error||new Error('IndexedDB nelze otevřít.'));
+   }).finally(()=>{pairDbOpening=null;});
+   return pairDbOpening;
+ };
  const pairTx=async(mode,fn)=>{
    const db=await pairDb();
    try{return await new Promise((resolve,reject)=>{
@@ -9808,7 +9914,7 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
      tx.oncomplete=()=>resolve(result);
      tx.onerror=()=>reject(tx.error||new Error('IndexedDB zápis selhal.'));
      tx.onabort=()=>reject(tx.error||new Error('IndexedDB transakce zrušena.'));
-   })}finally{db.close()}
+   })}finally{/* Spojeni zustava otevrene pro dalsi nahoz. */}
  };
  const pairSerial=fn=>{const job=pairWriteChain.then(fn);pairWriteChain=job.catch(()=>{});return job};
  const pairReadAll=()=>pairTx('readonly',store=>store.getAll());
@@ -9851,7 +9957,9 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    try{
      while(navigator.onLine&&pairQueue().length){
        const item=pairQueue()[0];
+       const pairRpcStart=performance.now();
        const result=await getDb().rpc('darturnio_v2_pair_visit',item.args);
+       darturnioSavingDuration('Dvojice: potvrzeni Supabase',pairRpcStart);
        if(result.error)throw result.error;
        if(result.data?.match_closed)window.darturnioResultNotice?.put(item.tid,item.board,'pairs',item.matchId,item.sessionId);
        await pairRemove(item);
@@ -9994,6 +10102,23 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
   }catch(error){if(request!==state.loadNumber)return;state.loadError=error.message||String(error)}
   renderLocal();
  }
+ // Ignorovat pouze vlastni echo nebo prokazatelne nesouvisejici parove udalosti.
+ // Zmeny aktualniho zapasu z jineho zarizeni se stale nactou.
+ window.darturnioPairsTabletSkipRealtime=payload=>{
+   if(!state.tid||state.tid!==selectedTournament||Number(state.board)!==Number(tabletBoard))return false;
+   const table=String(payload?.table||'');
+   const row=payload?.new||payload?.old||{};
+   if(table==='darturnio_pair_visits'){
+     if(row.request_id && pairOwnVisitIds.has(String(row.request_id)))return true;
+     if(state.leg?.status==='live' && row.leg_id && state.leg?.id && String(row.leg_id)!==String(state.leg.id))return true;
+   }
+   if(state.leg?.status==='live'){
+     if(table==='darturnio_pair_legs' && row.session_id && state.session?.id && String(row.session_id)!==String(state.session.id))return true;
+     if(table==='darturnio_pair_matches' && row.id && state.match?.id && String(row.id)!==String(state.match.id))return true;
+     if(table==='darturnio_pair_sessions' && row.board_no && Number(row.board_no)!==Number(state.board))return true;
+   }
+   return false;
+ };
  window.darturnioPairsTabletRender=async(tid,board)=>{
    if(!tid||!board)return;
    if(state.tid!==tid||state.board!==board){state.tid=tid;state.board=board;state.session=null;state.match=null;resetDraft()}
@@ -10029,8 +10154,11 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
    const action=p.action==='checkout'?'checkout':p.action==='bust'?'bust':args.p_action==='auto'?'score':args.p_action;
    const points=action==='bust'?0:Math.max(0,turn.remaining-p.remaining);
    const fake={request_id:args.p_request_id,leg_id:state.leg.id,visit_no:turn.visitNo,pair_id:turn.pairId,player_id:turn.player,action,score_before:turn.remaining,score_after:p.remaining,entered_points:action==='bust'?0:points,counted_points:points,darts_counted:args.p_darts_count,double_attempts:args.p_double_attempts};
+   const pairLocalStart=performance.now();
    try{await pairAdd({id:args.p_request_id,order:Date.now()*1000+turn.visitNo,args,fake,tid:state.tid,board:state.board,legId:state.leg.id,matchId:state.match.id,sessionId:state.session.id})}
    catch(err){throw new Error('Lokální IndexedDB zápis selhal. Nához nebyl potvrzen: '+err.message)}
+   darturnioSavingDuration('Dvojice: bezpecne ulozeni do tabletu',pairLocalStart);
+   pairRememberOwnVisit(args.p_request_id);
    state.visits.push(fake);
    if(action==='checkout')state.leg={...state.leg,status:'finished',winner_pair_id:turn.pairId};
    resetDraft();renderLocal();
