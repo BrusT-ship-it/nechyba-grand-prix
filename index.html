@@ -1696,12 +1696,6 @@ Zkontroluj dokončení všech zápasů, konečné pořadí a u série také při
 <p class="small" id="dtDrawHelp">Remíza pouze ve skupinách a KK.</p>
 </div>
 <div id="dtFinalSeedingBanner" class="dt-final-seeding" hidden></div>
-<div id="dtSeriesPlayoffPanel" class="panel" hidden>
-  <h3>Rozhodovací zápasy před finále</h3>
-  <p class="small">Při úplné shodě po bodech, umístěních a legách se hraje BO3 (501 Double Out). Výsledek zde zapíše pořadatel. Bez vyřešení shod ovlivňujících nasazení nelze finále rozlosovat.</p>
-  <button type="button" class="secondary" id="dtSeriesPlayoffRefresh">ZKONTROLOVAT SHODY</button>
-  <div id="dtSeriesPlayoffContent"></div>
-</div>
 <div id="dtFinalAdvanceChoice" hidden>
 <label for="dtFinalAdvancers">Postupujících z každé skupiny</label>
 <select id="dtFinalAdvancers" aria-describedby="dtFinalAdvanceHint"></select>
@@ -2421,33 +2415,11 @@ function finalTournament(){
   const ordered=tournamentsInSelectedSeries();
   return ordered.find(t=>t.is_final===true||t.is_final==='true')||null;
 }
-// Kvalifikační série: všechna kola mají stejnou váhu.
-function darturnioSeriesLegs(tournamentIds){
-  const ids=new Set(tournamentIds.map(String));
-  const entryPlayers=new Map(entries.filter(e=>ids.has(String(e.tournament_id))).map(e=>[String(e.id),String(e.player_id)]));
-  const result=new Map();
-  for(const m of matches){
-    if(!ids.has(String(m.tournament_id))||m.status!=='finished')continue;
-    if(m.stage==='series_tiebreak')continue;
-    const a=entryPlayers.get(String(m.player1_entry_id)),b=entryPlayers.get(String(m.player2_entry_id));
-    if(!a||!b||a===b)continue;
-    const l1=Number(m.legs1),l2=Number(m.legs2);
-    if(!Number.isFinite(l1)||!Number.isFinite(l2)||l1<0||l2<0)continue;
-    const x=result.get(a)||{won:0,lost:0},y=result.get(b)||{won:0,lost:0};
-    x.won+=l1;x.lost+=l2;y.won+=l2;y.lost+=l1;
-    result.set(a,x);result.set(b,y);
-  }
-  return result;
-}
-function darturnioSeriesRankNumber(rows,index){
-  return index>0&&rows.compare(rows[index-1],rows[index])===0?darturnioSeriesRankNumber(rows,index-1):index+1;
-}
 function seriesStandingsFor(tournamentId){
   const qualifying=qualificationTournamentsFor(tournamentId);
   const relevantEntries=entries.filter(e=>qualifying.some(t=>t.id===e.tournament_id));
   const playerIds=[...new Set(relevantEntries.map(e=>e.player_id))];
   const maxPlace=Math.max(1,...qualifying.map(t=>entries.filter(e=>e.tournament_id===t.id).length));
-  const legs=darturnioSeriesLegs(qualifying.map(t=>t.id));
   const rows=playerIds.map(playerId=>{
     const eventResults=qualifying.map(t=>{
       const entry=relevantEntries.find(e=>e.player_id===playerId&&e.tournament_id===t.id)||null;
@@ -2460,9 +2432,18 @@ function seriesStandingsFor(tournamentId){
     });
     const placementCounts={};
     eventResults.forEach(r=>{if(r.place!=null)placementCounts[r.place]=(placementCounts[r.place]||0)+1;});
-    const leg=legs.get(String(playerId))||{won:0,lost:0};
-    return {playerId,player:players.find(p=>p.id===playerId),eventResults,placementCounts,
-      total:eventResults.reduce((sum,r)=>sum+(r.points??0),0),legsWon:leg.won,legsLost:leg.lost,legDiff:leg.won-leg.lost};
+    let latestResult=null;
+    for(let i=eventResults.length-1;i>=0;i--){
+      if(eventResults[i].place!=null){latestResult={place:eventResults[i].place,index:i};break;}
+    }
+    return {
+      playerId,
+      player:players.find(p=>p.id===playerId),
+      eventResults,
+      placementCounts,
+      total:eventResults.reduce((sum,r)=>sum+(r.points??0),0),
+      latestResult
+    };
   });
   const compare=(a,b)=>{
     if(b.total!==a.total)return b.total-a.total;
@@ -2470,12 +2451,15 @@ function seriesStandingsFor(tournamentId){
       const diff=(b.placementCounts[place]||0)-(a.placementCounts[place]||0);
       if(diff)return diff;
     }
-    if(b.legDiff!==a.legDiff)return b.legDiff-a.legDiff;
-    if(b.legsWon!==a.legsWon)return b.legsWon-a.legsWon;
+    if(a.latestResult&&b.latestResult){
+      if(a.latestResult.place!==b.latestResult.place)return a.latestResult.place-b.latestResult.place;
+      if(a.latestResult.index!==b.latestResult.index)return b.latestResult.index-a.latestResult.index;
+    }else if(a.latestResult&&!b.latestResult)return -1;
+    else if(!a.latestResult&&b.latestResult)return 1;
     return 0;
   };
-  rows.sort((a,b)=>compare(a,b)||String(a.player?.name||'').localeCompare(String(b.player?.name||''),'cs'));
-  rows.compare=compare; // shoda znamená společné místo; abeceda není sportovní kritérium
+  rows.sort((a,b)=>compare(a,b)||String(a.player?.name||"").localeCompare(String(b.player?.name||""),"cs"));
+  rows.compare=compare; // compare()===0 znamená shodu ve všech kritériích (rozhodla by abeceda)
   return rows;
 }
 function seriesStandings(){return seriesStandingsFor(selectedTournament)}
@@ -2527,7 +2511,7 @@ function renderSeriesResults(){
   const standings=seriesStandings();
   const headers=qualifying.map((t,i)=>`<th>${i+1}. večer</th>`).join("");
   const qualificationRows=standings.map((row,index)=>`<tr>
-    <td>${darturnioSeriesRankNumber(standings,index)}.</td>
+    <td>${index+1}.</td>
     <td>${esc(row.player?.name||"Neznámý hráč")}</td>
     ${row.eventResults.map(r=>`<td>${r.points==null?"—":r.points}</td>`).join("")}
     <td><strong>${row.total}</strong></td>
@@ -2538,7 +2522,7 @@ function renderSeriesResults(){
     .map(e=>`<tr><td>${e.final_place==null?"—":e.final_place+". "}</td><td>${esc(players.find(p=>p.id===e.player_id)?.name||"Neznámý hráč")}</td></tr>`).join("");
   $("resultsContent").innerHTML=`
     <h3>Průběžné pořadí vybrané série</h3>
-    <p class="small">Body se sčítají pouze z turnajů patřících do stejné série (všech kvalifikačních večerů dané série). Večer bez uloženého umístění zatím přispívá 0 body. Při shodě rozhoduje počet 1. míst, potom 2. míst, 3. míst atd.; potom celkový rozdíl legů a počet vyhraných legů ze všech kvalifikačních večerů. Úplná shoda znamená společné pořadí. Před finále se případná shoda řeší zápasy BO3 (501 Double Out).</p>
+    <p class="small">Body se sčítají pouze z turnajů patřících do stejné série (všech kvalifikačních večerů dané série). Večer bez uloženého umístění zatím přispívá 0 body. Při shodě rozhoduje počet 1. míst, potom 2. míst, 3. míst atd.; následně lepší umístění v posledním večeru, ve kterém má hráč zaznamenané umístění.</p>
     ${qualifying.length?`<div class="table-wrap"><table class="series-table"><tr><th>Poř.</th><th>Hráč</th>${headers}<th>Celkem</th></tr>${qualificationRows||`<tr><td colspan="${qualifying.length+3}">Zatím nejsou přihlášení hráči.</td></tr>`}</table></div>`:"V této sérii zatím nejsou kvalifikační turnaje."}
     <div class="notice">Bodování: nepostup ze skupiny = 1 bod. Vyřazení v 1. kole pavouka = 2 body, za každé další dosažené kolo o 1 bod více.</div>
     ${finalEvent?`<h3>Samostatné finále – ${esc(finalEvent.name)}</h3>`:""}
@@ -3302,7 +3286,7 @@ function downloadCSV(filename,rows){
 }
 function exportSeries(){
   const standings=seriesStandings();const qs=qualificationTournaments();
-  downloadCSV("nechyba-grand-prix-celkove-vysledky.csv",[["Pořadí","Hráč",...qs.map(t=>t.name),"Celkem bodů","Rozdíl legů","Vyhrané legy"],...standings.map((r,i)=>[darturnioSeriesRankNumber(standings,i),r.player?.name||"",...r.eventResults.map(x=>x.points??""),r.total,r.legDiff,r.legsWon])]);
+  downloadCSV("nechyba-grand-prix-celkove-vysledky.csv",[["Pořadí","Hráč",...qs.map(t=>t.name),"Celkem bodů"],...standings.map((r,i)=>[i+1,r.player?.name||"",...r.eventResults.map(x=>x.points??""),r.total])]);
 }
 function exportPlayers(){
   const rows=currentTournamentPlayers().map(p=>({p,...playerStats(p.id),dart:playerDartSummary(p.id),d:playerDetailedSummary(p.id),c:playerBest(p.id,["p1_highest_checkout","p2_highest_checkout"]),h:playerBest(p.id,["p1_highest_score","p2_highest_score"])}));
@@ -3814,7 +3798,6 @@ function renderAdminFinalists(){
   // průběžné tabulky i postupujících nastane až stiskem jednoho z pěti tlačítek.
   const banner=$('dtFinalSeedingBanner');
   if(banner)banner.hidden=true;
-  const playoff=$('dtSeriesPlayoffPanel');if(playoff)playoff.hidden=!(definition&&definition.t&&definition.t.is_final);
 }
 // Není nutné přidávat nové tabulky: pořadí je v turnajích, body v účastech,
 // počet finalistů v tournament_series. final_seed se pouze zapamatuje pro finále.
@@ -3832,81 +3815,6 @@ async function darturnioEnsureFinalSeries(tid){
     throw Error('K turnaji nebylo nalezeno nastavení kvalifikační série s finále.');
   darturnioSeriesInfo.set(String(event.series_id),data);
   return data;
-}
-// Rozstřely jsou trvale uloženy v Supabase, nikoli v prohlížeči.
-function darturnioSeriesTieGroups(ranked){
-  const groups=[];
-  for(let i=0;i<ranked.length;){let j=i+1;while(j<ranked.length&&ranked.compare(ranked[i],ranked[j])===0)j++;
-    if(j-i>1)groups.push(ranked.slice(i,j));i=j;
-  }
-  return groups;
-}
-function darturnioPlayoffPairKey(a,b){return [String(a),String(b)].sort().join(':');}
-async function darturnioSeriesPlayoffRecords(tid){
-  const t=tournaments.find(t=>String(t.id)===String(tid));
-  if(!t?.series_id)throw Error('Chybí ID série.');
-  const {data,error}=await db.from('darturnio_series_playoffs').select('*').eq('series_id',t.series_id);
-  if(error)throw Error('Nelze načíst rozhodovací zápasy. Nejdříve spusť přiložené SQL: '+error.message);
-  return data||[];
-}
-function darturnioSeriesPlayoffDecision(group,records){
-  const ids=new Set(group.map(r=>String(r.playerId)));
-  const games=new Map();
-  for(const r of records){
-    if(!ids.has(String(r.player1_id))||!ids.has(String(r.player2_id)))continue;
-    const key=darturnioPlayoffPairKey(r.player1_id,r.player2_id);
-    games.set(key,r);
-  }
-  const wins=new Map(group.map(r=>[String(r.playerId),0]));
-  for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length;j++){
-    const key=darturnioPlayoffPairKey(group[i].playerId,group[j].playerId),g=games.get(key);
-    if(!g||!((g.legs1===2&&g.legs2<2)||(g.legs2===2&&g.legs1<2)))return {ok:false,message:'Chybí výsledek rozhodovacího zápasu BO3: '+(group[i].player?.name||'?')+' × '+(group[j].player?.name||'?')};
-    const winner=Number(g.legs1)>Number(g.legs2)?String(g.player1_id):String(g.player2_id);
-    wins.set(winner,(wins.get(winner)||0)+1);
-  }
-  const sorted=[...group].sort((a,b)=>(wins.get(String(b.playerId))||0)-(wins.get(String(a.playerId))||0));
-  if(sorted.some((r,i)=>i&&wins.get(String(r.playerId))===wins.get(String(sorted[i-1].playerId))))
-    return {ok:false,message:'Rozhodovací zápasy vytvořily další shodu. Je nutné odehrát další rozstřel; automatické nasazení je zablokované.'};
-  return {ok:true,sorted};
-}
-async function darturnioSeriesResolvePlayoffs(tid,ranked,ties){
-  const records=await darturnioSeriesPlayoffRecords(tid);
-  for(const group of ties){
-    const decision=darturnioSeriesPlayoffDecision(group,records);
-    if(!decision.ok)return decision;
-    const start=ranked.indexOf(group[0]);ranked.splice(start,group.length,...decision.sorted);
-  }
-  return {ok:true};
-}
-async function darturnioRenderSeriesPlayoffs(){
-  const box=$('dtSeriesPlayoffContent'),tid=selectedTournament;
-  if(!box)return;
-  const def=darturnioFinalData(tid);
-  if(!def){box.textContent='Vyber finálový turnaj.';return;}
-  try{
-    const info=await darturnioEnsureFinalSeries(tid);
-    const n=Number(info.finalists_count);
-    const ranked=seriesStandingsFor(tid);
-    const ties=darturnioSeriesTieGroups(ranked).filter(g=>g.some(r=>ranked.indexOf(r)<n));
-    if(!ties.length){box.innerHTML='<p class="good">Žádná nerozhodná pozice ovlivňující finále. Nasazení je připravené.</p>';return;}
-    const records=await darturnioSeriesPlayoffRecords(tid);
-    const parts=[];
-    for(const group of ties){
-      parts.push('<h4>Shoda: '+group.map(r=>esc(r.player?.name||'?')).join(' / ')+'</h4>');
-      for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length;j++){
-        const a=group[i],b=group[j],key=darturnioPlayoffPairKey(a.playerId,b.playerId);
-        const saved=records.find(r=>darturnioPlayoffPairKey(r.player1_id,r.player2_id)===key);
-        const x=saved?(String(saved.player1_id)===String(a.playerId)?saved.legs1:saved.legs2):'';
-        const y=saved?(String(saved.player1_id)===String(a.playerId)?saved.legs2:saved.legs1):'';
-        parts.push(`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0"><strong>${esc(a.player?.name||'?')} × ${esc(b.player?.name||'?')}</strong><input type="number" min="0" max="2" step="1" style="width:65px" data-playoff-score="${esc(key)}-a" value="${x}"><span>:</span><input type="number" min="0" max="2" step="1" style="width:65px" data-playoff-score="${esc(key)}-b" value="${y}"><button type="button" class="secondary" data-playoff-save="${esc(a.playerId)}|${esc(b.playerId)}">Uložit BO3</button></div>`);
-      }
-      const state=darturnioSeriesPlayoffDecision(group,records);
-      parts.push(`<p class="small">${esc(state.ok?'Rozstřel rozhodnut: '+state.sorted.map(r=>r.player?.name||'?').join(' → '):state.message)}</p>`);
-      if(!state.ok&&records.some(r=>group.some(x=>String(x.playerId)===String(r.player1_id))&&group.some(x=>String(x.playerId)===String(r.player2_id))))
-        parts.push(`<button type="button" class="secondary" data-playoff-reset="${group.map(r=>esc(r.playerId)).join('|')}">Smazat výsledky této shody a odehrát nový rozstřel</button>`);
-    }
-    box.innerHTML=parts.join('');
-  }catch(e){box.textContent=e.message||String(e);}
 }
 async function darturnioSyncFinalists(tid,interactive=false){
   if(!isAdmin)throw Error('Finále může připravit pouze pořadatel.');
@@ -3926,11 +3834,8 @@ async function darturnioSyncFinalists(tid,interactive=false){
   }
   const ranked=seriesStandingsFor(tid);
   if(ranked.length<n)throw Error(`Do finále má postoupit ${n} hráčů, ale v průběžné tabulce je zatím pouze ${ranked.length}.`);
-  const ties=darturnioSeriesTieGroups(ranked).filter(group=>group.some(r=>ranked.indexOf(r)<n));
-  if(ties.length){
-    const resolved=await darturnioSeriesResolvePlayoffs(tid,ranked,ties);
-    if(!resolved.ok)throw Error(resolved.message);
-  }
+  if(ranked.length>n&&ranked.compare(ranked[n-1],ranked[n])===0)
+    throw Error(`Na ${n}. a ${n+1}. místě je shoda i po pomocných kritériích. Nejdříve rozhodni postup, nesmí ho určit abeceda.`);
   const top=ranked.slice(0,n);
   if(top.some(r=>!r.playerId||!r.player))throw Error('V kvalifikační tabulce chybí některý hráč.');
   const ids=new Set(top.map(r=>r.playerId));
@@ -4215,43 +4120,6 @@ async function loadData(){
     }
   }
 }
-$('dtSeriesPlayoffRefresh')?.addEventListener('click',()=>darturnioRenderSeriesPlayoffs());
-$('dtSeriesPlayoffContent')?.addEventListener('click',async ev=>{
-  const reset=ev.target.closest('[data-playoff-reset]');
-  if(reset){
-    const ids=reset.dataset.playoffReset.split('|');
-    if(!confirm('Smazat výsledky rozstřelu této skupiny a odehrát nové BO3 zápasy?'))return;
-    const t=tournaments.find(t=>String(t.id)===String(selectedTournament));
-    if(!t?.series_id)return;
-    reset.disabled=true;
-    try{
-      const records=await darturnioSeriesPlayoffRecords(selectedTournament);
-      for(const rec of records.filter(r=>ids.includes(String(r.player1_id))&&ids.includes(String(r.player2_id)))){
-        const {error}=await db.from('darturnio_series_playoffs').delete().eq('series_id',t.series_id).eq('player1_id',rec.player1_id).eq('player2_id',rec.player2_id);
-        if(error)throw error;
-      }
-      await darturnioRenderSeriesPlayoffs();
-    }catch(e){notify('Nelze resetovat rozstřel: '+(e.message||e));reset.disabled=false;}
-    return;
-  }
-  const btn=ev.target.closest('[data-playoff-save]');if(!btn)return;
-  const [a,b]=btn.dataset.playoffSave.split('|'),key=darturnioPlayoffPairKey(a,b);
-  const root=$('dtSeriesPlayoffContent');
-  const x=Number(root.querySelector(`[data-playoff-score="${key}-a"]`)?.value);
-  const y=Number(root.querySelector(`[data-playoff-score="${key}-b"]`)?.value);
-  if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>2||y>2||!((x===2&&y<2)||(y===2&&x<2)))return notify('BO3 musí skončit 2:0, 2:1, 0:2 nebo 1:2.');
-  if(!confirm('Potvrzuješ, že byl odehrán rozhodovací zápas BO3 a výsledek je '+x+':'+y+'?'))return;
-  const t=tournaments.find(t=>String(t.id)===String(selectedTournament));
-  if(!t?.series_id)return notify('Chybí série.');
-  btn.disabled=true;
-  try{
-    const ids=[a,b].sort();const reversed=ids[0]!==a;
-    const {error}=await db.from('darturnio_series_playoffs').upsert({series_id:t.series_id,player1_id:ids[0],player2_id:ids[1],legs1:reversed?y:x,legs2:reversed?x:y},{onConflict:'series_id,player1_id,player2_id'});
-    if(error)throw error;
-    await darturnioRenderSeriesPlayoffs();
-    notify('Rozhodovací zápas uložen.');
-  }catch(e){notify('Nelze uložit rozstřel: '+(e.message||e));btn.disabled=false;}
-});
 $("tournamentSelect").addEventListener("change",e=>{
   selectedTournament=e.target.value;$("liveTournamentSelect").value=selectedTournament;$("bracketTournamentSelect").value=selectedTournament;$("entryTournament").value=selectedTournament;renderAll();darturnioAdminSwitch();
 });
@@ -11478,25 +11346,63 @@ setTimeout(()=>{void refresh()},8000);
   }
   function notice(msg){const node=$('dtMatchReportStatus')||document.createElement('p');node.id='dtMatchReportStatus';node.className='dt-report-status';node.textContent=msg;$('dtMatchReportActions')?.after(node);}
   function drawCanvas(r){
-    const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#111114';ctx.fillRect(0,0,1080,1350);
-    ctx.fillStyle='#e52222';ctx.fillRect(0,0,1080,14);
-    ctx.textAlign='center';ctx.fillStyle='#f3f3f3';ctx.font='bold 76px Arial';ctx.fillText('DARTURNIO',540,135);
-    ctx.fillStyle='#e52222';ctx.font='bold 35px Arial';ctx.fillText('REPORT ZÁPASU',540,200);
-    function fit(str,max){let t=String(str||'');while(t.length&&ctx.measureText(t).width>max)t=t.slice(0,-2);return t.length<String(str||'').length?t+'…':t;}
-    ctx.fillStyle='#bbb';ctx.font='32px Arial';ctx.fillText(fit(r.tournamentName,900),540,265);
-    ctx.fillStyle='#f5f5f5';ctx.font='bold 51px Arial';ctx.fillText(fit(r.a,925),540,380);
-    ctx.fillStyle='#e52222';ctx.font='bold 120px Arial';ctx.fillText(`${number(r.m.legs1)} : ${number(r.m.legs2)}`,540,530);
-    ctx.fillStyle='#f5f5f5';ctx.font='bold 51px Arial';ctx.fillText(fit(r.b,925),540,620);
+    // Jednotná sdílecí šablona Darturnio, 9:16; všechna data patří konkrétnímu zápasu.
+    const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1920;
+    const ctx=canvas.getContext('2d'),W=1080,H=1920;
+    const red='#f21925',white='#f7f7f8',muted='#b7b7bc';
+    ctx.fillStyle='#0d0d10';ctx.fillRect(0,0,W,H);
+    // Jemná textura a červené diagonály bez rušivých šipek či terče po stranách.
+    for(let j=0;j<42;j++){
+      const x=(j*239)%W,y=(j*397)%H;
+      ctx.fillStyle=j%3===0?'rgba(255,255,255,.012)':'rgba(255,255,255,.006)';
+      ctx.fillRect(x,y,110+(j%5)*35,2);
+    }
+    function slash(x,y,w){ctx.save();ctx.translate(x,y);ctx.rotate(-.48);const g=ctx.createLinearGradient(0,0,w,0);g.addColorStop(0,'rgba(242,25,37,0)');g.addColorStop(.6,'rgba(242,25,37,.27)');g.addColorStop(1,'rgba(242,25,37,0)');ctx.fillStyle=g;ctx.fillRect(0,0,w,85);ctx.restore();}
+    slash(-180,410,440);slash(850,1560,420);slash(-180,1690,430);
+    ctx.fillStyle=red;ctx.fillRect(0,0,W,12);ctx.fillRect(0,H-12,W,12);
+    function fitted(t,max,font,size,min=18){t=String(t??'');while(size>min){ctx.font=`${font} ${size}px Arial, sans-serif`;if(ctx.measureText(t).width<=max)break;size-=2;}return size;}
+    function center(t,y,size,color=white,weight='bold',max=980){ctx.fillStyle=color;ctx.textAlign='center';ctx.font=`${weight} ${fitted(t,max,weight,size)}px Arial, sans-serif`;ctx.fillText(String(t),W/2,y);}
+    // Záměrně celý terč loga, včetně spodního oblouku, s bezpečným okrajem.
+    const cx=183,cy=180;
+    for(const [rad,col] of [[108,red],[86,'#fff'],[65,'#101014'],[46,'#fff'],[27,red]]){
+      ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    }
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-.78);
+    ctx.fillStyle='#e8e8e9';ctx.strokeStyle='#24242a';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(-8,-4);ctx.lineTo(145,-4);ctx.lineTo(145,4);ctx.lineTo(-8,4);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=red;ctx.beginPath();ctx.moveTo(132,-19);ctx.lineTo(177,-29);ctx.lineTo(158,-3);ctx.lineTo(177,25);ctx.lineTo(132,17);ctx.closePath();ctx.fill();ctx.restore();
+    // Logo s automatickým přizpůsobením šířce: žádné překrytí ani ořez.
+    ctx.textAlign='left';
+    ctx.font='italic 900 78px Arial, sans-serif';
+    const brandWidth=ctx.measureText('DARTURNIO').width;
+    ctx.font='italic 900 74px Arial, sans-serif';
+    const dotWidth=ctx.measureText('.COM').width;
+    const available=1080-318-52;
+    const scale=Math.min(1,available/(brandWidth+dotWidth+8));
+    ctx.save();ctx.translate(318,194);ctx.scale(scale,scale);
+    ctx.font='italic 900 78px Arial, sans-serif';ctx.fillStyle=white;ctx.fillText('DARTURNIO',0,0);
+    ctx.font='italic 900 74px Arial, sans-serif';ctx.fillStyle=red;ctx.fillText('.COM',brandWidth+8,0);
+    ctx.restore();
+    ctx.beginPath();ctx.moveTo(318,224);ctx.quadraticCurveTo(635,204,980,229);ctx.strokeStyle=red;ctx.lineWidth=7;ctx.stroke();
+    center('REPORT ZÁPASU',345,64,red);
+    center(r.tournamentName||'Šipkový turnaj',425,40,muted,'normal');
+    center(r.a,580,68,white);
+    center(`${number(r.m.legs1)} : ${number(r.m.legs2)}`,785,185,red);
+    center(r.b,885,68,white);
     const s1=computeStats(r.visits.filter(v=>v.player_entry_id===r.m.player1_entry_id),r.legs);
     const s2=computeStats(r.visits.filter(v=>v.player_entry_id===r.m.player2_entry_id),r.legs);
-    ctx.fillStyle='#242428';ctx.fillRect(65,700,950,455);
     const rows=[['Ø3',fmt(s1.avg),fmt(s2.avg)],['Nejvyšší nához',s1.maxVisit??'—',s2.maxVisit??'—'],['100+ (100–139)',s1.visits?s1.high100:'—',s2.visits?s2.high100:'—'],['140+ (140–179)',s1.visits?s1.high140:'—',s2.visits?s2.high140:'—'],['180',s1.visits?s1.high180:'—',s2.visits?s2.high180:'—'],['Nejvyšší checkout',s1.maxCheckout??'—',s2.maxCheckout??'—']];
-    ctx.font='bold 25px Arial';ctx.textAlign='center';
-    rows.forEach((v,i)=>{const y=755+i*68;ctx.fillStyle='#acacb1';ctx.fillText(v[0],540,y);ctx.font='bold 36px Arial';ctx.fillStyle='#fff';ctx.fillText(String(v[1]),190,y);ctx.fillText(String(v[2]),890,y);ctx.font='bold 25px Arial';});
-    ctx.fillStyle='#aaa';ctx.font='24px Arial';ctx.fillText('Statistiky pouze z evidovaných šipek',540,1206);
-    ctx.fillStyle='#f5f5f5';ctx.font='bold 29px Arial';ctx.fillText('darturnio.com',540,1293);
+    const x=55,y=970,w=970,h=600;
+    ctx.fillStyle='#1b1b1f';ctx.beginPath();ctx.roundRect(x,y,w,h,26);ctx.fill();ctx.lineWidth=6;ctx.strokeStyle=red;ctx.stroke();
+    rows.forEach((v,i)=>{
+      const yy=y+84+i*96;
+      if(i){ctx.strokeStyle='#49494f';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+24,yy-53);ctx.lineTo(x+w-24,yy-53);ctx.stroke();}
+      center(v[0],yy,33,muted,'bold',470);
+      ctx.textAlign='center';ctx.font='bold 48px Arial, sans-serif';ctx.fillStyle=white;
+      ctx.fillText(String(v[1]),190,yy);ctx.fillText(String(v[2]),890,yy);
+    });
+    center('Statistiky pouze z evidovaných šipek',1655,32,muted,'italic');
+    center('darturnio.com',1805,46,white);
     return canvas;
   }
   async function shareImage(r){
@@ -11504,7 +11410,7 @@ setTimeout(()=>{void refresh()},8000);
       const canvas=drawCanvas(r);
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
       if(!blob)throw new Error('Obrázek není k dispozici.');
-      const file=new File([blob],`Darturnio_report_${r.m.id}.png`,{type:'image/png'});
+      const file=new File([blob],`Darturnio_NOVY_REPORT_${r.m.id}.png`,{type:'image/png'});
       if(navigator.share&&navigator.canShare?.({files:[file]})){
         try{await navigator.share({files:[file],title:`Darturnio – ${r.a} vs. ${r.b}`,text:r.tournamentName});return;}
         catch(error){if(error?.name==='AbortError')return;}
@@ -11515,7 +11421,7 @@ setTimeout(()=>{void refresh()},8000);
   }
   function downloadBlob(blob,r){
     const link=document.createElement('a'),url=URL.createObjectURL(blob);
-    link.href=url;link.download=`Darturnio_report_${r.m.id}.png`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
+    link.href=url;link.download=`Darturnio_NOVY_REPORT_${r.m.id}.png`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
   }
   async function downloadImage(r){
     try{const canvas=drawCanvas(r);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
