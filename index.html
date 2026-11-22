@@ -2026,6 +2026,14 @@ function planMatches(matchRows,includeOccupied){
   const laneCount={WB:0,LB:0};
   for(const m of active){const side=dkoSchedulingSide(m);if(side)laneCount[side]++;}
   const lastPlayedAt=new Map(),lastScoredAt=new Map();
+  const groupGamesPlayed=new Map();
+  for(const m of matchRows){
+    if(m.stage==='group' && m.status==='finished'){
+      for(const id of [m.player1_entry_id,m.player2_entry_id]){
+        if(id)groupGamesPlayed.set(id,(groupGamesPlayed.get(id)||0)+1);
+      }
+    }
+  }
   for(const m of matchRows){
     if(m.status!=='finished')continue;
     const stamp=new Date(m.ended_at||m.started_at||0).getTime()||0;
@@ -2051,6 +2059,17 @@ function planMatches(matchRows,includeOccupied){
     const recentlyScoredA=playersA.filter(justScored).length;
     const recentlyScoredB=playersB.filter(justScored).length;
     if(recentlyScoredA!==recentlyScoredB)return recentlyScoredA-recentlyScoredB;
+    // Ve skupinách dej přednost dvojici s méně odehranými zápasy.
+    // Nejprve minimalizuj nejvyšší počet odehraných her v dvojici,
+    // pak jejich součet; ostatní pravidla zůstávají jako tie-break.
+    if(a.stage==='group' && b.stage==='group'){
+      const ac=playersA.map(id=>groupGamesPlayed.get(id)||0);
+      const bc=playersB.map(id=>groupGamesPlayed.get(id)||0);
+      const maxDiff=Math.max(...ac)-Math.max(...bc);
+      if(maxDiff!==0)return maxDiff;
+      const sumDiff=(ac[0]+ac[1])-(bc[0]+bc[1]);
+      if(sumDiff!==0)return sumDiff;
+    }
     const sideA=dkoSchedulingSide(a),sideB=dkoSchedulingSide(b);
     if(sideA&&sideB&&sideA!==sideB){
       const balance=laneCount[sideA]-laneCount[sideB];
