@@ -2284,7 +2284,7 @@ function phaseLabel(m){
 }
 function renderLive(){
   const active=activeMatches();
-  const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
+  const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id,confirmed:!!x.confirmed}]));
    const soft=darturnioSoftTournament();
    const boardCount=darturnioBoardCount(selectedTournament);
    const cards=Array.from({length:boardCount},(_,i)=>i+1).map(board=>{
@@ -2311,7 +2311,7 @@ function renderLive(){
            ${soft?`<div class="small">Výsledek po skončení zapíše pořadatel v administraci.</div>`:leg?`<div class="stat-grid" style="margin-top:10px"><div class="stat-card">${esc(playerName(playing.player1_entry_id))}<strong>${remaining(playing.player1_entry_id)}</strong><span class="small">${dartsThrown(playing.player1_entry_id)} šipek</span></div><div class="stat-card">${esc(playerName(playing.player2_entry_id))}<strong>${remaining(playing.player2_entry_id)}</strong><span class="small">${dartsThrown(playing.player2_entry_id)} šipek</span></div></div><div class="small">Nyní hází: <strong>${esc(playerName(current))}</strong> · návštěva č. ${turnNo}</div><div class="small">Poslední návštěva (${esc(playerName(last?.player_entry_id))}): ${esc(lastDarts)} · započítáno šipek ${last?.darts_counted??0}</div>`:`<div class="small">${(playing.legs1||0)+(playing.legs2||0)>0?"Pořadatel připravuje další leg.":"Pořadatel připravuje první leg."}</div>`}`;
       })():`<div class="muted">Terč je právě volný.</div>`}
       <div class="next">
-        <div class="small">${next&&!darturnioConfirmedQueue(tournamentMatches()).some(q=>q.board===board&&q.match.id===next.id)&&darturnioQueueAvailable?"PŘEDBĚŽNÝ PLÁN":playing?"POTVRZENÝ DALŠÍ ZÁPAS":"DALŠÍ ZÁPAS"}</div>
+        <div class="small">${next?(next.confirmed?"POTVRZENÝ DALŠÍ ZÁPAS":"PŘEDBĚŽNÝ PLÁN"):"DALŠÍ ZÁPAS"}</div>
         ${next?`<strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong>
           <div class="small">${esc(phaseLabel(next))} · pořadí ${esc(next.match_no??"—")}</div>${soft?"":`<div class="small">Zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></div>`}`
           :`<span class="muted">Zatím není připraven další zápas.</span>`}
@@ -3023,7 +3023,7 @@ function renderBracketMatches(rows){
   if(isDouble)return renderUnifiedDko(rows);
   return renderUnifiedKo(rows);
   const active=activeMatches();
-  const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
+  const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id,confirmed:!!x.confirmed}]));
   const phases=new Map();
   rows.forEach(m=>{
     const phase=isDouble?String(m.group_name||''):(Number(m.round_no)||1);
@@ -3667,7 +3667,7 @@ function chooseBoardScorekeeper(playing,next,active,scheduled,board){
    renderDarturnioTabletLinks(boardCount);
    const tabletSection=$("admin501TabletSection");if(tabletSection){tabletSection.hidden=soft;if(soft)tabletSection.open=false;}
    const active=activeMatches();
-  const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id}]));
+  const scheduled=new Map(upcomingMatches().map(x=>[x.board,{...x.match,scorekeeper_entry_id:x.scorekeeper_entry_id,confirmed:!!x.confirmed}]));
   const activePlayers=active.flatMap(m=>[m.player1_entry_id,m.player2_entry_id]);
   const duplicatePlayers=activePlayers.filter((id,index)=>activePlayers.indexOf(id)!==index);
   const conflictNotice=duplicatePlayers.length?
@@ -3682,8 +3682,8 @@ function chooseBoardScorekeeper(playing,next,active,scheduled,board){
          <div class="admin-board-score"><p class="small">${soft?"Po dohrání na automatu zadej výsledek.":"Legy: <strong>"+(playing.legs1??0)+" : "+(playing.legs2??0)+"</strong>. Zápis šipek probíhá v samostatné sekci Tabletová počítadla."}</p></div>
         <button class="secondary" type="button" data-manual-result="${esc(playing.id)}">Zadat ruční výsledek po dohrání</button>`
         :`<p class="muted">Terč je volný.</p>`}
-      ${next?`<p class="admin-next-match">${darturnioQueueAvailable&&!darturnioConfirmedQueue(tournamentMatches()).some(q=>q.board===board&&q.match.id===next.id)?"Předběžný plán":playing?"Potvrzený další":"Další"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
-         ${!playing?`${soft?"":`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p>`}<button class="action" ${darturnioQueueAvailable&&!darturnioConfirmedQueue(tournamentMatches()).some(q=>q.board===board&&q.match.id===next.id)?"disabled title=\"Čeká na potvrzení fronty\"":""} data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na ${soft?"automatu":"terči"} ${board}</button>`:""}`
+      ${next?`<p class="admin-next-match">${next.confirmed?"Potvrzený další zápas":"Předběžný plán"}: <strong>${esc(playerName(next.player1_entry_id))} vs. ${esc(playerName(next.player2_entry_id))}</strong></p>
+         ${!playing?`${soft?"":`<p class="small">Předběžně určený zapisovatel: <strong>${esc(playerName(next.scorekeeper_entry_id))}</strong></p>`}<button class="action" ${darturnioQueueAvailable&&!next.confirmed?"disabled title=\"Čeká na potvrzení fronty\"":""} data-start-board="${board}" data-match-id="${esc(next.id)}">Začít hrát na ${soft?"automatu":"terči"} ${board}</button>`:""}`
         :`<p class="muted">Není připravený další zápas.</p>`}
     </div>`;
   }).join("");
