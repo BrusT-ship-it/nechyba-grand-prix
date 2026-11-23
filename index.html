@@ -5771,7 +5771,7 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
     <div class="tablet-double dt-compact-double"><span class="dt-compact-label">Pokusy na double</span><div class="tablet-double-buttons">${[1,2,3].map(n=>`<button type="button" data-tablet-double="${n}" class="${tabletDoubleAttempts===n?"selected":""}" aria-pressed="${tabletDoubleAttempts===n}" title="${n} pokus/y na double; opakovaným stisknutím zrušíš volbu">${n}</button>`).join("")}</div></div>
     <div class="tablet-special-note">${remaining===1?'Chybný uložený zůstatek 1. Použij ZPĚT a oprav nához.':invalidSpecial?esc(invalidSpecial):onePointWarning?'Zůstatek 1 = PŘEHOZENO (0 bodů). Vyber šipku, kterou přehoz nastal.':preview.bust&&tabletMode==='per_dart'?'PŘEHOZENO '+preview.dart+'. šipkou · skóre se vrací na '+remaining:preview.checkout&&tabletMode==='per_dart'?'ZAVŘENO '+preview.dart+'. šipkou':specialActive?`${tabletSpecialType==="checkout"?"ZAVŘENO":"PŘEHOZENO"} ${tabletSpecialDart}. šipkou – běžné body náhozu se nezapočítají`:''}</div>
     <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy||(!darturnioOfflineCount()&&tabletPendingGet())?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy||(tabletPendingGet()&&!darturnioOfflineMode())||!!(darturnioOfflineCount()&&darturnioOfflineVisits(tabletFastCache).at(-1)?.is_checkout)?"disabled":""}>POTVRDIT NÁHOZ</button></div>
-    <div class="darturnio-offline-toolbar"><span class="${darturnioOfflineMode()?'warning':'small'}">${!navigator.onLine?'⚠ BEZ PŘIPOJENÍ':darturnioOfflineCount()?'🟠 NESYNCHRONIZOVANÉ NÁHOZY':'Online'} · čeká ${darturnioOfflineCount()} náhozů</span><button class="secondary" data-tablet-offline-toggle>${darturnioOfflineManual?'Ukončit ruční offline režim':'Vynutit lokální režim'}</button>${darturnioOfflineCount()?'<button class="action" data-tablet-offline-sync>Synchronizovat</button>':''}</div>
+    <div class="darturnio-offline-toolbar"><span class="${darturnioOfflineMode()?'warning':'small'}">${!navigator.onLine?'⚠ BEZ PŘIPOJENÍ':darturnioOfflineCount()?'🟠 NESYNCHRONIZOVANÉ NÁHOZY':'Online'} · čeká ${darturnioOfflineCount()} náhozů</span><button class="secondary" data-tablet-offline-toggle>${darturnioOfflineManual?'Ukončit ruční offline režim':'Vynutit lokální režim'}</button>${darturnioOfflineCount()?'<button class="action" data-tablet-offline-sync>Synchronizovat</button>':''}${darturnioArchivedCount?'<button class="secondary" data-tablet-archive-export>Archiv ('+darturnioArchivedCount+') – stáhnout</button>':''}</div>
     ${(darturnioOfflineCount()||darturnioOfflineManual)?'<div class="notice warning">⚠ '+esc(darturnioOfflineMessage||'Náhozy se ukládají do tabletu a průběžně odesílají divákům.')+' Nezavírej prohlížeč a nemaž data webu.</div>':tabletPendingGet()?'<div class="notice warning">⚠ Starší nepotvrzený nához. Přepni do offline režimu, nebo vyčkej na ověření zápisu.</div>':""}
     <div class="notice tablet-history">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
@@ -5793,6 +5793,7 @@ function darturnioSavingDuration(label,start){
 let darturnioOfflinePack=null;
 let darturnioOfflineManual=false;
 let darturnioOfflineSyncBusy=false;
+let darturnioUndoBusy=false;
 let darturnioOfflineMessage='';
 function darturnioOfflineKey(){return 'board-'+tabletBoard;}
 function darturnioOfflineSupported(){return !!window.indexedDB&&!!window.crypto?.randomUUID;}
@@ -5805,8 +5806,8 @@ function darturnioOfflineDb(){
  if(darturnioOfflineDbOpening)return darturnioOfflineDbOpening;
  darturnioOfflineDbOpening=new Promise((resolve,reject)=>{
   if(!darturnioOfflineSupported())return reject(new Error('Prohlížeč nepodporuje bezpečné místní uložení IndexedDB.'));
-  const req=indexedDB.open('darturnio-offline-visits-v1',1);
-  req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('packs'))req.result.createObjectStore('packs',{keyPath:'key'});};
+  const req=indexedDB.open('darturnio-offline-visits-v1',2);
+  req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('packs'))req.result.createObjectStore('packs',{keyPath:'key'});if(!req.result.objectStoreNames.contains('archives'))req.result.createObjectStore('archives',{keyPath:'key'});};
   req.onsuccess=()=>{
    const connection=req.result;
    connection.onversionchange=()=>{connection.close();if(darturnioOfflineDbHandle===connection)darturnioOfflineDbHandle=null;};
@@ -5845,6 +5846,48 @@ async function darturnioOfflineClear(){
   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
  });}finally{/* Spojeni je sdilene; transakce jsou uz dokoncene. */}
  darturnioOfflinePack=null;
+}
+// V2: Archiv nevyresenych navstev z PREDCHOZIHO zapasu.
+// Nesynchronizuje se automaticky do noveho zapasu. Nikdy se nemaze bez zalohy.
+let darturnioArchivedCount=0;
+async function darturnioOfflineRefreshArchiveCount(){
+ const database=await darturnioOfflineDb();
+ darturnioArchivedCount=await new Promise((resolve,reject)=>{
+  const tx=database.transaction('archives','readonly');
+  const q=tx.objectStore('archives').count();q.onsuccess=()=>resolve(q.result||0);q.onerror=()=>reject(q.error);
+ });
+ return darturnioArchivedCount;
+}
+async function darturnioOfflineArchivePrevious(newPack){
+ // V ramci JEDINE transakce ulozime archiv a teprve pote prepneme zapisovaci pack.
+ if(darturnioOfflineSyncBusy)throw new Error('Prave probiha synchronizace; zkus to po jejim dokonceni.');
+ await darturnioOfflineMutationTail;
+ const old=darturnioOfflinePack;
+ if(!old || !(old.pending||[]).length)throw new Error('Archivace vyzaduje predchozi nevyreseny zaznam.');
+ if(old.matchId===newPack.matchId)throw new Error('V ramci stejneho zapasu musi byt nejdriv vyreseny predchozi leg.');
+ if(darturnioOfflineSyncBusy)throw new Error('Probíhá synchronizace.');
+ const database=await darturnioOfflineDb();
+ const archiveKey='archive-'+old.board+'-'+old.matchId+'-'+old.legId+'-'+Date.now()+'-'+crypto.randomUUID();
+ await new Promise((resolve,reject)=>{
+  const tx=database.transaction(['packs','archives'],'readwrite');
+  tx.objectStore('archives').put({...old,key:archiveKey,archivedAt:new Date().toISOString(),reason:'previous-match-blocked'});
+  tx.objectStore('packs').put(newPack);
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('Archivaci nelze ulozit'));tx.onabort=()=>reject(tx.error||new Error('Archivace byla prerusena'));
+ });
+ darturnioOfflinePack=newPack;
+ await darturnioOfflineRefreshArchiveCount();
+ darturnioOfflineMessage='Nedoslane nahoz(y) z predchoziho zapasu jsou v lokalnim archivu. V tomto zapase lze pokracovat.';
+}
+async function darturnioOfflineExportArchive(){
+ const database=await darturnioOfflineDb();
+ const records=await new Promise((resolve,reject)=>{
+  const tx=database.transaction('archives','readonly');const q=tx.objectStore('archives').getAll();
+  q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error);
+ });
+ if(!records.length){notify('Archiv neobsahuje zadne zaznamy.');return;}
+ const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),records},null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='darturnio-zachranene-nahozy-'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 // Serialize all IndexedDB pack mutations; never overwrite a newer local visit.
 let darturnioOfflineMutationTail=Promise.resolve();
@@ -5886,10 +5929,18 @@ async function darturnioOfflineEnsure(){
  // jiz potvrzene navstevy (confirmed); ty Supabase skutecne prijala.
  // Zablokovat je nutne jen NEODESLANE pending, nebo prave bezici sync.
  if(darturnioOfflinePack&&!darturnioOfflineCompatible(c)){
-  if((darturnioOfflinePack.pending||[]).length)
-   throw new Error('Na tomto terči jsou dosud neodeslané náhozy z jiného zápasu. Nejdřív je synchronizuj; nic nepřepisuji.');
   if(darturnioOfflineSyncBusy)
    throw new Error('Ještě se dokončuje synchronizace předchozího zápasu. Zkus potvrdit za chvíli.');
+  const previous=darturnioOfflinePack;
+  if((previous.pending||[]).length){
+   if(previous.matchId===c.match.id)
+    throw new Error('Predchozi leg STEJNEHO zapasu ma nevyresene nahoz(y). Nejdříve vyres synchronizaci.');
+   const accepted=window.confirm('Na tomto tabletu jsou '+previous.pending.length+' nepotvrzene nahoz(y) ze STAREHO zapasu. Server je mohl odmitnout. Chces je BEZPECNE ARCHIVOVAT (nesmazat) a pokracovat v tomto NOVEM zapase? Archiv lze exportovat do JSON.');
+   if(!accepted)throw new Error('Stare nahoz(y) zustaly beze zmeny. Pokracovani bylo zruseno.');
+   const nextPack={key:darturnioOfflineKey(),board:tabletBoard,tournamentId:c.tournamentId,matchId:c.match.id,legId:c.leg.id,gameType:c.gameType,createdAt:new Date().toISOString(),confirmed:[],pending:[]};
+   await darturnioOfflineArchivePrevious(nextPack);
+   return darturnioOfflinePack;
+  }
  }
  if(!darturnioOfflineCompatible(c)){
   const pack={key:darturnioOfflineKey(),board:tabletBoard,tournamentId:c.tournamentId,matchId:c.match.id,legId:c.leg.id,
@@ -5929,7 +5980,17 @@ function darturnioOfflineFake(c,args,existing){
 }
 async function darturnioOfflineAdoptLegacy(){
  const old=tabletPendingGet();if(!old)return;
- const c=tabletFastCache;if(!c||old.args?.p_leg_id!==c.leg?.id)throw new Error('Existuje starší nevyřešený nához. Nejdřív jej potvrď online.');
+ const c=tabletFastCache;
+ if(!c||old.args?.p_leg_id!==c.leg?.id){
+  // Stary format localStorage: nesmi blokovat jinou hru ani bez zalohy zmizet.
+  const database=await darturnioOfflineDb();
+  const key='legacy-'+String(old.args?.p_request_id||crypto.randomUUID());
+  await new Promise((resolve,reject)=>{const tx=database.transaction('archives','readwrite');
+   tx.objectStore('archives').put({key,archivedAt:new Date().toISOString(),reason:'legacy-other-leg',legacy:old,pending:[old]});
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+  tabletPendingClear();await darturnioOfflineRefreshArchiveCount();return;
+ }
  const pack=await darturnioOfflineEnsure();
  if(!pack.pending.some(x=>x.args?.p_request_id===old.args?.p_request_id)){
   const base=darturnioOfflineVisits(c),fake=darturnioOfflineFake(c,old.args,base);
@@ -6001,11 +6062,12 @@ async function darturnioOfflineUndo(){
  return true;
 }
 async function darturnioOfflineSync(){
- if(darturnioOfflineSyncBusy||!navigator.onLine||!isAdmin||!darturnioOfflineCount())return false;
+ if(darturnioOfflineSyncBusy||darturnioUndoBusy||!navigator.onLine||!isAdmin||!darturnioOfflineCount())return false;
+ if(!tabletFastCache||!darturnioOfflineCompatible(tabletFastCache))return false;
  darturnioOfflineSyncBusy=true;
  darturnioOfflineMessage='Náhozy se odesílají na pozadí…';
  try{
-  while(darturnioOfflineCount()&&navigator.onLine){
+  while(darturnioOfflineCount()&&navigator.onLine&&darturnioOfflineCompatible(tabletFastCache)){
    // Persist the maybe-sent marker before RPC; use latest pack, never a stale snapshot.
    const first=await darturnioOfflineMutate(pack=>{
     if(!pack?.pending?.length)return null;
@@ -6199,13 +6261,13 @@ if(tabletBoard){
     if(error){notify("Přihlášení se nezdařilo: "+error.message);return;}
     if(!(await verifyAdmin())){setAdminUi(false);notify("Tento účet nespravuje vybraný turnaj. V sekci Moje turnaje otevři vlastní turnaj. Přihlášení účtu zůstává zachované.");return;}
     isAdmin=true;$("tabletPassword").value="";
-    try{darturnioOfflinePack=await darturnioOfflineRead();}catch(error){notify('Lokální offline úložiště: '+error.message);}
+    try{darturnioOfflinePack=await darturnioOfflineRead();await darturnioOfflineRefreshArchiveCount();}catch(error){notify('Lokální offline úložiště: '+error.message);}
     await renderTablet();if(darturnioOfflineCount()&&navigator.onLine)void darturnioOfflineSync();
   });
   $("tabletRefreshBtn").addEventListener("click",()=>{tabletAutoStartBlockedMatchId=null;renderTablet();});
   $("tabletLogoutBtn").addEventListener("click",async()=>{if(darturnioOfflineCount()){notify('Před odhlášením nejdříve synchronizuj uložené náhozy.');return;}await db.auth.signOut();isAdmin=false;tabletDraft=[];tabletDraftLegId=null;await renderTablet();});
   ["tabletEmail","tabletPassword"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter")$("tabletLoginBtn").click();}));
-  $("tabletTournamentSelect").addEventListener("change",event=>{if(darturnioOfflineCount()){event.target.value=selectedTournament;notify('Nejdřív synchronizuj náhozy před změnou turnaje.');return;}selectedTournament=event.target.value;tabletFastCache=null;cricketTournamentCurrent=null;cricketTournamentDraft=[];cricketTournamentLegId=null;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;tabletResetPastVisitCache();renderTablet();});
+  $("tabletTournamentSelect").addEventListener("change",event=>{selectedTournament=event.target.value;tabletFastCache=null;cricketTournamentCurrent=null;cricketTournamentDraft=[];cricketTournamentLegId=null;tabletDraft=[];tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;tabletDraftLegId=null;tabletResetPastVisitCache();renderTablet();});
    $("tabletApp").addEventListener("click",async event=>{
      if(event.target.closest('[data-dt-result-next]')){
        const completed=darturnioResultNotice.get(selectedTournament,tabletBoard);
@@ -6223,18 +6285,27 @@ if(tabletBoard){
        void renderTablet(true);return;
      }
      if(event.target.closest('[data-tablet-offline-sync]')){void darturnioOfflineSync();return;}
+     if(event.target.closest('[data-tablet-archive-export]')){try{await darturnioOfflineExportArchive();}catch(e){notify('Archiv nelze exportovat: '+e.message);}return;}
      const resultUndo=event.target.closest('[data-dt-result-undo]');
      if(resultUndo){
+       if(tabletBusy||darturnioUndoBusy||darturnioOfflineSyncBusy)return;
        if(tabletPendingGet()||cricketPendingGet()){notify('Nejdřív ověř čekající nához.');return;}
        if(!confirm('Vrátit poslední uložený nához tohoto zápasu?'))return;
-       const matchId=resultUndo.dataset.dtResultUndo;
-       const finished=await db.from('matches').select('id').eq('id',matchId).maybeSingle();
-       if(finished.error){notify(finished.error.message);return;}
-       const {error}=await darturnioTabletRpc('undo_last_match_entry',{p_match_id:matchId});
-       if(error){notify('Vrácení náhozu se nepodařilo: '+error.message);return;}
-       darturnioResultNotice.clear(selectedTournament,tabletBoard);
-       tabletResetPastVisitCache();tabletDraftLegId=null;cricketTournamentLegId=null;
-       await loadData();await renderTablet();return;
+       darturnioUndoBusy=true;tabletBusy=true;
+       try{
+        const matchId=resultUndo.dataset.dtResultUndo;
+        if(darturnioOfflineCount())throw new Error('Pred vracenim potvrz nebo archivuj nevyresene nahoz(y).');
+        const finished=await db.from('matches').select('id').eq('id',matchId).maybeSingle();
+        if(finished.error)throw finished.error;
+        const {error}=await darturnioTabletRpc('undo_last_match_entry',{p_match_id:matchId});
+        if(error)throw error;
+        await darturnioOfflineMutate(pack=>pack&&pack.matchId===matchId&&!(pack.pending||[]).length?{...pack,confirmed:[]}:null);
+        darturnioResultNotice.clear(selectedTournament,tabletBoard);
+        tabletResetPastVisitCache();tabletDraftLegId=null;cricketTournamentLegId=null;
+        await loadData();
+       }catch(error){notify('Vrácení náhozu se nepodařilo: '+error.message);}
+       finally{tabletBusy=false;darturnioUndoBusy=false;void renderTablet();}
+       return;
      }
      const ctTarget=event.target.closest('[data-tcr-target]');
      const ctMult=event.target.closest('[data-tcr-mult]');
@@ -6284,26 +6355,37 @@ if(tabletBoard){
     if(doubleButton){if(tabletBusy)return;const n=Number(doubleButton.dataset.tabletDouble);tabletDoubleAttempts=tabletDoubleAttempts===n?null:n;void renderTablet(true);return;}
     const undoMatch=event.target.closest("[data-tablet-undo-match]");
     if(undoMatch){
-      if(darturnioOfflineCount()){
-        try{await darturnioOfflineUndo();}catch(error){notify('Nához nelze místně vrátit: '+error.message);}
-        void renderTablet(true);return;
-      }
-      if(!navigator.onLine||darturnioOfflineManual){notify('Starší uložený nához lze vrátit až po připojení k serveru.');return;}
-      if(tabletPendingGet()){notify("Nejdříve je nutné potvrdit čekající nához. ZPĚT je zatím zablokováno.");return;}
-      if(tabletBusy)return;
-      // Spodní tlačítko ZPĚT vždy vrací poslední potvrzený nához v legu.
-      // Rozpracovaný vstup se při tom zahodí; mazání číslice má vlastní klávesu.
-      tabletBusy=true;
-      const matchId=undoMatch.dataset.tabletUndoMatch;
+      // Lock synchronne hned po kliknuti. Dalsi kliknuti nesmi spustit nove RPC.
+      if(tabletBusy||darturnioUndoBusy)return;
+      if(darturnioOfflineSyncBusy){notify('Nahozy se synchronizuji. Pockej na potvrzeni a potom pouzij ZPET.');return;}
+      darturnioUndoBusy=true;tabletBusy=true;
       try{
-        const {error}=await darturnioTabletRpc("undo_last_match_entry",{p_match_id:matchId});
-        if(error)throw error;
-        tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;
+        if(darturnioOfflineCount()){
+          if(!darturnioOfflineCompatible(tabletFastCache))throw new Error('Na tabletu jsou stare nevyresene nahoz(y); nejdrive je oddel do archivu pri potvrzeni noveho zapasu.');
+          await darturnioOfflineUndo();
+        }else{
+          if(!navigator.onLine||darturnioOfflineManual)throw new Error('Posledni potvrzeny nahoz lze vratit pouze online.');
+          if(tabletPendingGet())throw new Error('Nejdrive je nutne vyresit cekajici nahoz.');
+          const matchId=undoMatch.dataset.tabletUndoMatch;
+          const c=tabletFastCache;
+          if(!c||c.match?.id!==matchId)throw new Error('Chybi aktualni nacitany zapas, obnov pocitadlo.');
+          const lastVisit=darturnioOfflineVisits(c).at(-1);
+          if(!lastVisit?.id)throw new Error('Posledni nahoz neni nacteny. Obnov pocitadlo.');
+          const {error}=await darturnioTabletRpc('darturnio_undo_match_expected',{p_match_id:matchId,p_expected_visit_id:lastVisit.id});
+          if(error)throw error;
+          // Po serverovem ZPET invalidujeme lokalni kopie jiz potvrzenych navstev.
+          // Jinak by stary nahoz z cached 'confirmed' zustaval ve skore jako fantom.
+          await darturnioOfflineMutate(pack=>{
+           if(!pack||pack.matchId!==matchId||(pack.pending||[]).length)return null;
+           return {...pack,confirmed:[]};
+          });
+          tabletResetPastVisitCache();
+          await loadData();
+        }
+        tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue='';tabletSpecialType='';tabletSpecialDart=0;tabletDoubleAttempts=null;
         tabletDraftLegId=null;
-        tabletResetPastVisitCache();
-        await loadData();await renderTablet();
-      }catch(err){notify("Poslední akci se nepodařilo vrátit: "+(err.message||err));}
-      finally{tabletBusy=false;}
+      }catch(err){notify('Posledni akci se nepodarilo vratit: '+(err.message||err));}
+      finally{darturnioUndoBusy=false;tabletBusy=false;void renderTablet();}
       return;
     }
     const start=event.target.closest("[data-tablet-start-leg]");
@@ -6430,7 +6512,7 @@ async function init(){
   try{
     const {data}=await db.auth.getSession();
     if(data?.session){
-      try{darturnioOfflinePack=await darturnioOfflineRead();}catch(error){console.warn('Offline úložiště:',error);}
+      try{darturnioOfflinePack=await darturnioOfflineRead();await darturnioOfflineRefreshArchiveCount();}catch(error){console.warn('Offline úložiště:',error);}
       const canManage=await verifyAdmin();
       setAdminUi(canManage);
       if(canManage){await loadData();if(tabletBoard)await renderTablet();if(tabletBoard&&darturnioOfflineCount()&&navigator.onLine)void darturnioOfflineSync();}
