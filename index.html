@@ -13183,4 +13183,193 @@ body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts .dt-ui-tile-ar
   else init();
 })();
 </script>
+<style id="darturnio-full-design-v2">
+/* DARTURNIO / DESIGN SYSTEM 2026-11-23
+   All app surfaces follow the home dashboard. Presentation only.
+   Tournament tablet, local scoring keypads, gameplay, RPC, push, IDs untouched. */
+:root {
+  --dt-pro-bg:#0c0e12;
+  --dt-pro-card:#191c23;
+  --dt-pro-card-hi:#20242d;
+  --dt-pro-field:#11151c;
+  --dt-pro-stroke:#363b47;
+  --dt-pro-stroke-soft:#2b303a;
+  --dt-pro-copy:#f7f8fa;
+  --dt-pro-muted:#afb5c0;
+  --dt-pro-accent:#ef394a;
+  --dt-pro-accent-hi:#ff6574;
+  --dt-pro-focus:#ff97a1;
+  --dt-pro-shadow:0 7px 24px rgba(0,0,0,.14);
+  --dt-pro-round:16px;
+}
+body:not(.tablet-mode) {background:var(--dt-pro-bg)!important;color:var(--dt-pro-copy)!important;font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif!important;line-height:1.5}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) {--ui-accent:#ef394a;--ui-bg:#0c0e12;--ui-panel:#191c23;--ui-panel-hi:#20242d;--ui-border:#363b47;--ui-muted:#afb5c0;--ui-ink:#f7f8fa}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(h2,h3,h4) {text-wrap:pretty;overflow-wrap:break-word}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(button,a,summary,input,select,textarea):focus-visible {outline:3px solid var(--dt-pro-focus)!important;outline-offset:2px!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(button,summary) {touch-action:manipulation}
+/* Inner-page shells match the home surface, with a single clear title and consistent outer margins. */
+body:not(.tablet-mode) #landingHome.has-panel {background:radial-gradient(ellipse 90% 25% at 50% -9%,rgba(239,57,74,.07),transparent 80%),var(--dt-pro-bg)!important;padding:18px 12px 36px!important}
+body:not(.tablet-mode) #landingHome.has-panel>.panel.active-panel {width:min(100%,900px)!important;max-width:900px!important;margin:0 auto!important;padding:clamp(18px,3.2vw,30px)!important;background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:20px!important;box-shadow:var(--dt-pro-shadow)!important;color:var(--dt-pro-copy)!important}
+body:not(.tablet-mode) #landingHome.has-panel>.landing-back:not([hidden]) {width:min(100%,900px)!important;max-width:900px!important;min-height:45px!important;border-radius:12px!important;margin:0 auto 14px!important;padding:10px 16px!important;background:#20242d!important;border:1px solid var(--dt-pro-stroke)!important;text-align:left!important;color:#f7f8fa!important;font-weight:750!important}
+body:not(.tablet-mode) #landingHome.has-panel>.panel.active-panel>h2,
+body:not(.tablet-mode) #landingHome.has-panel>.panel.active-panel>h3,
+body:not(.tablet-mode) #landingHome.has-panel .competition-panel-heading h3 {font-size:clamp(23px,3.5vw,31px)!important;color:#fff!important;font-weight:850!important;line-height:1.2!important;letter-spacing:-.03em!important;margin:0 0 19px!important}
+body:not(.tablet-mode) #landingHome.has-panel :is(.ui-section-kicker,.competition-panel-heading .kicker){color:var(--dt-pro-accent-hi)!important;font-size:11px!important;font-weight:850!important;letter-spacing:.14em!important}
+body:not(.tablet-mode) :is(#createPanel,#aboutDarturnioPanel,#accountPanel,#dailyPanel,#trainingPanel,#findPanel,#localDuelPanel,#cricketPanel) :is(.stats-muted,.hint,.muted,.ui-section-subtitle) {color:var(--dt-pro-muted)!important}
+/* All navigation tiles use the home page language: understated navy, icon chip, red accent. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-grid>.portal-dashboard-tile,
+ .dt-ui-tile-grid>button,
+ #profileMe .dt-profile-tile,
+ #profilePanel .dashboard-actions button,
+ #trainingChoice .training-pick,
+ #adminPanel .admin501-shortcuts button,
+ #owner501Panel .owner501-tiles button,
+ #aboutDarturnioPanel .dt-about-tabs button
+ ) {
+  background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;
+  border-radius:var(--dt-pro-round)!important;color:var(--dt-pro-copy)!important;
+  box-shadow:none!important;transform:none;transition:background .14s,border-color .14s,transform .14s!important;
+  text-shadow:none!important;
+}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-grid>.portal-dashboard-tile,
+ .dt-ui-tile-grid>button,
+ #profileMe .dt-profile-tile,
+ #profilePanel .dashboard-actions button,
+ #trainingChoice .training-pick,
+ #adminPanel .admin501-shortcuts button,
+ #owner501Panel .owner501-tiles button
+ ):hover {border-color:#b65562!important;background:var(--dt-pro-card-hi)!important;transform:translateY(-1px)!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-grid>.portal-dashboard-tile,
+ .dt-ui-tile-grid>button,
+ #profileMe .dt-profile-tile,
+ #trainingChoice .training-pick,
+ #adminPanel .admin501-shortcuts button
+ ):active {transform:scale(.987)!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.portal-dashboard-grid,.dt-ui-tile-grid,#profileMe .dt-profile-tiles,#adminPanel .admin501-shortcuts) {gap:12px!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.portal-dashboard-icon,.dt-ui-tile-icon,.dt-profile-icon) {color:#ff8290!important}
+body:not(.tablet-mode) :is(#legacyApp,#landingHome) :is(.dt-ui-tile-grid .dt-ui-tile-icon,#adminPanel .dt-ui-tile-icon,#profileMe .dt-profile-icon){background:rgba(239,57,74,.14)!important;border-radius:12px!important;display:grid;place-items:center;width:42px;height:42px;flex:none;font-size:24px!important}
+body:not(.tablet-mode) #profileMe .dt-profile-tile::before,
+body:not(.tablet-mode) .dt-ui-tile-grid button::before {background:var(--dt-pro-accent)!important}
+body:not(.tablet-mode) #profileMe .dt-profile-tile {min-height:141px!important;padding:16px!important;justify-content:space-between!important}
+body:not(.tablet-mode) #profileMe .dt-profile-tile-name {font-size:clamp(15px,2.7vw,18px)!important;letter-spacing:0!important}
+body:not(.tablet-mode) #profileMe .dt-profile-tile-note {color:#b6bdc8!important;line-height:1.4!important}
+body:not(.tablet-mode) .dt-ui-tile-grid>button{min-height:133px!important;padding:16px!important;justify-content:space-between!important}
+body:not(.tablet-mode) .dt-ui-tile-name {font-size:clamp(14px,2.5vw,18px)!important;font-weight:800!important;color:#fff!important}
+body:not(.tablet-mode) :is(.dt-ui-tile-arrow,.dt-profile-tile-arrow){color:#ff7987!important}
+/* Back buttons in the same corner, same appearance; do not touch dart-back / undo controls. */
+body:not(.tablet-mode) :is(#landingHome.has-panel>.landing-back,.dt-ui-back,#profileMe .dt-profile-go-back,#profileStatistics .dt-profile-go-back,#profileMeBack,#profileStatsBack,#profilePanel .dashboard-back,#ownedCompetitionsBack,#owner501Back) {
+ background:#252a34!important;border:1px solid #464d59!important;color:#f7f8fa!important;
+ min-height:44px!important;border-radius:11px!important;padding:10px 14px!important;
+ font-size:14px!important;font-weight:760!important;box-shadow:none!important;letter-spacing:0!important}
+body:not(.tablet-mode) :is(.dt-ui-back,#profileMe .dt-profile-go-back,#profileStatistics .dt-profile-go-back):hover{border-color:var(--dt-pro-accent-hi)!important;background:#30333d!important}
+body:not(.tablet-mode) :is(.dt-ui-bar,#profileMe .dt-profile-detail-head,#profileStatistics .dt-profile-stats-head){align-items:center!important;border-bottom:1px solid var(--dt-pro-stroke-soft)!important;padding-bottom:14px!important;gap:12px!important;margin-bottom:17px!important}
+/* Forms - keyboard-friendly and mobile ready; exclude all active scoring surfaces. */
+body:not(.tablet-mode) :is(#createPanel,#accountPanel,#findPanel,#aboutDarturnioPanel,#localDuelSetup) :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea),
+body:not(.tablet-mode) #adminPanel :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+ background:var(--dt-pro-field)!important;border:1px solid #464d59!important;
+ border-radius:11px!important;color:#fff!important;box-shadow:none!important;
+ min-height:46px!important;padding:10px 13px!important;font-size:16px!important;
+ max-width:100%;box-sizing:border-box;line-height:1.35!important;
+}
+body:not(.tablet-mode) :is(#createPanel,#accountPanel,#findPanel,#aboutDarturnioPanel,#adminPanel,#localDuelSetup) :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea):focus {border-color:var(--dt-pro-accent-hi)!important;outline:2px solid rgba(239,57,74,.23)!important;outline-offset:1px!important}
+body:not(.tablet-mode) :is(#createPanel,#accountPanel,#findPanel,#aboutDarturnioPanel,#adminPanel,#localDuelSetup) label {color:#d1d6df!important;font-size:13px!important;font-weight:700!important;line-height:1.4!important}
+body:not(.tablet-mode) :is(#createPanel,#accountPanel,#findPanel,#aboutDarturnioPanel,#adminPanel,#localDuelSetup) :is(input,select,textarea)::placeholder{color:#8893a3!important;opacity:1}
+body:not(.tablet-mode) :is(#createPanel,#accountPanel,#findPanel,#aboutDarturnioPanel,#adminPanel) :is(button.primary,button[type="submit"],button.action){border:1px solid #e85b69!important;border-radius:11px!important;min-height:44px!important;color:#fff!important;background:#d92f42!important;box-shadow:none!important;font-weight:800!important}
+body:not(.tablet-mode) :is(#createPanel,#accountPanel,#findPanel,#aboutDarturnioPanel,#adminPanel) button.secondary {background:#282c35!important;border:1px solid #464d59!important;color:#fff!important;border-radius:11px!important;min-height:44px!important;box-shadow:none!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(button[disabled],input[disabled],select[disabled]) {cursor:not-allowed!important;opacity:.55}
+/* Wizard: nested steps resemble simple home cards, not long gradient panels. */
+body:not(.tablet-mode) #createPanel .comp-wizard-progress {background:#151920!important;border:1px solid var(--dt-pro-stroke-soft)!important;border-radius:14px!important;padding:12px!important;margin:13px 0 24px!important}
+body:not(.tablet-mode) #createPanel .comp-wizard-progress :is(.comp-wizard-step,.comp-step){border-radius:9px!important}
+body:not(.tablet-mode) #createPanel .competition-form .comp-wizard-step{background:transparent!important;box-shadow:none!important;border:0!important;padding:0!important}
+body:not(.tablet-mode) #createPanel :is(.comp-choice,.comp-type-card,.competition-choice,.competition-type-option,.comp-wizard-card){background:#20242d!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:13px!important;box-shadow:none!important}
+body:not(.tablet-mode) #createPanel :is(.comp-choice,.comp-type-card,.competition-choice,.competition-type-option,.comp-wizard-card):has(input:checked){border-color:#e55362!important;background:#2a252e!important}
+body:not(.tablet-mode) #createPanel .comp-wizard-step>h4{color:#fff!important;font-size:19px!important;letter-spacing:-.015em!important;font-weight:850!important;margin:10px 0 17px!important}
+body:not(.tablet-mode) #createPanel .competition-form :is(.hint,.small){color:var(--dt-pro-muted)!important}
+/* Account, about, profile, stats: consistent sub-panels. */
+body:not(.tablet-mode) :is(#accountPanel .tabs,#aboutDarturnioPanel .dt-about-tabs,#profileStatistics .stats-tabs){background:#141820!important;border:1px solid var(--dt-pro-stroke-soft)!important;border-radius:13px!important;padding:5px!important;gap:5px!important}
+body:not(.tablet-mode) :is(#accountPanel .tabs button,#aboutDarturnioPanel .dt-about-tabs button,#profileStatistics .stats-tabs button){background:transparent!important;border:1px solid transparent!important;color:var(--dt-pro-muted)!important;border-radius:10px!important;box-shadow:none!important;font-weight:800!important}
+body:not(.tablet-mode) :is(#accountPanel .tabs button.active,#aboutDarturnioPanel .dt-about-tabs button.active,#profileStatistics .stats-tabs button.active){background:#2d2932!important;border-color:#804652!important;color:#fff!important}
+body:not(.tablet-mode) #aboutDarturnioPanel .dt-about-section{background:transparent!important;box-shadow:none!important}
+body:not(.tablet-mode) #aboutDarturnioPanel #dt-guide {color:#f4f5f8!important}
+body:not(.tablet-mode) #aboutDarturnioPanel #dt-guide :is(.dt-guide-card,details,article){border-radius:14px!important;box-shadow:none!important}
+body:not(.tablet-mode) #profileMe .dt-profile-detail,
+body:not(.tablet-mode) #profilePanel :is(.my-profile-header,#profileStatistics,.dt-myturn-list,.dt-push-settings),
+body:not(.tablet-mode) :is(.dt-life,.dt-life-stat,.stats-card){background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:var(--dt-pro-round)!important;box-shadow:none!important}
+body:not(.tablet-mode) #profileMe .dt-profile-detail {padding:clamp(15px,3vw,22px)!important}
+body:not(.tablet-mode) #profilePanel :is(.stats-grid,.stats-summary-grid,.dt-life-grid){gap:11px!important}
+body:not(.tablet-mode) #profilePanel :is(.stats-grid>div,.stats-summary-grid>div,.stat-card,.stats-card,.dt-life-stats>div){background:var(--dt-pro-card-hi)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:14px!important;box-shadow:none!important;min-width:0!important;overflow-wrap:break-word!important}
+body:not(.tablet-mode) #profilePanel :is(.stats-grid>div,.stats-summary-grid>div) :is(strong,b){overflow-wrap:anywhere}
+body:not(.tablet-mode) #profilePanel :is(#profileNotifications,#profileQr,.dt-myturn-list){min-width:0!important}
+body:not(.tablet-mode) #profilePanel :is(.dt-profile-badge,.profile-unread-count){background:#d92f42!important;color:#fff!important}
+/* Public tournament: same width, headings, visible results in readable cards. */
+body:not(.tablet-mode) #legacyApp>header {border-bottom:1px solid var(--dt-pro-stroke-soft)!important;background:#11141a!important;box-shadow:none!important}
+body:not(.tablet-mode) #legacyApp>main{width:min(100%,1070px)!important;max-width:1070px!important;margin:0 auto!important;padding:12px clamp(10px,3.5vw,24px) 40px!important;box-sizing:border-box}
+body:not(.tablet-mode) #legacyApp>main>section:not(#admin):not(#tabletRoot)>h2{font-weight:850!important;font-size:clamp(22px,4vw,30px)!important;letter-spacing:-.025em!important;line-height:1.2!important;color:#fff!important;margin:12px 0 16px!important}
+body:not(.tablet-mode) #dtPublicHub {width:min(100%,920px)!important;max-width:920px!important;padding:0 12px!important;margin:15px auto 30px!important}
+body:not(.tablet-mode) #dtPublicHub h2 {font-size:clamp(24px,4vw,32px)!important;font-weight:850!important;letter-spacing:-.025em!important}
+body:not(.tablet-mode) #dtPublicHub .dt-ui-tile-grid{gap:12px!important}
+body:not(.tablet-mode) #legacyApp>main>section :is(.panel,.stats-card,.stat-card,.dt-live-board,.dt-live-queue,.dt-result-card){background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:15px!important;box-shadow:none!important;min-width:0;}
+body:not(.tablet-mode) #legacyApp>main>section :is(.panel,.stats-card,.stat-card,.dt-result-card){padding:clamp(12px,2.7vw,19px)!important}
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table){border-collapse:separate!important;border-spacing:0!important;font-size:clamp(12px,2vw,14px)!important;max-width:100%}
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table) th{background:#232832!important;color:#d3d7df!important;font-weight:800!important;white-space:normal}
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table) th,
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table) td{padding:10px 11px!important;border-bottom:1px solid #303641!important}
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table) tr:last-child td{border-bottom:0!important}
+body:not(.tablet-mode) #legacyApp :is(.muted,.stats-muted){color:var(--dt-pro-muted)!important}
+/* Admin: same design as home cards, keep details functionality, no extra clicks to live scoring. */
+body:not(.tablet-mode) #adminPanel {max-width:1050px!important;padding:clamp(10px,2.2vw,22px)!important;margin:0 auto!important}
+body:not(.tablet-mode) #adminPanel #admin501Overview {background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:18px!important;padding:clamp(15px,2.7vw,25px)!important;box-shadow:none!important}
+body:not(.tablet-mode) #adminPanel .admin501-overview-title {border-bottom-color:var(--dt-pro-stroke-soft)!important}
+body:not(.tablet-mode) #adminPanel #admin501TourName{font-size:clamp(22px,3vw,29px)!important;font-weight:850!important;letter-spacing:-.025em!important;color:#fff!important}
+body:not(.tablet-mode) #adminPanel .admin501-metrics>* {background:#20242d!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:12px!important;box-shadow:none!important}
+body:not(.tablet-mode) #adminPanel .admin501-next {color:var(--dt-pro-muted)!important;line-height:1.5!important}
+body:not(.tablet-mode) #adminPanel details.admin-section {background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:16px!important;box-shadow:none!important;overflow:hidden!important;margin:12px 0!important}
+body:not(.tablet-mode) #adminPanel details.admin-section>summary {background:var(--dt-pro-card)!important;color:#f7f8fa!important;border-bottom:1px solid transparent!important;min-height:56px!important;padding:15px 18px!important;font-size:clamp(15px,2vw,18px)!important;font-weight:800!important;line-height:1.35!important;cursor:pointer}
+body:not(.tablet-mode) #adminPanel details.admin-section[open]>summary {background:#22252e!important;border-bottom-color:var(--dt-pro-stroke)!important;color:#fff!important}
+body:not(.tablet-mode) #adminPanel details.admin-section :is(.admin-section-content,.admin501-section-body,.admin-section-body){padding:14px 17px!important}
+body:not(.tablet-mode) #adminPanel details.admin-section :is(.panel,.notice){border-color:#353b47!important}
+body:not(.tablet-mode) #adminPanel #dtAdminDetailBar{border-bottom-color:var(--dt-pro-stroke-soft)!important}
+/* Owner dashboard, owned tournaments, series and statistics. */
+body:not(.tablet-mode) :is(#owner501Panel,#ownedCompetitions,#profilePanel) {max-width:min(100%,960px)!important}
+body:not(.tablet-mode) :is(#owner501Panel,#ownedCompetitions) :is(.owner-card,.owner501-card,.owned-card,.owner501-tile,.owned-item,.dt-stats-card){background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:var(--dt-pro-round)!important;box-shadow:none!important}
+body:not(.tablet-mode) #owner501Panel .owner501-tiles {gap:12px!important}
+/* Daily & training: tile selection matches home; active gaming areas retain exact control geometry. */
+body:not(.tablet-mode) #trainingPanel #trainingChoice{gap:12px!important;margin-top:13px!important}
+body:not(.tablet-mode) #trainingPanel #trainingChoice>.training-pick {min-height:118px!important;padding:16px!important;border-radius:16px!important}
+body:not(.tablet-mode) #dailyPanel :is(#dailyTrainingHub,.dt-daily-card,.daily-leaderboard,.dt-daily-stat){background:var(--dt-pro-card)!important;border:1px solid var(--dt-pro-stroke)!important;border-radius:16px!important;box-shadow:none!important}
+body:not(.tablet-mode) #localDuelPanel #localDuelSetup {background:transparent!important}
+body:not(.tablet-mode) #cricketPanel :is(.ct-setup,.ct-players){background:#1a1d24!important;border-color:var(--dt-pro-stroke)!important;border-radius:14px!important}
+/* Status feedback, keyboard and accessibility. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.notice,.dt-warning,.dt-feedback){border-radius:12px!important;line-height:1.5!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.good,.success){color:#7deab1}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.small,.note,.hint){line-height:1.55}
+body:not(.tablet-mode) #appBrandFooter {position:static!important;pointer-events:none!important;height:auto!important;min-height:48px!important;margin:5px auto 0!important;padding:8px 0 14px!important;background:none!important;z-index:auto!important}
+body:not(.tablet-mode) #appBrandFooter img {max-width:94px!important;max-height:33px!important;opacity:.72!important}
+body.tablet-mode #appBrandFooter {display:none!important}
+@media(max-width:620px){
+ body:not(.tablet-mode) #landingHome.has-panel{padding:12px 10px 25px!important}
+ body:not(.tablet-mode) #landingHome.has-panel>.panel.active-panel{border-radius:17px!important;padding:18px!important}
+ body:not(.tablet-mode) #landingHome.has-panel>.landing-back:not([hidden]){border-radius:11px!important;margin-bottom:12px!important}
+ body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.dt-ui-tile-grid,#profileMe .dt-profile-tiles,#adminPanel .admin501-shortcuts) {gap:10px!important}
+ body:not(.tablet-mode) .dt-ui-tile-grid>button{min-height:122px!important;padding:13px!important}
+ body:not(.tablet-mode) #profileMe .dt-profile-tile{min-height:128px!important;padding:14px!important}
+ body:not(.tablet-mode) #adminPanel {padding:8px!important}
+ body:not(.tablet-mode) #adminPanel details.admin-section>summary {padding:13px 14px!important}
+ body:not(.tablet-mode) #legacyApp>main{padding:10px!important}
+ body:not(.tablet-mode) #legacyApp :is(.stats-table,table) :is(th,td){padding:8px 7px!important}
+ body:not(.tablet-mode) #profilePanel :is(.stats-grid>div,.stats-summary-grid>div) {padding:12px!important}
+}
+@media(max-width:340px){
+ body:not(.tablet-mode) .dt-ui-tile-grid>button {min-height:114px!important;padding:11px!important}
+ body:not(.tablet-mode) #profileMe .dt-profile-tile {min-height:120px!important;padding:12px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ body:not(.tablet-mode) :is(.portal-dashboard-tile,.dt-ui-tile-grid button,.dt-profile-tile){transition:none!important;transform:none!important}
+}
+@media print {body:not(.tablet-mode) #appBrandFooter{display:none!important}}
+
+</style>
 </body></html>
