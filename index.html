@@ -12744,4 +12744,237 @@ setTimeout(()=>{void refresh()},8000);
   else init();
 })();
 </script>
+<style id="darturnio-ui-all-tiles-v1">
+/* Darturnio – jednotná dlaždicová navigace, mimo aktivní počítadla. Bez změn RPC/datových modelů. */
+:root{--dtTileBg:#22242b;--dtTileBd:#3b3d47;--dtTileRed:#d72433}
+#dtPublicHub[hidden],#dtPublicBar[hidden],#dtAdminDetailBar[hidden]{display:none!important}
+.dt-ui-tile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0 20px}
+.dt-ui-tile-grid button{position:relative;box-sizing:border-box;min-width:0;min-height:148px;padding:17px 15px 15px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--dtTileBd)!important;border-radius:15px!important;background:linear-gradient(145deg,#24262d,#17181d)!important;color:#fff!important;text-align:left!important;font:inherit!important;cursor:pointer;box-shadow:none!important;transition:border-color .16s,background .16s,transform .16s}
+.dt-ui-tile-grid button::before{content:'';position:absolute;left:15px;top:0;width:38px;height:3px;border-radius:0 0 4px 4px;background:var(--dtTileRed)}
+.dt-ui-tile-grid button:hover,.dt-ui-tile-grid button:focus-visible{background:linear-gradient(145deg,#30303a,#1c1d23)!important;border-color:#d72433!important;transform:translateY(-1px)}
+.dt-ui-tile-grid button:focus-visible{outline:3px solid #ff5b62;outline-offset:2px}
+.dt-ui-tile-grid .dt-ui-tile-icon{font-size:29px;line-height:1.15;display:block}
+.dt-ui-tile-grid .dt-ui-tile-lower{width:100%;display:flex;justify-content:space-between;align-items:flex-end;gap:4px}
+.dt-ui-tile-grid .dt-ui-tile-name{font-size:clamp(15px,2vw,19px);font-weight:850;line-height:1.25;letter-spacing:.003em;overflow-wrap:break-word}
+.dt-ui-tile-grid .dt-ui-tile-arrow{color:#ed5260;font-size:23px;line-height:1}
+.dt-ui-back{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;align-self:flex-start;min-height:44px;padding:10px 15px!important;box-sizing:border-box;background:#262831!important;border:1px solid #464952!important;border-radius:9px!important;color:#fff!important;font-weight:750!important;font-size:14px!important;text-decoration:none;cursor:pointer}
+.dt-ui-back:hover,.dt-ui-back:focus-visible{border-color:#e03342!important;background:#33252a!important;color:#fff!important}
+.dt-ui-screen-title{margin:0;font-size:clamp(19px,3vw,25px);line-height:1.3;color:#fff}
+.dt-ui-bar{display:flex;align-items:center;justify-content:flex-start;gap:16px;flex-wrap:wrap;margin:12px 0 22px;padding:0 0 13px;border-bottom:1px solid #343640}
+/* Veřejné turnajové výsledky: nabídka dlaždic namísto dlouhé lišty záložek. */
+body:not(.tablet-mode) #legacyApp.dt-public-hub-mode > nav[role="tablist"],
+body:not(.tablet-mode) #legacyApp.dt-public-detail-mode > nav[role="tablist"]{display:none!important}
+body:not(.tablet-mode) #legacyApp.dt-public-hub-mode > main{display:none!important}
+body:not(.tablet-mode) #legacyApp.dt-public-hub-mode > .legacy-home-back,
+body:not(.tablet-mode) #legacyApp.dt-public-detail-mode > .legacy-home-back{display:none!important}
+body:not(.tablet-mode) #legacyApp.dt-public-hub-mode #dtPublicHub{display:block!important}
+body:not(.tablet-mode) #legacyApp.dt-public-detail-mode #dtPublicHub{display:none!important}
+#dtPublicHub{max-width:880px;margin:12px auto 30px;padding:0 12px}
+#dtPublicHub h2{margin:10px 0 0;font-size:clamp(23px,4.5vw,32px);color:#fff}
+#dtPublicBar{max-width:880px;margin:10px auto 10px;padding:0 12px;border-bottom:0}
+/* Administrace: nejdříve dlaždice, potom pouze vybraná sekce. */
+#adminPanel[data-dt-admin-view="hub"] > details.admin-section,
+#adminPanel[data-dt-admin-view="detail"] > details.admin-section:not([data-dt-selected="true"]){display:none!important}
+#adminPanel[data-dt-admin-view="detail"] > #admin501Overview,
+#adminPanel[data-dt-admin-view="detail"] > #uxSmartAdmin,
+#adminPanel[data-dt-admin-view="hub"] > #uxSmartAdmin{display:none!important}
+#adminPanel[data-dt-admin-view="hub"] > #dtAdminDetailBar{display:none!important}
+#adminPanel[data-dt-admin-view="detail"] > #dtAdminDetailBar{display:flex!important}
+#adminPanel[data-dt-admin-view="detail"] > details.admin-section[data-dt-selected="true"]{display:block!important;margin-top:10px}
+#adminPanel .admin501-shortcuts{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;margin:20px 0 0!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button{position:relative;min-width:0!important;min-height:142px!important;padding:16px 14px!important;border:1px solid #3b3d47!important;border-radius:15px!important;background:linear-gradient(145deg,#24262d,#17181d)!important;color:#fff!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:space-between!important;gap:12px!important;font:inherit;font-weight:850!important;text-align:left!important;cursor:pointer;box-shadow:none!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button::before{content:'';position:absolute;top:0;left:14px;width:38px;height:3px;background:#d72433;border-radius:0 0 4px 4px}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button:hover,body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button:focus-visible{border-color:#e03342!important;background:linear-gradient(145deg,#30303a,#1c1d23)!important}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts .dt-ui-tile-icon{font-size:28px}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts .dt-ui-tile-lower{display:flex;align-items:flex-end;justify-content:space-between;gap:5px;width:100%}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts .dt-ui-tile-name{font-size:clamp(15px,2.4vw,18px);font-weight:850;line-height:1.27}
+body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts .dt-ui-tile-arrow{font-size:22px;color:#ed5260}
+#adminPanel > #dtAdminDetailBar{margin:12px 0 20px}
+/* Dlaždice i na místech výběru hlavních her; ovládací klávesnice se nemění. */
+#trainingPanel .training-menu,#trainingPanel .training-grid,#trainingPanel .training-picks{grid-template-columns:repeat(2,minmax(0,1fr))}
+#trainingPanel .training-item.training-pick{position:relative;min-height:108px;border:1px solid #3b3d47!important;border-radius:14px!important;background:linear-gradient(145deg,#24262d,#17181d)!important;box-shadow:none!important;color:#fff!important}
+#trainingPanel .training-item.training-pick:hover,#trainingPanel .training-item.training-pick:focus-visible{border-color:#d72433!important}
+#trainingPanel .training-item.training-pick b{font-weight:850}
+/* Informační sekce mají stejný dlaždicový výběr jako osobní profil. */
+#aboutDarturnioPanel .dt-about-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0 20px}
+#aboutDarturnioPanel .dt-about-tabs button{min-height:117px!important;min-width:0;display:flex!important;align-items:flex-start;justify-content:flex-end;flex-direction:column;gap:8px;text-align:left!important;padding:15px!important;border:1px solid #3b3d47!important;border-radius:14px!important;background:linear-gradient(145deg,#24262d,#17181d)!important;color:#fff!important;font-size:16px!important;font-weight:850!important;box-shadow:none!important}
+#aboutDarturnioPanel .dt-about-tabs button.selected,#aboutDarturnioPanel .dt-about-tabs button:hover{border-color:#d72433!important;background:linear-gradient(145deg,#332730,#19191e)!important}
+#aboutDarturnioPanel .dt-about-tabs button::before{content:'📖';display:block;font-size:24px;line-height:1}
+#aboutDarturnioPanel .dt-about-tabs button[data-about-tab="author"]::before{content:'👤'}
+#aboutDarturnioPanel .dt-about-tabs button[data-about-tab="contact"]::before{content:'✉️'}
+#ownedCompetitions .owned-row{background:#22242b!important;border:1px solid #3b3d47!important;border-radius:13px!important;padding:15px!important}
+#ownedCompetitions .owned-row:hover{border-color:#a9323d!important}
+#accountPanel .tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#accountPanel .tabs [data-auth]{min-height:78px;padding:14px 10px;border:1px solid #3b3d47!important;border-radius:13px!important;background:#22242b!important;color:#fff!important;font-weight:800}
+#accountPanel .tabs [data-auth].active{border-color:#da2533!important;background:#35252c!important}
+#profilePanel .dashboard-actions button,#profileMe .dt-profile-tile{border-radius:15px!important;background:linear-gradient(145deg,#24262d,#17181d)!important;border-color:#3b3d47!important}
+#profileMe .dt-profile-tile{min-height:148px}
+/* Jednotné tlačítko zpět u samostatných stránek (nikoliv ZPĚT ŠIPKU/NÁHOZ). */
+#landingHome>.landing-back,#profileMeBack,#profileStatsBack,#dtProfileReturn,#organizerDashboardBack,#legacyApp .legacy-home-back{min-height:44px!important;border-radius:9px!important;background:#262831!important;border:1px solid #464952!important;color:#fff!important;font-size:14px!important;font-weight:750!important}
+#landingHome>.landing-back:hover,#profileMeBack:hover,#profileStatsBack:hover,#dtProfileReturn:hover,#organizerDashboardBack:hover,#legacyApp .legacy-home-back:hover{border-color:#e03342!important}
+#profileMe .dt-profile-detail-head,#profileStatistics .dt-profile-stats-head{justify-content:flex-start!important}
+@media(max-width:520px){
+ .dt-ui-tile-grid{gap:10px}
+ .dt-ui-tile-grid button{min-height:135px;padding:15px 12px 13px}
+ .dt-ui-tile-grid .dt-ui-tile-name{font-size:16px}
+ #adminPanel .admin501-shortcuts{gap:10px!important}
+ body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts button{min-height:134px!important;padding:15px 12px!important}
+ body:not(.tablet-mode) #legacyApp #adminPanel .admin501-shortcuts .dt-ui-tile-name{font-size:15px}
+ #dtPublicHub,#dtPublicBar{padding:0 4px}
+}
+@media(max-width:350px){.dt-ui-tile-grid button{min-height:125px;padding:12px 10px 10px}.dt-ui-tile-grid .dt-ui-tile-name{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.dt-ui-tile-grid button{transition:none;transform:none!important}}
+</style>
+<script id="darturnio-ui-all-tiles-controller-v1">
+(() => {
+  'use strict';
+  function init() {
+    const $ = id => document.getElementById(id);
+    const legacy = $('legacyApp');
+    const admin = $('adminPanel');
+    const tabletUrl = new URLSearchParams(location.search).has('tablet') || /^\/tablet\//i.test(location.pathname);
+    const tabs = legacy?.querySelector(':scope > nav[role="tablist"]');
+    if (!legacy || !admin || !tabs || $('dtPublicHub') || tabletUrl) return;
+
+    // Veřejné obrazovky – skutečné přepínání používá stále původní data-tab tlačítka.
+    const meta = {
+      live: ['🎯','Živě'], group: ['👥','Skupiny'], bracket: ['🏆','Pavouk'],
+      start: ['📋','KK tabulka'], results: ['📊','Celkové výsledky'],
+      players: ['👤','Hráči a statistiky'], admin: ['⚙️','Správa turnaje']
+    };
+    const publicHub = document.createElement('section');
+    publicHub.id = 'dtPublicHub';
+    publicHub.setAttribute('aria-label','Přehled turnaje');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Přehled turnaje';
+    const menu = document.createElement('div');
+    menu.className = 'dt-ui-tile-grid';
+    menu.setAttribute('aria-label','Sekce turnaje');
+    publicHub.append(heading,menu);
+    const publicBar = document.createElement('div');
+    publicBar.id = 'dtPublicBar';
+    publicBar.className = 'dt-ui-bar';
+    publicBar.innerHTML = '<button type="button" id="dtPublicBack" class="dt-ui-back">← ZPĚT</button><h2 id="dtPublicCurrent" class="dt-ui-screen-title">Živě</h2>';
+    publicBar.hidden = true;
+    legacy.insertBefore(publicHub,tabs);
+    legacy.insertBefore(publicBar,tabs);
+    function showPublicHub() {
+      legacy.classList.remove('dt-public-detail-mode');
+      legacy.classList.add('dt-public-hub-mode');
+      publicBar.hidden = true;
+      window.scrollTo(0,0);
+    }
+    function showPublicDetail(key) {
+      const tab=tabs.querySelector('button[data-tab="'+key+'"]');
+      if (!tab) return;
+      legacy.classList.remove('dt-public-hub-mode');
+      legacy.classList.add('dt-public-detail-mode');
+      publicBar.hidden=false;
+      $('dtPublicCurrent').textContent=meta[key]?.[1]||tab.textContent.trim();
+      window.scrollTo(0,0);
+    }
+    tabs.querySelectorAll('button[data-tab]').forEach(tab=>{
+      const key=tab.dataset.tab;
+      const info=meta[key];if(!info)return;
+      const button=document.createElement('button');button.type='button';button.dataset.dtPublic=key;
+      const ico=document.createElement('span');ico.className='dt-ui-tile-icon';ico.setAttribute('aria-hidden','true');ico.textContent=info[0];
+      const lower=document.createElement('span');lower.className='dt-ui-tile-lower';
+      const name=document.createElement('span');name.className='dt-ui-tile-name';name.textContent=info[1];
+      const arrow=document.createElement('span');arrow.className='dt-ui-tile-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='›';
+      lower.append(name,arrow);button.append(ico,lower);menu.append(button);
+      button.addEventListener('click',()=>{tab.click();showPublicDetail(key);});
+      // Pokud existující kód změní záložku z jiného místa, aktualizujeme nadpis.
+      tab.addEventListener('click',()=>{if(legacy.classList.contains('dt-public-detail-mode'))$('dtPublicCurrent').textContent=meta[key][1];});
+    });
+    $('dtPublicBack').addEventListener('click',showPublicHub);
+    const homeBtn=document.createElement('button');homeBtn.type='button';homeBtn.className='dt-ui-back';homeBtn.textContent='← HLAVNÍ STRÁNKA';
+    homeBtn.style.marginTop='18px';publicHub.insertBefore(homeBtn,menu);
+    homeBtn.addEventListener('click',()=>{
+      const fn=window._501liveReturnDashboard;
+      if (new URLSearchParams(location.search).has('turnaj')) { location.assign(location.pathname); return; }
+      if (typeof fn==='function') fn();
+      else {location.assign(location.pathname);}
+    });
+    // Přímý odkaz na konkrétní turnaj zachovává okamžitý vstup do živého přehledu.
+    if (new URLSearchParams(location.search).has('turnaj')) showPublicDetail('live');
+    else showPublicHub();
+    let lastLegacyVisible = !legacy.hidden;
+    new MutationObserver(()=>{
+      const visible=!legacy.hidden;
+      if (visible && !lastLegacyVisible && !legacy.classList.contains('dt-public-detail-mode')) showPublicHub();
+      lastLegacyVisible=visible;
+    }).observe(legacy,{attributes:true,attributeFilter:['hidden']});
+
+    // Administrace – stávající skupiny <details> a jejich obsah zůstávají identické.
+    const overview=$('admin501Overview');
+    const shortcuts=overview?.querySelector('.admin501-shortcuts');
+    const sections=[...admin.querySelectorAll(':scope > details.admin-section')];
+    if (!overview || !shortcuts || !sections.length) return;
+    const adminBar=document.createElement('div');adminBar.id='dtAdminDetailBar';adminBar.className='dt-ui-bar';
+    adminBar.innerHTML='<button type="button" id="dtAdminBack" class="dt-ui-back">← ZPĚT</button><h3 class="dt-ui-screen-title" id="dtAdminDetailTitle">Správa turnaje</h3>';
+    adminBar.hidden=true;admin.insertBefore(adminBar,overview);
+    const activeSection=()=>sections.find(s=>s.dataset.dtSelected==='true');
+    function showAdminHub(){
+      admin.dataset.dtAdminView='hub';
+      sections.forEach(s=>{delete s.dataset.dtSelected;s.open=false;});
+      adminBar.hidden=true;
+      window.scrollTo(0,0);
+    }
+    function showAdminDetail(id){
+      const selected=sections.find(s=>s.id===id);if(!selected)return;
+      sections.forEach(s=>{s.dataset.dtSelected=String(s===selected);if(s!==selected)s.open=false;});
+      selected.open=true;
+      admin.dataset.dtAdminView='detail';
+      adminBar.hidden=false;
+      $('dtAdminDetailTitle').textContent=selected.querySelector(':scope > summary')?.textContent.trim()||'Správa turnaje';
+      window.scrollTo(0,0);
+    }
+    shortcuts.querySelectorAll('button[data-admin501-open]').forEach(button=>{
+      const label=button.textContent.trim();
+      const match=label.match(/^(\S+)\s+(.+)$/u);
+      const icon=(match?match[1]:'🎯');const name=(match?match[2]:label);
+      button.replaceChildren();
+      const ico=document.createElement('span');ico.className='dt-ui-tile-icon';ico.setAttribute('aria-hidden','true');ico.textContent=icon;
+      const lower=document.createElement('span');lower.className='dt-ui-tile-lower';
+      const title=document.createElement('span');title.className='dt-ui-tile-name';title.textContent=name;
+      const arrow=document.createElement('span');arrow.className='dt-ui-tile-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='›';
+      lower.append(title,arrow);button.append(ico,lower);
+    });
+    // Zachytíme navigační klik dřív, než starší posluchač otevře detail a posune stránku.
+    overview.addEventListener('click',event=>{
+      const b=event.target.closest('button[data-admin501-open]');if(!b)return;
+      event.stopImmediatePropagation();
+      showAdminDetail(b.dataset.admin501Open);
+    },true);
+    $('dtAdminBack').addEventListener('click',showAdminHub);
+    // Rychlé akce staršího kódu musejí otevřít viditelný detail, nikoliv skryté <details>.
+    admin.addEventListener('click',event=>{
+      const b=event.target.closest('#uxAdminNext,#uxAdminQr');if(!b)return;
+      let id = 'admin501StartSection';
+      if(b.id==='uxAdminNext'){
+        const text=$('uxAdminSuggestion')?.textContent||'';
+        id=/terče|spusť|probíhá/i.test(text)?'admin501BoardSection':/výsledky|statistiky/i.test(text)?'admin501HistorySection':'admin501StartSection';
+      }
+      showAdminDetail(id);
+    },true);
+    showAdminHub();
+    // Po přepnutí na jiný turnaj a návratu do správy znovu zobrazíme dlaždice.
+    let prevAdminVisible=!admin.classList.contains('hidden');
+    new MutationObserver(()=>{
+      const visible=!admin.classList.contains('hidden');
+      if (visible&&!prevAdminVisible) showAdminHub();
+      prevAdminVisible=visible;
+    }).observe(admin,{attributes:true,attributeFilter:['class']});
+    // Při zobrazení nové sekce jiným původním ovladačem zpřístupníme její obsah.
+    sections.forEach(s=>s.addEventListener('toggle',()=>{
+      if(s.open&&admin.dataset.dtAdminView==='hub'&&!admin.classList.contains('hidden')){
+        // Změna může přijít ze starého tlačítka Rychlý krok v adminu.
+        showAdminDetail(s.id);
+      }
+    }));
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+})();
+</script>
 </body></html>
