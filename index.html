@@ -6003,6 +6003,7 @@ async function darturnioOfflineSubmit(mode){
  if(tabletBusy){return;}
  const localSaveStarted=performance.now();
  tabletBusy=true;
+ let optimisticDraftSnapshot=null;
  try{
   await darturnioOfflineEnsure();
   await darturnioOfflineAdoptLegacy();
@@ -6030,23 +6031,47 @@ async function darturnioOfflineSubmit(mode){
   if(tabletDoubleAttempts!==null&&tabletDoubleAttempts>count)throw new Error('Pokusů na double je víc než hozených šipek.');
   const fake=darturnioOfflineFake(c,args,all);
   const nextVisit={args,fake,createdAt:new Date().toISOString()};
-  // Skore se vykresli okamzite, bez cekani na Supabase ani IndexedDB.
-  // Do doby dokonceni lokalniho zapisu blokuje tabletBusy dalsi potvrzeni.
+  // Nejprve zmenime skore a prepneme hrace v RAM. Zadny sitovy dotaz.
+  // Rozpracovane zadani drzime v zaloze, kdyby IndexedDB selhalo.
+  optimisticDraftSnapshot={
+   draft:tabletDraft.map(d=>({...d})),base:tabletBase,multiplier:tabletMultiplier,
+   aggregate:tabletAggregateValue,specialType:tabletSpecialType,
+   specialDart:tabletSpecialDart,doubleAttempts:tabletDoubleAttempts
+  };
+  tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue='';
+  tabletSpecialType='';tabletSpecialDart=0;tabletDoubleAttempts=null;
   darturnioOptimisticVisit=fake;
-  darturnioOfflineMessage='Ukládám nához do tabletu…';
+  darturnioOfflineMessage='Ukládám do tabletu…';
   darturnioOfflinePaint();
+  // Pouze lokalni IndexedDB transakce. Klavesnici uvolnime po jejim COMMITu.
+  // Nikdy neoznacuj neulozeny nahoz za potvrzeny.
   await darturnioOfflineMutate(current=>{
    if(!current||current.legId!==c.leg.id)throw new Error('Mezitím se změnil aktivní leg.');
    return {...current,pending:[...current.pending,nextVisit]};
   });
+  optimisticDraftSnapshot=null;
   darturnioOptimisticVisit=null;
   darturnioSavingDuration('Jednotlivci: bezpecne ulozeni do tabletu',localSaveStarted);
-  darturnioOfflineMessage='Uloženo v tabletu – synchronizace na pozadí.';
-  tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue='';tabletSpecialType='';tabletSpecialDart=0;tabletDoubleAttempts=null;
+  darturnioOfflineMessage='Uloženo v tabletu – server se aktualizuje na pozadí.';
   darturnioOfflinePaint();
-  if(navigator.onLine&&!darturnioOfflineManual)void darturnioOfflineSync();
- }catch(error){darturnioOptimisticVisit=null;darturnioOfflinePaint();notify('Nához nebyl uložen do tabletu, skóre bylo vráceno: '+(error.message||error));}
- finally{tabletBusy=false;void renderTablet(true);}
+  // Synchronizace nepatri do potvrzovaci cesty; neceka na Supabase.
+  if(navigator.onLine&&!darturnioOfflineManual)darturnioOfflineScheduleSync(fake.is_checkout?0:500);
+ }catch(error){
+  darturnioOptimisticVisit=null;
+  if(optimisticDraftSnapshot){
+   tabletDraft=optimisticDraftSnapshot.draft;tabletBase=optimisticDraftSnapshot.base;
+   tabletMultiplier=optimisticDraftSnapshot.multiplier;
+   tabletAggregateValue=optimisticDraftSnapshot.aggregate;
+   tabletSpecialType=optimisticDraftSnapshot.specialType;
+   tabletSpecialDart=optimisticDraftSnapshot.specialDart;
+   tabletDoubleAttempts=optimisticDraftSnapshot.doubleAttempts;
+  }
+  darturnioOfflinePaint();
+  notify('Nához nebyl bezpečně uložen do tabletu; skóre bylo vráceno: '+(error.message||error));
+ }finally{
+  // Dulezite: zadne loadData(), renderTablet() ani RPC po kazdem potvrzeni.
+  tabletBusy=false;
+ }
 }
 async function darturnioOfflineUndo(){
  if(!darturnioOfflineCount())return false;
@@ -6061,10 +6086,26 @@ async function darturnioOfflineUndo(){
  darturnioOfflinePaint();
  return true;
 }
+// DARTURNIO TABLET FAST PATH V1: sit mimo potvrzeni nahozu.
+// Kratke slouceni rychlych zapisu chrani UI pred zbytecnou sitovou praci.
+let darturnioOfflineSyncTimer=null;
+function darturnioOfflineScheduleSync(delay=500){
+ if(darturnioOfflineManual||!navigator.onLine)return;
+ if(darturnioOfflineSyncBusy)return; // bezici worker zpracuje nove navstevy; zavod hlida finally
+ if(darturnioOfflineSyncTimer!==null){
+  if(delay!==0)return; // pri zavreni lega necekat na bezny debounce
+  clearTimeout(darturnioOfflineSyncTimer);
+ }
+ darturnioOfflineSyncTimer=setTimeout(()=>{
+  darturnioOfflineSyncTimer=null;
+  void darturnioOfflineSync();
+ },Math.max(0,Number(delay)||0));
+}
 async function darturnioOfflineSync(){
  if(darturnioOfflineSyncBusy||darturnioUndoBusy||!navigator.onLine||!isAdmin||!darturnioOfflineCount())return false;
  if(!tabletFastCache||!darturnioOfflineCompatible(tabletFastCache))return false;
  darturnioOfflineSyncBusy=true;
+ let syncOk=true;
  darturnioOfflineMessage='Náhozy se odesílají na pozadí…';
  try{
   while(darturnioOfflineCount()&&navigator.onLine&&darturnioOfflineCompatible(tabletFastCache)){
@@ -6113,16 +6154,17 @@ async function darturnioOfflineSync(){
   }
   return true;
  }catch(error){
+  syncOk=false;
   darturnioOfflineMessage='Synchronizace není dokončená: '+(error.message||error)+'. Místní náhozy zůstávají uložené.';
   notify(darturnioOfflineMessage);
   darturnioOfflinePaint();
   return false;
  }finally{
   darturnioOfflineSyncBusy=false;
-  // New visits may have arrived during the previous RPC.
-  if(darturnioOfflineCount()&&navigator.onLine&&!darturnioOfflineManual){
-   // Avoid automatic retry storms on network/server errors; next visit or reconnect retries.
-  }
+  // Novy nahoz mohl prijit mezi posledni kontrolou fronty a ukoncenim workeru.
+  // Pri chybe serveru NEopakovat automaticky donekonecna.
+  if(syncOk&&darturnioOfflineCount()&&navigator.onLine&&!darturnioOfflineManual)
+   darturnioOfflineScheduleSync(300);
   void renderTablet(true);
  }
 }
@@ -13452,6 +13494,162 @@ body.tablet-mode #appBrandFooter {display:none!important}
  body:not(.tablet-mode) :is(.portal-dashboard-tile,.dt-ui-tile-grid button,.dt-profile-tile){transition:none!important;transform:none!important}
 }
 @media print {body:not(.tablet-mode) #appBrandFooter{display:none!important}}
+
+</style>
+<style id="darturnio-red-pro-v3">
+
+/* DARTURNIO RED PRO / 2026-11-23
+   Consistent appearance. No changes to score handling, RPCs, JS, or offline queues.
+   Tablet scoring DOM and interactions deliberately left untouched. */
+:root {
+  --dt-pro-bg:#090a0c;
+  --dt-pro-card:#181a1e;
+  --dt-pro-card-hi:#212328;
+  --dt-pro-field:#101114;
+  --dt-pro-stroke:#35383e;
+  --dt-pro-stroke-soft:#292c31;
+  --dt-pro-copy:#fff;
+  --dt-pro-muted:#b7b9bd;
+  --dt-pro-accent:#e10600;
+  --dt-pro-accent-hi:#ff231b;
+  --dt-pro-focus:#ff655e;
+  --dt-pro-shadow:none;
+  --dt-pro-round:15px;
+  --dtTileBg:#1b1d21;
+  --dtTileBd:#373a40;
+  --dtTileRed:#e10600;
+  --ui-accent:#e10600;
+  --ui-bg:#090a0c;
+  --ui-panel:#181a1e;
+  --ui-panel-hi:#212328;
+  --ui-border:#35383e;
+  --ui-muted:#b7b9bd;
+  --ui-ink:#fff;
+  color-scheme:dark;
+}
+body:not(.tablet-mode){background:#090a0c!important;color:#fff!important;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) {
+  --ui-accent:#e10600;--ui-bg:#090a0c;--ui-panel:#181a1e;--ui-panel-hi:#212328;
+  --ui-border:#35383e;--ui-muted:#b7b9bd;--ui-ink:#fff;
+}
+body:not(.tablet-mode) #landingHome.has-panel{background:#090a0c!important}
+body:not(.tablet-mode) #landingHome.has-panel>.panel.active-panel{
+  background:#181a1e!important;border:1px solid #383b40!important;border-radius:16px!important;
+  box-shadow:none!important;
+}
+body:not(.tablet-mode) #legacyApp>header {background:#121316!important;border-bottom:1px solid #32353a!important}
+body:not(.tablet-mode) #legacyApp>main,
+body:not(.tablet-mode) #legacyApp>main>section {color:#fff}
+/* Tiles: the same dimensions, border, flat black/grey surface and true red mark. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-grid>.portal-dashboard-tile,
+ .dt-ui-tile-grid>button,
+ #profileMe .dt-profile-tile,
+ #profilePanel .dashboard-actions button,
+ #trainingChoice .training-pick,
+ #adminPanel .admin501-shortcuts button,
+ #owner501Panel .owner501-tiles button,
+ #aboutDarturnioPanel .dt-about-tabs button
+){
+  background:#1b1d21!important;border:1px solid #3a3d42!important;border-radius:15px!important;
+  box-shadow:none!important;text-shadow:none!important;color:#fff!important;
+  transition:background-color .11s,border-color .11s!important;
+  transform:none!important;
+}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-grid>.portal-dashboard-tile,
+ .dt-ui-tile-grid>button,
+ #profileMe .dt-profile-tile,
+ #profilePanel .dashboard-actions button,
+ #trainingChoice .training-pick,
+ #adminPanel .admin501-shortcuts button,
+ #owner501Panel .owner501-tiles button,
+ #aboutDarturnioPanel .dt-about-tabs button
+):is(:hover,:focus-visible){background:#26282d!important;border-color:#e10600!important;transform:none!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-grid>.portal-dashboard-tile,.dt-ui-tile-grid>button,
+ #profileMe .dt-profile-tile,#adminPanel .admin501-shortcuts button
+)::before{background:#e10600!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .portal-dashboard-icon,.dt-ui-tile-icon,.dt-profile-icon
+){color:#ff3931!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ .dt-ui-tile-grid .dt-ui-tile-icon,#adminPanel .dt-ui-tile-icon,#profileMe .dt-profile-icon
+){background:rgba(225,6,0,.12)!important;border:1px solid rgba(225,6,0,.22)!important;
+ border-radius:11px!important}
+body:not(.tablet-mode) :is(.dt-ui-tile-arrow,.dt-profile-tile-arrow){color:#ff3931!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(h1,h2,h3,h4){color:#fff!important;text-shadow:none!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.competition-eyebrow,.admin501-eyebrow,.ui-section-kicker){color:#ff443b!important}
+/* Back controls are consistent, but actual dart undo buttons are excluded. */
+body:not(.tablet-mode) :is(
+ #landingHome.has-panel>.landing-back,.dt-ui-back,.legacy-home-back,
+ #profileMeBack,#profileStatsBack,#dtProfileReturn,#organizerDashboardBack,
+ #ownedCompetitionsBack,#owner501Back,#profileMe .dt-profile-go-back,
+ #profileStatistics .dt-profile-go-back
+){background:#24262b!important;color:#fff!important;border:1px solid #4a4d53!important;
+ border-radius:11px!important;min-height:44px!important;box-shadow:none!important;font-weight:750!important}
+body:not(.tablet-mode) :is(
+ #landingHome.has-panel>.landing-back,.dt-ui-back,.legacy-home-back,
+ #profileMeBack,#profileStatsBack,#ownedCompetitionsBack,#owner501Back
+):is(:hover,:focus-visible){border-color:#e10600!important;background:#2a292b!important}
+/* Buttons and nav actions: one true-red primary, one monochrome secondary. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ button.primary,button.action,button[type="submit"],.dt-action-btn
+){background:#cf0a05!important;color:#fff!important;border:1px solid #ef2019!important;
+ border-radius:11px!important;box-shadow:none!important;text-shadow:none!important;font-weight:800!important;
+ touch-action:manipulation}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ button.primary,button.action,button[type="submit"],.dt-action-btn
+):is(:hover,:focus-visible){background:#e10600!important;border-color:#ff443a!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(button.secondary,.btn-secondary){
+ background:#26282d!important;color:#fff!important;border:1px solid #4a4d53!important;
+ border-radius:11px!important;box-shadow:none!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(button.secondary,.btn-secondary):hover{border-color:#f03c34!important}
+/* Universal forms excluding the tablet scorer. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea){
+ background:#111316!important;color:#fff!important;border:1px solid #4b4e54!important;
+ border-radius:11px!important;box-shadow:none!important;max-width:100%;box-sizing:border-box}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(input,select,textarea):focus{
+ border-color:#ff443b!important;outline:2px solid rgba(225,6,0,.21)!important;outline-offset:1px!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(input,textarea)::placeholder{color:#92969c!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(button,a,input,select,textarea,summary):focus-visible{
+ outline:3px solid #ff655e!important;outline-offset:2px!important}
+/* Consistent surface colors across admin, public tournament pages, dashboards, profile and stats. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(
+ #adminPanel #admin501Overview,#adminPanel details.admin-section,
+ .owned-row,.owned-card,.owner-card,.owner501-card,
+ .dt-life,.dt-life-stat,.stats-card,.stat-card,
+ .dt-live-board,.dt-live-queue,.dt-result-card,
+ #profileMe .dt-profile-detail,#profileStatistics,
+ #profilePanel .my-profile-header,#profilePanel .dt-myturn-list,
+ #profilePanel .dt-push-settings,#dailyTrainingHub,.daily-leaderboard
+){background:#1b1d21!important;border:1px solid #3a3d42!important;border-radius:15px!important;
+ box-shadow:none!important;color:#fff!important}
+body:not(.tablet-mode) #adminPanel details.admin-section>summary{background:#1b1d21!important;color:#fff!important;border-color:#36383d!important}
+body:not(.tablet-mode) #adminPanel details.admin-section[open]>summary{background:#25272b!important}
+body:not(.tablet-mode) #adminPanel .admin501-metrics>*{background:#25272b!important;border-color:#41444a!important;color:#fff!important}
+body:not(.tablet-mode) #createPanel :is(.comp-choice,.comp-type-card,.competition-choice,.competition-type-option,.comp-wizard-card){background:#222428!important;border-color:#41444a!important}
+body:not(.tablet-mode) #createPanel :is(.comp-choice,.comp-type-card,.competition-choice,.competition-type-option,.comp-wizard-card):has(input:checked){background:#2b2222!important;border-color:#e10600!important}
+body:not(.tablet-mode) :is(#accountPanel .tabs,#aboutDarturnioPanel .dt-about-tabs,#profileStatistics .stats-tabs){background:#16181b!important;border-color:#383a40!important}
+body:not(.tablet-mode) :is(#accountPanel .tabs button.active,#aboutDarturnioPanel .dt-about-tabs button.active,#profileStatistics .stats-tabs button.active){background:#342021!important;border-color:#b7231d!important;color:#fff!important}
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table) th{background:#292b30!important;color:#fff!important}
+body:not(.tablet-mode) #legacyApp :is(.stats-table,table) :is(th,td){border-bottom-color:#36383d!important}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.stats-muted,.hint,.muted,.dt-profile-tile-note){color:#b7b9bd!important}
+body:not(.tablet-mode) #profilePanel :is(.dt-profile-badge,.profile-unread-count){background:#d30d06!important;color:#fff!important}
+body:not(.tablet-mode) #appBrandFooter{position:static!important}
+/* Pill and accent consistency. State colors like success/warning are not masked. */
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.dt-profile-tile,.dt-ui-tile-grid button,.portal-dashboard-tile){-webkit-tap-highlight-color:rgba(225,6,0,.17)}
+body:not(.tablet-mode) :is(#landingHome,#legacyApp) a:not([class]){color:#ff5149}
+/* Faster UI feel: avoid expensive shadows, blur and continuous movement in high-interaction areas. */
+body:not(.tablet-mode) :is(.dt-ui-tile-grid button,.portal-dashboard-tile,.dt-profile-tile,.training-pick){animation:none!important;filter:none!important;backdrop-filter:none!important}
+@media(max-width:620px){
+ body:not(.tablet-mode) #landingHome.has-panel>.panel.active-panel{padding:16px!important}
+ body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.dt-ui-tile-grid,.portal-dashboard-grid,#profileMe .dt-profile-tiles,#adminPanel .admin501-shortcuts){gap:10px!important}
+ body:not(.tablet-mode) :is(#landingHome,#legacyApp) :is(.dt-ui-tile-grid>button,#profileMe .dt-profile-tile,#adminPanel .admin501-shortcuts button){padding:13px!important}
+}
+@media(prefers-reduced-motion:reduce){body:not(.tablet-mode) :is(#landingHome,#legacyApp) *{scroll-behavior:auto!important}}
+/* Tablet scorer: use stable hardware-friendly styles; do not modify keys, layouts, animation of scores, or hit targets. */
+body.tablet-mode{--dt-pro-accent:#e10600;--dt-pro-accent-hi:#ff231b;--ui-accent:#e10600}
 
 </style>
 </body></html>
