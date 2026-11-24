@@ -5549,7 +5549,7 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
     <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy||(!darturnioOfflineCount()&&tabletPendingGet())?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy||(tabletPendingGet()&&!darturnioOfflineMode())||!!(darturnioOfflineCount()&&darturnioOfflineVisits(tabletFastCache).at(-1)?.is_checkout)?"disabled":""}>POTVRDIT NÁHOZ</button></div>
     <div class="darturnio-offline-toolbar"><span class="${darturnioOfflineMode()?'warning':'small'}">${!navigator.onLine?'⚠ BEZ PŘIPOJENÍ':darturnioOfflineCount()?'🟠 NESYNCHRONIZOVANÉ NÁHOZY':'Online'} · čeká ${darturnioOfflineCount()} náhozů</span><button class="secondary" data-tablet-offline-toggle>${darturnioOfflineManual?'Ukončit ruční offline režim':'Vynutit lokální režim'}</button>${darturnioOfflineCount()?'<button class="action" data-tablet-offline-sync>Synchronizovat</button>':''}${darturnioOfflinePack&&(darturnioOfflineCount()||!darturnioOfflineCompatible(tabletFastCache||{leg:{}}))?'<button class="secondary" data-tablet-offline-discard>Zahodit frontu</button>':''}${tabletPendingGet()&&!darturnioOfflineCount()?'<button class="secondary" data-tablet-pending-discard>Zahodit nepotvrzený nához</button>':''}</div>
     ${(darturnioOfflineCount()||darturnioOfflineManual)?'<div class="notice warning">⚠ '+esc(darturnioOfflineMessage||'Náhozy se ukládají do tabletu a průběžně odesílají divákům.')+' Nezavírej prohlížeč a nemaž data webu.</div>':tabletPendingGet()?'<div class="notice warning">⚠ Starší nepotvrzený nához. Přepni do offline režimu, nebo vyčkej na ověření zápisu.</div>':""}
-    <div class="notice tablet-history">Historie legu (oprava V2): ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
+    <div class="notice tablet-history">Historie legu (oprava V3): ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
   if(saveConfirmed)tabletSaveConfirmedSnapshot(match,leg,visits,app.innerHTML);
 
@@ -5569,9 +5569,9 @@ function darturnioOfflineSupported(){return !!window.indexedDB&&!!window.crypto?
 function darturnioOfflineDb(){
  return new Promise((resolve,reject)=>{
   if(!darturnioOfflineSupported())return reject(new Error('Prohlížeč nepodporuje bezpečné místní uložení IndexedDB.'));
-  const req=indexedDB.open('darturnio-offline-visits-v1',1);
+  const req=indexedDB.open('darturnio-offline-visits-v1');
   req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('packs'))req.result.createObjectStore('packs',{keyPath:'key'});};
-  req.onsuccess=()=>resolve(req.result);
+  req.onsuccess=()=>{const database=req.result;if(!database.objectStoreNames.contains('packs')){database.close();reject(new Error('Místní databáze neobsahuje úložiště packs. Data nebyla smazána.'));return;}resolve(database);};
   req.onerror=()=>reject(req.error||new Error('IndexedDB není dostupné'));
  });
 }
@@ -9857,9 +9857,9 @@ body.darturnio-pairs-selected #bracketSeedControl{display:none!important}
  const getPending=()=>pairQueue()[0]?.args||null;
  const pairDb=()=>new Promise((resolve,reject)=>{
    if(!window.indexedDB)return reject(new Error('IndexedDB není dostupná.'));
-   const req=indexedDB.open(pairDbName,1);
+   const req=indexedDB.open(pairDbName);
    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(pairStore))db.createObjectStore(pairStore,{keyPath:'id'})};
-   req.onsuccess=()=>resolve(req.result);
+   req.onsuccess=()=>{const database=req.result;if(!database.objectStoreNames.contains(pairStore)){database.close();reject(new Error('Místní databáze dvojic neobsahuje úložiště visits. Data nebyla smazána.'));return;}resolve(database);};
    req.onerror=()=>reject(req.error||new Error('IndexedDB nelze otevřít.'));
  });
  const pairTx=async(mode,fn)=>{
