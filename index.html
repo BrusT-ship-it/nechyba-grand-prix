@@ -5475,7 +5475,6 @@ async function renderTablet(localOnly=false){
   if(darturnioOfflineCount())darturnioOfflinePaint();
 }
 // Prekresleni 301/501 pocitadla z pameti. Bez jedineho dotazu na databazi.
-let tabletRenderedTurn=null;
 function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
   const app=$("tabletApp");
   const p1=playerName(match.player1_entry_id),p2=playerName(match.player2_entry_id);
@@ -5485,7 +5484,6 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
   const latestFor=id=>[...(visits||[])].reverse().find(v=>v.player_entry_id===id);
   const startingScore=Number(tournaments.find(t=>t.id===selectedTournament)?.game_type)||501;
   const remaining=Number(latestFor(current)?.score_after??startingScore);
-  tabletRenderedTurn={legId:leg.id,player:current,remaining};
   const other=current===match.player1_entry_id?match.player2_entry_id:match.player1_entry_id;
   const otherScore=Number(latestFor(other)?.score_after??startingScore);
   // Prumer na 3 sipky = 3 x zapocitane body / pocet skutecne hozenych sipek.
@@ -5549,7 +5547,7 @@ function paint501Tablet(match,leg,visits,earlierVisits,saveConfirmed=false){
     <div class="tablet-counter-actions"><button class="secondary" data-tablet-undo-match="${esc(match.id)}" ${tabletBusy||(!darturnioOfflineCount()&&tabletPendingGet())?"disabled":""}>ZPĚT – VRÁTIT NÁHOZ</button><button class="action" data-tablet-submit ${!ready||tabletBusy||(tabletPendingGet()&&!darturnioOfflineMode())||!!(darturnioOfflineCount()&&darturnioOfflineVisits(tabletFastCache).at(-1)?.is_checkout)?"disabled":""}>POTVRDIT NÁHOZ</button></div>
     <div class="darturnio-offline-toolbar"><span class="${darturnioOfflineMode()?'warning':'small'}">${!navigator.onLine?'⚠ BEZ PŘIPOJENÍ':darturnioOfflineCount()?'🟠 NESYNCHRONIZOVANÉ NÁHOZY':'Online'} · čeká ${darturnioOfflineCount()} náhozů</span><button class="secondary" data-tablet-offline-toggle>${darturnioOfflineManual?'Ukončit ruční offline režim':'Vynutit lokální režim'}</button>${darturnioOfflineCount()?'<button class="action" data-tablet-offline-sync>Synchronizovat</button>':''}${darturnioOfflinePack&&(darturnioOfflineCount()||!darturnioOfflineCompatible(tabletFastCache||{leg:{}}))?'<button class="secondary" data-tablet-offline-discard>Zahodit frontu</button>':''}${tabletPendingGet()&&!darturnioOfflineCount()?'<button class="secondary" data-tablet-pending-discard>Zahodit nepotvrzený nához</button>':''}</div>
     ${(darturnioOfflineCount()||darturnioOfflineManual)?'<div class="notice warning">⚠ '+esc(darturnioOfflineMessage||'Náhozy se ukládají do tabletu a průběžně odesílají divákům.')+' Nezavírej prohlížeč a nemaž data webu.</div>':tabletPendingGet()?'<div class="notice warning">⚠ Starší nepotvrzený nához. Přepni do offline režimu, nebo vyčkej na ověření zápisu.</div>':""}
-    <div class="notice tablet-history">Historie legu (oprava V2): ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
+    <div class="notice tablet-history">Historie legu: ${visitCount} návštěv · ${dartsThrown(current)} šipek aktuálního hráče</div>
   </div>`;
   if(saveConfirmed)tabletSaveConfirmedSnapshot(match,leg,visits,app.innerHTML);
 
@@ -5625,13 +5623,10 @@ function darturnioOfflineCompatible(c){const p=darturnioOfflinePack;
 }
 function darturnioOfflineVisits(c){
  if(!darturnioOfflineCompatible(c))return c.visits||[];
- const byVisit=new Map();
- const add=v=>{if(!v||!Number.isInteger(Number(v.visit_no))||!v.player_entry_id||v.score_after==null)return;byVisit.set(Number(v.visit_no),v);};
- for(const v of darturnioOfflinePack.confirmed||[])add(v);
- for(const x of darturnioOfflinePack.pending||[])add(x.fake);
- for(const v of c.visits||[])add(v);
- if(darturnioOptimisticVisit&&darturnioOptimisticVisit.leg_id===c.leg.id&&!byVisit.has(Number(darturnioOptimisticVisit.visit_no)))add(darturnioOptimisticVisit);
- return [...byVisit.values()].sort((a,b)=>Number(a.visit_no)-Number(b.visit_no));
+ const known=new Set((c.visits||[]).map(v=>String(v.request_id||v.id||'')));
+ const combined=[...(c.visits||[]),...(darturnioOfflinePack.confirmed||[]).filter(v=>!known.has(String(v.request_id||v.id||''))),...(darturnioOfflinePack.pending||[]).map(x=>x.fake)];
+ if(darturnioOptimisticVisit&&darturnioOptimisticVisit.leg_id===c.leg.id&&!combined.some(v=>v.request_id===darturnioOptimisticVisit.request_id))combined.push(darturnioOptimisticVisit);
+ return combined;
 }
 function darturnioOfflinePaint(){
  const c=tabletFastCache;
@@ -5771,8 +5766,7 @@ async function darturnioOfflineSync(){
      throw err;
     }
    }
-   const row=Array.isArray(result.data)?result.data[0]:result.data;
-   const confirmed=row?.player_entry_id&&row?.score_after!=null&&row?.visit_no!=null?{...first.fake,...row}:first.fake;
+   const confirmed=result.data||first.fake;
    await darturnioOfflineMutate(pack=>{
     if(!pack?.pending?.length||pack.pending[0].args.p_request_id!==first.args.p_request_id)
      throw new Error('Nesoulad synchronizační fronty; žádný nához nebyl vymazán.');
@@ -6137,9 +6131,11 @@ if(tabletBoard){
     }
     const mode=event.target.closest("[data-tablet-mode]");if(mode){if(tabletBusy)return;tabletMode=mode.dataset.tabletMode;tabletDraft=[];tabletBase=null;tabletMultiplier=1;tabletAggregateValue="";tabletSpecialType="";tabletSpecialDart=0;void renderTablet(true);return;}
     const special=event.target.closest("[data-tablet-special]");if(special){if(tabletBusy)return;const nextType=special.dataset.tabletSpecial;const nextDart=Number(special.dataset.tabletSpecialDart);
-    const turn=tabletRenderedTurn;
-    if(!turn||turn.legId!==tabletFastCache?.leg?.id){notify('Stav legu se změnil. Obnov počítadlo.');return;}
-    const err=window.darturnioX01.specialError(nextType,turn.remaining,nextDart);if(err){notify(err);return;}
+    const fc=tabletFastCache;
+    if(fc?.leg&&fc?.match){const visits=darturnioOfflineVisits(fc);const activePlayer=visits.length%2===0?fc.leg.starting_entry_id:(fc.leg.starting_entry_id===fc.match.player1_entry_id?fc.match.player2_entry_id:fc.match.player1_entry_id);
+      const latest=visits.filter(v=>v.player_entry_id===activePlayer).at(-1);
+      const before=Number(latest?.score_after??fc.gameType??501);
+      const err=window.darturnioX01.specialError(nextType,before,nextDart);if(err){notify(err);return;}}
     const sameSelection=tabletSpecialType===nextType&&tabletSpecialDart===nextDart;if(sameSelection){tabletSpecialType="";tabletSpecialDart=0;}else{tabletSpecialType=nextType;tabletSpecialDart=nextDart;tabletDraft=[];tabletAggregateValue="";tabletBase=null;tabletMultiplier=1;}void renderTablet(true);return;}
     const digit=event.target.closest("[data-tablet-digit]");if(digit){if(tabletBusy)return;if(tabletSpecialType)return;const next=tabletAggregateValue+digit.dataset.tabletDigit;if(next.length>3||Number(next)>180){notify("Součet může být nejvýše 180.");return;}tabletAggregateValue=next;void renderTablet(true);return;}
     const mult=event.target.closest("[data-tablet-mult]");if(mult){if(tabletBusy)return;tabletMultiplier=tabletMultiplier===Number(mult.dataset.tabletMult)?1:Number(mult.dataset.tabletMult);void renderTablet(true);return;}
